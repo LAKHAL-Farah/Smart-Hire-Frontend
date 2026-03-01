@@ -1,0 +1,58 @@
+<header class="topbar">
+  <div class="topbar__left">
+    <span class="topbar__label">Admin Panel</span>
+  </div>
+
+  <div class="topbar__right">
+    <!-- Search -->
+    <div class="topbar__search">
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="search-input" placeholder="Search users, jobs, logs..." [(ngModel)]="searchQuery" />
+    </div>
+
+    <!-- Notifications -->
+    <div class="topbar__notif-wrap">
+      <button class="topbar__icon-btn" (click)="toggleNotif()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="notif-dot"></span>
+      </button>
+      @if (notifOpen()) {
+        <div class="dropdown notif-dropdown">
+          <div class="dropdown__header">
+            <span class="dropdown__title">System Alerts</span>
+            <span class="dropdown__count">{{ notifications.length }}</span>
+          </div>
+          @for (n of notifications; track n.text) {
+            <div class="notif-item">
+              <span class="notif-item__dot" [style.background]="n.color"></span>
+              <div class="notif-item__body">
+                <span class="notif-item__text">{{ n.text }}</span>
+                <span class="notif-item__time">{{ n.time }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Avatar -->
+    <div class="topbar__avatar-wrap">
+      <button class="topbar__avatar" (click)="toggleAvatar()">
+        <span class="avatar-circle avatar-circle--admin">A</span>
+      </button>
+      @if (avatarOpen()) {
+        <div class="dropdown avatar-dropdown">
+          <div class="dropdown__profile">
+            <span class="avatar-circle avatar-circle--admin avatar-circle--lg">A</span>
+            <div>
+              <span class="dropdown__name">Admin User</span>
+              <span class="dropdown__email">admin&#64;smarthire.io</span>
+            </div>
+          </div>
+          <div class="dropdown__divider"></div>
+          <button class="dropdown__item" (click)="signOut()">Sign Out</button>
+        </div>
+      }
+    </div>
+  </div>
+</header>

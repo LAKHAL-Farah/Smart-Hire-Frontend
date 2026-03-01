@@ -1,7 +1,7 @@
 import { Component, AfterViewInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { NavbarComponent } from '../../shared/navbar/navbar.component';
-import { FooterComponent } from '../../shared/footer/footer.component';
+import { NavbarComponent } from '../../../shared/navbar/navbar.component';
+import { FooterComponent } from '../../../shared/footer/footer.component';
 import { HeroComponent } from './sections/hero/hero.component';
 import { TrustBarComponent } from './sections/trust-bar/trust-bar.component';
 import { ProblemComponent } from './sections/problem/problem.component';

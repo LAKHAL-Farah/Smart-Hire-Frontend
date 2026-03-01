@@ -1,0 +1,61 @@
+<aside class="sidebar">
+  <!-- Logo -->
+  <div class="sidebar__logo">
+    <div class="logo-icon">S</div>
+    <span class="logo-text">SmartHire</span>
+    <span class="logo-badge">Admin</span>
+  </div>
+
+  <!-- Main -->
+  <nav class="sidebar__nav">
+    @for (item of mainItems; track item.label) {
+      <a class="nav-item" [routerLink]="item.route" routerLinkActive="nav-item--active" [routerLinkActiveOptions]="{ exact: item.route === '/admin' }">
+        <span class="nav-item__icon" [innerHTML]="item.icon"></span>
+        <span class="nav-item__label">{{ item.label }}</span>
+      </a>
+    }
+
+    <!-- Users group -->
+    <span class="nav-group">Users</span>
+    @for (item of userItems; track item.label) {
+      <a class="nav-item" [routerLink]="item.route" routerLinkActive="nav-item--active">
+        <span class="nav-item__icon" [innerHTML]="item.icon"></span>
+        <span class="nav-item__label">{{ item.label }}</span>
+      </a>
+    }
+
+    <!-- Content group -->
+    <span class="nav-group">Content</span>
+    @for (item of contentItems; track item.label) {
+      <a class="nav-item" [routerLink]="item.route" routerLinkActive="nav-item--active">
+        <span class="nav-item__icon" [innerHTML]="item.icon"></span>
+        <span class="nav-item__label">{{ item.label }}</span>
+      </a>
+    }
+
+    <!-- AI & System group -->
+    <span class="nav-group">AI & System</span>
+    @for (item of systemItems; track item.label) {
+      <a class="nav-item" [routerLink]="item.route" routerLinkActive="nav-item--active">
+        <span class="nav-item__icon" [innerHTML]="item.icon"></span>
+        <span class="nav-item__label">{{ item.label }}</span>
+      </a>
+    }
+  </nav>
+
+  <!-- Bottom -->
+  <div class="sidebar__bottom">
+    @for (item of bottomItems; track item.label) {
+      <a class="nav-item" [routerLink]="item.route" routerLinkActive="nav-item--active">
+        <span class="nav-item__icon" [innerHTML]="item.icon"></span>
+        <span class="nav-item__label">{{ item.label }}</span>
+      </a>
+    }
+    <button class="nav-item nav-item--logout" (click)="logout()">
+      <span class="nav-item__icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </span>
+      <span class="nav-item__label">Logout</span>
+    </button>
+  </div>
+</aside>

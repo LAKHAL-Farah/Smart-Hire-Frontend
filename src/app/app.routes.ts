@@ -190,4 +190,13 @@ export const routes: Routes = [
       },
     ],
   },
+
+  /* ═══════ 404 WILDCARD ═══════ */
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./features/not-found/not-found.component').then(
+        (m) => m.NotFoundComponent
+      ),
+  },
 ];

@@ -22,9 +22,10 @@
             <div class="pricing__popular">Most Popular</div>
           }
           <h3 class="pricing__plan-name">{{ plan.name }}</h3>
+          <p class="pricing__billing">{{ plan.billing }}</p>
           <div class="pricing__price">
-            <span class="pricing__currency">{{ plan.price === 0 ? '' : '€' }}</span>
-            <span class="pricing__amount">{{ plan.price === 0 ? 'Free' : (isAnnual() ? (plan.price * 0.8 | number:'1.2-2') : plan.price) }}</span>
+            <span class="pricing__currency">{{ plan.price === 0 ? '' : '$' }}</span>
+            <span class="pricing__amount">{{ plan.price === 0 ? 'Free' : (isAnnual() ? (plan.price * 0.8 | number:'1.0-0') : plan.price) }}</span>
             @if (plan.price > 0) {
               <span class="pricing__period">/mo</span>
             }

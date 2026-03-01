@@ -7,6 +7,7 @@ import {
   ViewChild,
   NgZone,
   signal,
+  HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgxParticlesModule, NgParticlesService } from '@tsparticles/angular';
@@ -31,6 +32,7 @@ export class HeroComponent implements OnInit, AfterViewInit, OnDestroy {
 
   rotateX = signal(0);
   rotateY = signal(0);
+  brainScale = signal(1);
 
   avatarColors = [
     'linear-gradient(135deg, #2ee8a5, #2E86AB)',
@@ -136,7 +138,7 @@ export class HeroComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  /* ─── Scroll follow – brain drifts down + fades ─── */
+  /* ─── Scroll follow – brain drifts down + fades + scales ─── */
   private initScrollFollow(): void {
     this.ngZone.runOutsideAngular(() => {
       const el = this.aiBrain?.nativeElement;
@@ -166,8 +168,12 @@ export class HeroComponent implements OnInit, AfterViewInit, OnDestroy {
         // Downward parallax drift
         const parallaxY = scrollY * 0.12;
 
+        // Scale down on scroll: starts at 1, smoothly scales to ~0.6 by fadeEnd
+        const scaleDown = Math.max(0.6, 1 - (scrollY / (fadeEnd * 1.2)) * 0.4);
+        
         // Slight scale pulse
-        const scale = 1 + Math.sin(scrollY / (vh * 0.8)) * 0.06;
+        const scalePulse = 1 + Math.sin(scrollY / (vh * 0.8)) * 0.06;
+        const scale = scaleDown * scalePulse;
 
         el.style.opacity = `${opacity}`;
         el.style.transform = `translateY(calc(-50% + ${parallaxY}px)) translateX(${sineX}px) rotate(${rotation}deg) scale(${scale})`;

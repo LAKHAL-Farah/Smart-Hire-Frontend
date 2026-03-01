@@ -77,6 +77,7 @@ export class ScrollAnimationService implements OnDestroy {
   ): gsap.core.Tween {
     const { delay = 0, duration = 1, y = 60, stagger = 0 } = options || {};
     return gsap.from(elements, {
+      immediateRender: false,
       scrollTrigger: {
         trigger,
         start: 'top 85%',
@@ -99,6 +100,7 @@ export class ScrollAnimationService implements OnDestroy {
   ): gsap.core.Tween {
     const { stagger = 0.15, duration = 0.8, y = 40 } = options || {};
     return gsap.from(elements, {
+      immediateRender: false,
       scrollTrigger: {
         trigger,
         start: 'top 80%',
@@ -158,6 +160,7 @@ export class ScrollAnimationService implements OnDestroy {
   ): gsap.core.Tween {
     const { delay = 0, duration = 1 } = options || {};
     return gsap.from(elements, {
+      immediateRender: false,
       scrollTrigger: {
         trigger,
         start: 'top 85%',

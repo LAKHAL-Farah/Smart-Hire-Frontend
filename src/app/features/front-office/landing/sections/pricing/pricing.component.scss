@@ -126,6 +126,12 @@
   color: var(--text-primary);
 }
 
+.pricing__billing {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: -12px;
+}
+
 .pricing__price {
   display: flex;
   align-items: baseline;

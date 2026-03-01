@@ -1,6 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 type SettingsCategory = 'account' | 'security' | 'notifications' | 'subscription' | 'connected' | 'privacy';
 
@@ -21,7 +22,7 @@ interface ConnectedAccount {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })

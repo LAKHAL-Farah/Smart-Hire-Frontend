@@ -3,7 +3,7 @@
   <div class="toolbar">
     <div class="toolbar__left">
       <div class="search-box">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <lucide-icon class="search-icon" name="search" [size]="15"></lucide-icon>
         <input type="text" placeholder="Search users..." [(ngModel)]="searchQuery" class="search-input" />
       </div>
 
@@ -20,11 +20,11 @@
 
     <div class="toolbar__right">
       <button class="btn btn--outline">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <lucide-icon name="download" [size]="15"></lucide-icon>
         Export CSV
       </button>
       <button class="btn btn--primary">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <lucide-icon name="plus" [size]="15"></lucide-icon>
         Add User
       </button>
     </div>
@@ -66,7 +66,7 @@
             <td class="col-actions" (click)="$event.stopPropagation()">
               <div class="actions-wrap">
                 <button class="dots-btn" (click)="toggleMenu(user.id, $event)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  <lucide-icon name="ellipsis-vertical" [size]="16"></lucide-icon>
                 </button>
                 @if (openMenuId === user.id) {
                   <div class="action-menu">
@@ -116,7 +116,7 @@
     <div class="drawer-overlay" (click)="closeDrawer()"></div>
     <aside class="drawer">
       <button class="drawer__close" (click)="closeDrawer()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <lucide-icon name="x" [size]="20"></lucide-icon>
       </button>
 
       <div class="drawer__header">

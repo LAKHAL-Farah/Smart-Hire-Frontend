@@ -1,12 +1,13 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 type ProfileTab = 'overview' | 'experience' | 'projects' | 'assessments';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LUCIDE_ICONS],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss'
 })

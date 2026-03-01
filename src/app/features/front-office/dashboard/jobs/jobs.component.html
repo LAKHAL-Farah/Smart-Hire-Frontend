@@ -7,10 +7,7 @@
       <div class="filter-panel__inner">
         <!-- Search -->
         <div class="filter-search">
-          <svg class="filter-search__icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
+          <lucide-icon name="search" [size]="16" class="filter-search__icon"></lucide-icon>
           <input class="filter-search__input" type="text" placeholder="Search jobs…"
             [(ngModel)]="searchQuery" (input)="applySearch()"/>
         </div>
@@ -162,15 +159,15 @@
               <!-- Info chips -->
               <div class="job-card__chips">
                 <span class="info-chip">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <lucide-icon name="map-pin" [size]="12"></lucide-icon>
                   {{ job.locationType }}
                 </span>
                 <span class="info-chip">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  <lucide-icon name="briefcase" [size]="12"></lucide-icon>
                   {{ job.contractType }}
                 </span>
                 <span class="info-chip">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <lucide-icon name="dollar-sign" [size]="12"></lucide-icon>
                   {{ job.salaryRange }}
                 </span>
               </div>
@@ -190,7 +187,7 @@
                 <div class="job-card__btns">
                   <button class="btn-save" [class.btn-save--saved]="job.saved"
                     (click)="toggleSave(job, $event)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                    <lucide-icon name="bookmark" [size]="14"></lucide-icon>
                     {{ job.saved ? 'Saved' : 'Save' }}
                   </button>
                   <button class="btn-apply" (click)="$event.stopPropagation()">Apply</button>
@@ -222,7 +219,7 @@
                 <span class="detail-header__company">{{ job.company }}</span>
                 @if (job.verified) {
                   <span class="verified-badge" title="Verified employer">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#2ee8a5" stroke="none"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    <lucide-icon name="shield-check" [size]="14" color="#2ee8a5"></lucide-icon>
                   </span>
                 }
               </div>
@@ -234,19 +231,19 @@
           <!-- Info chips -->
           <div class="detail-chips">
             <span class="detail-chip">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <lucide-icon name="map-pin" [size]="13"></lucide-icon>
               {{ job.locationType }}
             </span>
             <span class="detail-chip">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+              <lucide-icon name="briefcase" [size]="13"></lucide-icon>
               {{ job.contractType }}
             </span>
             <span class="detail-chip">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <lucide-icon name="dollar-sign" [size]="13"></lucide-icon>
               {{ job.salaryRange }}
             </span>
             <span class="detail-chip">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <lucide-icon name="activity" [size]="13"></lucide-icon>
               {{ job.experienceLevel }}
             </span>
           </div>
@@ -283,7 +280,7 @@
                   [class.ai-breakdown__score--low]="job.matchScore < 50">
                   {{ job.matchScore }}% match
                 </span>
-                <svg class="ai-breakdown__chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <lucide-icon name="chevron-down" [size]="16" class="ai-breakdown__chevron"></lucide-icon>
               </button>
               @if (breakdownOpen()) {
                 <div class="ai-breakdown__body">
@@ -312,7 +309,7 @@
           <div class="detail-actions">
             <button class="btn-detail-save" [class.btn-detail-save--saved]="job.saved"
               (click)="toggleSave(job, $event)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+              <lucide-icon name="bookmark" [size]="15"></lucide-icon>
               {{ job.saved ? 'Saved' : 'Save Job' }}
             </button>
             <button class="btn-detail-apply">Apply Now</button>

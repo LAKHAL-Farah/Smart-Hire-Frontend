@@ -9,7 +9,7 @@
     </div>
     <div class="page-hdr__actions">
       <button class="btn-ghost">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <lucide-icon name="upload" [size]="15"></lucide-icon>
         Import from JSON
       </button>
       <button class="btn-primary" (click)="createNewPath()">Create New Path +</button>
@@ -42,7 +42,7 @@
     <!-- ══════════ LEFT — Path List ══════════ -->
     <aside class="cp-list">
       <div class="list-search">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <lucide-icon name="search" [size]="15"></lucide-icon>
         <input type="text" [(ngModel)]="listSearch" placeholder="Search career paths..." class="list-search__input" />
       </div>
 
@@ -79,7 +79,7 @@
 
         <!-- Add new card -->
         <div class="add-card" (click)="createNewPath()">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <lucide-icon name="plus" [size]="24"></lucide-icon>
           <span>New Career Path</span>
         </div>
       </div>
@@ -110,7 +110,7 @@
         </div>
         <div class="detail-hdr__right">
           <button *ngIf="!editMode" class="btn-ghost btn-ghost--sm" (click)="enterEdit()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <lucide-icon name="square-pen" [size]="14"></lucide-icon>
             Edit
           </button>
           <ng-container *ngIf="editMode">
@@ -245,13 +245,13 @@
           <!-- Left: skills list -->
           <div class="skills-list-col">
             <div class="list-search list-search--inner">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <lucide-icon name="search" [size]="14"></lucide-icon>
               <input type="text" [(ngModel)]="skillSearch" placeholder="Filter skills..." class="list-search__input" />
             </div>
 
             <div *ngFor="let cat of selectedSkillCategories" class="skill-cat">
               <button class="skill-cat__hdr" (click)="toggleCategory(cat)">
-                <svg [class.rotated]="!isCategoryCollapsed(cat)" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                <lucide-icon [class.rotated]="!isCategoryCollapsed(cat)" name="chevron-down" [size]="14"></lucide-icon>
                 {{ cat }}
                 <span class="skill-cat__count">{{ filteredSkillsInCategory(cat).length }}</span>
               </button>
@@ -271,7 +271,7 @@
                   <input *ngIf="editMode" type="number" [(ngModel)]="sk.weight" min="1" max="10" class="weight-input" />
                   <span *ngIf="!editMode" class="weight-display">{{ sk.weight }}/10</span>
                   <button *ngIf="editMode" class="sk-remove" (click)="removeSkill(sk)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <lucide-icon name="x" [size]="14"></lucide-icon>
                   </button>
                 </div>
               </div>
@@ -282,7 +282,7 @@
           <div class="skills-add-col" *ngIf="editMode">
             <span class="add-title">ADD SKILLS</span>
             <div class="list-search list-search--inner">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <lucide-icon name="search" [size]="14"></lucide-icon>
               <input type="text" [(ngModel)]="addSkillSearch" placeholder="Search skill catalog..." class="list-search__input" />
             </div>
             <div class="catalog-results" *ngIf="catalogSearchResults.length > 0">
@@ -327,10 +327,10 @@
                 <span class="dbadge" [ngClass]="getDifficultyClass(step.difficulty)">{{ step.difficulty }}</span>
                 <div class="rm-actions" *ngIf="editMode">
                   <button class="action-btn" (click)="toggleStepEdit(step)" title="Edit">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <lucide-icon name="square-pen" [size]="14"></lucide-icon>
                   </button>
                   <button class="action-btn action-btn--danger" (click)="removeStep(step)" title="Delete">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    <lucide-icon name="trash-2" [size]="14"></lucide-icon>
                   </button>
                 </div>
               </div>
@@ -361,7 +361,7 @@
                   <label class="toggle toggle--sm"><input type="checkbox" [(ngModel)]="res.free" /><span class="toggle__track"></span></label>
                   <span class="res-free-label">{{ res.free ? 'Free' : 'Paid' }}</span>
                   <button class="sk-remove" (click)="removeResource(step, ri)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <lucide-icon name="x" [size]="13"></lucide-icon>
                   </button>
                 </div>
                 <button class="link-btn" (click)="addResource(step)">Add Resource +</button>
@@ -371,7 +371,7 @@
 
           <!-- Add new step card -->
           <div *ngIf="editMode" class="add-card add-card--inline" (click)="addNewStep()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <lucide-icon name="plus" [size]="20"></lucide-icon>
             <span>Add Step</span>
           </div>
         </div>
@@ -387,7 +387,7 @@
 
         <div class="iq-toolbar">
           <div class="list-search list-search--inner">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <lucide-icon name="search" [size]="14"></lucide-icon>
             <input type="text" [(ngModel)]="iqSearch" placeholder="Search questions..." class="list-search__input" />
           </div>
           <select [(ngModel)]="iqDiffFilter" class="form-select form-select--sm">
@@ -406,7 +406,7 @@
               <td><span class="dbadge" [ngClass]="getDifficultyClass(q.difficulty)">{{ q.difficulty }}</span></td>
               <td class="iq-actions">
                 <button *ngIf="editMode" class="action-btn action-btn--danger" (click)="removeIQ(q)" title="Remove from path">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <lucide-icon name="x" [size]="14"></lucide-icon>
                 </button>
               </td>
             </tr>
@@ -448,8 +448,8 @@
                 <td class="gap-skill">{{ g.skill }}</td>
                 <td>{{ g.requiredByJobs }}%</td>
                 <td>
-                  <svg *ngIf="g.covered" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2ee8a5" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  <svg *ngIf="!g.covered" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <lucide-icon *ngIf="g.covered" name="check" [size]="16" color="#2ee8a5"></lucide-icon>
+                  <lucide-icon *ngIf="!g.covered" name="x" [size]="16" color="#f87171"></lucide-icon>
                 </td>
                 <td>
                   <span class="pri-badge" [ngClass]="'pri--' + g.priority.toLowerCase()">{{ g.priority }}</span>
@@ -528,7 +528,7 @@
     <!-- Empty State -->
     <ng-template #emptyState>
       <section class="cp-empty">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <lucide-icon name="circle-question-mark" [size]="48" color="rgba(255,255,255,.15)"></lucide-icon>
         <p>Select a career path to view and edit its details.</p>
       </section>
     </ng-template>
@@ -542,18 +542,18 @@
     <div class="modal__header">
       <h3 class="modal__title">Add Questions from Bank</h3>
       <button class="modal__close" (click)="showAddQuestionsModal = false">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <lucide-icon name="x" [size]="20"></lucide-icon>
       </button>
     </div>
     <div class="modal__body">
       <div class="list-search list-search--inner">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <lucide-icon name="search" [size]="14"></lucide-icon>
         <input type="text" [(ngModel)]="addQSearch" placeholder="Search questions..." class="list-search__input" />
       </div>
       <div class="modal-q-list">
         <label *ngFor="let q of availableQuestionsForModal" class="modal-q-item" (click)="toggleAddQ(q.id)">
           <span class="modal-q-check" [class.modal-q-check--active]="addQSelected.has(q.id)">
-            <svg *ngIf="addQSelected.has(q.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+            <lucide-icon *ngIf="addQSelected.has(q.id)" name="check" [size]="12"></lucide-icon>
           </span>
           <div class="modal-q-body">
             <p class="modal-q-text">{{ q.text }}</p>

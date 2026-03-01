@@ -1,6 +1,7 @@
 import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 /* ── Types ── */
 interface Job {
@@ -24,7 +25,7 @@ interface Job {
 @Component({
   selector: 'app-jobs',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './jobs.component.html',
   styleUrl: './jobs.component.scss'
 })

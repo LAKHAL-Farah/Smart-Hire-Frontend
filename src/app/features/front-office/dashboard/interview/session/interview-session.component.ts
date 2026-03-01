@@ -1,6 +1,7 @@
 import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 /* ── Types ── */
 interface SessionQuestion {
@@ -21,7 +22,7 @@ interface DimensionScore {
 @Component({
   selector: 'app-interview-session',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './interview-session.component.html',
   styleUrl: './interview-session.component.scss'
 })

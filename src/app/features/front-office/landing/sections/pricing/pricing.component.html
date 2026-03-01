@@ -33,9 +33,7 @@
           <ul class="pricing__features">
             @for (feat of plan.features; track feat) {
               <li>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 8l3 3 7-7" stroke="var(--accent-teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+                <lucide-icon name="check" [size]="16"></lucide-icon>
                 {{ feat }}
               </li>
             }

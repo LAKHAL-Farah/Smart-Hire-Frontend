@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 interface CohortRow {
   month: string;
@@ -10,7 +11,7 @@ interface CohortRow {
 @Component({
   selector: 'app-analytics',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './analytics.component.html',
   styleUrl: './analytics.component.scss'
 })

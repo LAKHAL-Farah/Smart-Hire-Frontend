@@ -1,11 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 @Component({
   selector: 'app-step-results',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, LUCIDE_ICONS],
   templateUrl: './step-results.component.html',
   styleUrl: './step-results.component.scss'
 })

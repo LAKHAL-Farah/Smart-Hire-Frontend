@@ -1,5 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 /* ── Types ── */
 interface DimensionScore {
@@ -28,7 +29,7 @@ interface RecommendedAction {
 @Component({
   selector: 'app-interview-report',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LUCIDE_ICONS],
   templateUrl: './interview-report.component.html',
   styleUrl: './interview-report.component.scss'
 })

@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 interface Recruiter {
   id: number;
@@ -22,7 +23,7 @@ interface Recruiter {
 @Component({
   selector: 'app-recruiter-management',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './recruiter-management.component.html',
   styleUrl: './recruiter-management.component.scss'
 })

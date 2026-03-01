@@ -1,11 +1,12 @@
 import { Component, AfterViewInit, ElementRef, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ScrollAnimationService } from '../../services/scroll-animation.service';
+import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 @Component({
   selector: 'app-pricing',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LUCIDE_ICONS],
   templateUrl: './pricing.component.html',
   styleUrl: './pricing.component.scss'
 })

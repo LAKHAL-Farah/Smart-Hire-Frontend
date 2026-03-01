@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 interface JobOffer {
   id: number;
@@ -28,7 +29,7 @@ interface FlagEntry {
 @Component({
   selector: 'app-job-management',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './job-management.component.html',
   styleUrl: './job-management.component.scss'
 })

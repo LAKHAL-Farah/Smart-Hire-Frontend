@@ -5,6 +5,7 @@ import { StepSituationComponent } from './steps/step-situation.component';
 import { StepCareerGoalComponent } from './steps/step-career-goal.component';
 import { StepSkillCheckComponent } from './steps/step-skill-check.component';
 import { StepResultsComponent } from './steps/step-results.component';
+import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 
 @Component({
   selector: 'app-onboarding',
@@ -16,6 +17,7 @@ import { StepResultsComponent } from './steps/step-results.component';
     StepCareerGoalComponent,
     StepSkillCheckComponent,
     StepResultsComponent,
+    LUCIDE_ICONS,
   ],
   templateUrl: './onboarding.component.html',
   styleUrl: './onboarding.component.scss'

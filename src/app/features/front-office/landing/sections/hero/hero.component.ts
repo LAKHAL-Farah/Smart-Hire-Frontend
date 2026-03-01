@@ -14,11 +14,12 @@ import { loadSlim } from '@tsparticles/slim';
 import type { Container, Engine, ISourceOptions, MoveDirection, OutMode } from '@tsparticles/engine';
 import { ScrollAnimationService } from '../../services/scroll-animation.service';
 import { gsap } from 'gsap';
+import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 @Component({
   selector: 'app-hero',
   standalone: true,
-  imports: [CommonModule, NgxParticlesModule],
+  imports: [CommonModule, NgxParticlesModule, LUCIDE_ICONS],
   templateUrl: './hero.component.html',
   styleUrl: './hero.component.scss',
 })

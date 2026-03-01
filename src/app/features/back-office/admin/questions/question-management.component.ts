@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 interface InterviewQuestion {
   id: number;
@@ -18,7 +19,7 @@ interface InterviewQuestion {
 @Component({
   selector: 'app-question-management',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './question-management.component.html',
   styleUrl: './question-management.component.scss'
 })

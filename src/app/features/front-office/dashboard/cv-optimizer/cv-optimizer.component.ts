@@ -1,6 +1,7 @@
 import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 /* ── Types ── */
 interface CvCard {
@@ -30,7 +31,7 @@ type TabId = 'preview' | 'sections' | 'enhancements';
 @Component({
   selector: 'app-cv-optimizer',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './cv-optimizer.component.html',
   styleUrl: './cv-optimizer.component.scss'
 })

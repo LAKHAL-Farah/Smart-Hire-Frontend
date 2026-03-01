@@ -78,6 +78,10 @@
 
 .star, .star-sm { display: inline-block; }
 
+.star-filled ::ng-deep lucide-icon svg {
+  fill: currentColor;
+}
+
 /* ══════════ TWO-COLUMN CHARTS ══════════ */
 .charts-body {
   display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: flex-start;

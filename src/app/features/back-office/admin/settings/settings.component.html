@@ -8,7 +8,7 @@
       <p class="page-hdr__sub">Global configuration for the SmartHire platform — changes here affect all users.</p>
     </div>
     <div class="page-hdr__chip">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <lucide-icon name="zap" [size]="13" [strokeWidth]="2.5"></lucide-icon>
       Changes are applied immediately — no restart required
     </div>
   </header>
@@ -24,7 +24,7 @@
                 [class.nav-item--active]="activeCategory === cat.id"
                 [class.nav-item--danger]="cat.danger"
                 (click)="selectCategory(cat.id)">
-          <span class="nav-item__icon" [innerHTML]="cat.icon"></span>
+          <span class="nav-item__icon"><lucide-icon [name]="cat.icon" [size]="16"></lucide-icon></span>
           <span class="nav-item__label">{{ cat.label }}</span>
           <span *ngIf="cat.dirty" class="nav-item__dot"></span>
         </button>
@@ -163,7 +163,7 @@
         <section class="section">
           <h3 class="section__heading">BRANDING</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <lucide-icon name="image" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Branding Configuration</span>
             <span class="placeholder-panel__sub">Logo uploads, color schemes, and custom CSS will be configured here.</span>
           </div>
@@ -175,7 +175,7 @@
         <section class="section">
           <h3 class="section__heading">AI CONFIGURATION</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 0 1 4 4c0 1.95-1.4 3.57-3.25 3.92a1 1 0 0 0-.75.97V13"/><circle cx="12" cy="17" r="3"/><path d="M6.5 6A4.5 4.5 0 0 0 2 10.5c0 2 1.33 3.69 3.15 4.24"/><path d="M17.5 6A4.5 4.5 0 0 1 22 10.5c0 2-1.33 3.69-3.15 4.24"/></svg>
+            <lucide-icon name="brain-circuit" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">AI Model Settings</span>
             <span class="placeholder-panel__sub">OpenAI, Claude, and Hume AI API keys, temperature settings, token limits, and model selection.</span>
           </div>
@@ -187,7 +187,7 @@
         <section class="section">
           <h3 class="section__heading">EMAIL &amp; NOTIFICATIONS</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            <lucide-icon name="mail" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Email &amp; Notification Settings</span>
             <span class="placeholder-panel__sub">SMTP configuration, email templates, push notification settings, and notification rules.</span>
           </div>
@@ -199,7 +199,7 @@
         <section class="section">
           <h3 class="section__heading">AUTHENTICATION &amp; SECURITY</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <lucide-icon name="lock" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Security Settings</span>
             <span class="placeholder-panel__sub">OAuth providers, MFA policies, password rules, session timeouts, and IP whitelisting.</span>
           </div>
@@ -211,7 +211,7 @@
         <section class="section">
           <h3 class="section__heading">SUBSCRIPTION &amp; BILLING</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+            <lucide-icon name="credit-card" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Billing Configuration</span>
             <span class="placeholder-panel__sub">Stripe keys, subscription plans, pricing tiers, and invoice settings.</span>
           </div>
@@ -223,7 +223,7 @@
         <section class="section">
           <h3 class="section__heading">FEATURE FLAGS</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+            <lucide-icon name="flag" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Feature Flags</span>
             <span class="placeholder-panel__sub">Toggle experimental features, A/B tests, and gradual rollouts.</span>
           </div>
@@ -235,7 +235,7 @@
         <section class="section">
           <h3 class="section__heading">INTEGRATIONS</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            <lucide-icon name="code" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Third-Party Integrations</span>
             <span class="placeholder-panel__sub">GitHub, LinkedIn, Google, Slack, and webhook endpoint configuration.</span>
           </div>
@@ -247,7 +247,7 @@
         <section class="section">
           <h3 class="section__heading">AUDIT LOG</h3>
           <div class="placeholder-panel">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <lucide-icon name="file-text" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Audit Trail</span>
             <span class="placeholder-panel__sub">View all admin actions, setting changes, and system events with timestamps.</span>
           </div>
@@ -259,7 +259,7 @@
         <section class="section">
           <h3 class="section__heading section__heading--danger">DANGER ZONE</h3>
           <div class="placeholder-panel placeholder-panel--danger">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <lucide-icon name="triangle-alert" [size]="40" [strokeWidth]="1.5"></lucide-icon>
             <span class="placeholder-panel__title">Destructive Actions</span>
             <span class="placeholder-panel__sub">Reset platform data, purge user accounts, export full database, and delete the platform.</span>
           </div>
@@ -289,7 +289,7 @@
     </div>
     <div class="modal__body">
       <div class="modal__warning">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <lucide-icon name="triangle-alert" [size]="20"></lucide-icon>
         <p>This will immediately log out all active users and show the maintenance page. Are you sure?</p>
       </div>
       <label class="form-label" style="margin-top: 16px;">Type <strong>MAINTENANCE</strong> to confirm</label>
@@ -304,7 +304,7 @@
 
 <!-- ╌╌╌ Toast ╌╌╌ -->
 <div class="toast" [class.toast--visible]="toast.visible" [class.toast--success]="toast.type === 'success'" [class.toast--error]="toast.type === 'error'">
-  <svg *ngIf="toast.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-  <svg *ngIf="toast.type === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+  <lucide-icon *ngIf="toast.type === 'success'" name="check" [size]="16" [strokeWidth]="2.5"></lucide-icon>
+  <lucide-icon *ngIf="toast.type === 'error'" name="circle-x" [size]="16" [strokeWidth]="2.5"></lucide-icon>
   {{ toast.message }}
 </div>

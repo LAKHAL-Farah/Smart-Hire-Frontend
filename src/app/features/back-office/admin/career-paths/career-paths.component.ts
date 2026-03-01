@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 /* ══════════ INTERFACES ══════════ */
 
@@ -102,7 +103,7 @@ interface CatalogSkill { name: string; category: string; }
 @Component({
   selector: 'app-career-paths',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './career-paths.component.html',
   styleUrl: './career-paths.component.scss'
 })

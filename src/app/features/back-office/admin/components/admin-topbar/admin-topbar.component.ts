@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
+import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 @Component({
   selector: 'app-admin-topbar',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './admin-topbar.component.html',
   styleUrl: './admin-topbar.component.scss'
 })

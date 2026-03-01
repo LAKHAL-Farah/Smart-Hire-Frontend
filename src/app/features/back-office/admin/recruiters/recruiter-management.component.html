@@ -3,7 +3,7 @@
   @if (pendingCount > 0) {
     <div class="pending-alert">
       <div class="pending-alert__left">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <lucide-icon name="clock" [size]="18"></lucide-icon>
         <span class="pending-alert__text">{{ pendingCount }} recruiter{{ pendingCount === 1 ? '' : 's' }} awaiting verification</span>
       </div>
       <button class="btn btn--primary btn--sm" (click)="reviewNow()">Review Now</button>
@@ -14,7 +14,7 @@
   <div class="toolbar">
     <div class="toolbar__left">
       <div class="search-box">
-        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <lucide-icon name="search" [size]="15"></lucide-icon>
         <input type="text" placeholder="Search companies..." [(ngModel)]="searchQuery" class="search-input" />
       </div>
 
@@ -31,7 +31,7 @@
 
     <div class="toolbar__right">
       <button class="btn btn--outline">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <lucide-icon name="download" [size]="15"></lucide-icon>
         Export CSV
       </button>
     </div>
@@ -71,13 +71,13 @@
             <td>
               <span class="vbadge" [ngClass]="getVerificationClass(rec.verification)">
                 @if (rec.verification === 'Verified') {
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                  <lucide-icon name="shield-check" [size]="14"></lucide-icon>
                 }
                 @if (rec.verification === 'Pending') {
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <lucide-icon name="clock" [size]="14"></lucide-icon>
                 }
                 @if (rec.verification === 'Rejected') {
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  <lucide-icon name="circle-x" [size]="14"></lucide-icon>
                 }
                 {{ rec.verification }}
               </span>
@@ -88,7 +88,7 @@
             <td class="col-actions" (click)="$event.stopPropagation()">
               <div class="actions-wrap">
                 <button class="dots-btn" (click)="toggleMenu(rec.id, $event)">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  <lucide-icon name="ellipsis-vertical" [size]="16"></lucide-icon>
                 </button>
                 @if (openMenuId === rec.id) {
                   <div class="action-menu">
@@ -142,7 +142,7 @@
     <div class="modal-overlay" (click)="closeModal()"></div>
     <div class="modal">
       <button class="modal__close" (click)="closeModal()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <lucide-icon name="x" [size]="20"></lucide-icon>
       </button>
 
       <h2 class="modal__title">Verify Recruiter</h2>
@@ -175,11 +175,11 @@
 
       <div class="modal__actions">
         <button class="modal-btn modal-btn--approve" (click)="approveVerification()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          <lucide-icon name="shield-check" [size]="16"></lucide-icon>
           Approve Verification
         </button>
         <button class="modal-btn modal-btn--reject" (click)="rejectVerification()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          <lucide-icon name="circle-x" [size]="16"></lucide-icon>
           Reject
         </button>
       </div>

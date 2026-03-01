@@ -1,5 +1,6 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 /* ── Types ── */
 interface Resource {
@@ -23,7 +24,7 @@ type FilterTab = 'all' | 'todo' | 'in-progress' | 'completed';
 @Component({
   selector: 'app-roadmap',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LUCIDE_ICONS],
   templateUrl: './roadmap.component.html',
   styleUrl: './roadmap.component.scss'
 })

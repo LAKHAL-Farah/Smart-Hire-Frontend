@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 interface MetricCard {
   label: string;
@@ -50,7 +51,7 @@ interface PromptPerformance {
 @Component({
   selector: 'app-ai-monitor',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './ai-monitor.component.html',
   styleUrl: './ai-monitor.component.scss'
 })

@@ -20,7 +20,7 @@
       <span class="scard__label">Monthly Recurring Revenue</span>
       <span class="scard__big">${{ mrr | number }}</span>
       <span class="scard__change scard__change--up">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <lucide-icon name="trending-up" [size]="14"></lucide-icon>
         +{{ mrrChange }}% MoM
       </span>
     </div>
@@ -41,8 +41,8 @@
       <span class="scard__label">Churn Rate</span>
       <span class="scard__big" [class.scard__big--warn]="churnTrend > 0">{{ churnRate }}%</span>
       <span class="scard__change" [ngClass]="churnTrend > 0 ? 'scard__change--down-bad' : 'scard__change--down-good'">
-        <svg *ngIf="churnTrend > 0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-        <svg *ngIf="churnTrend <= 0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+        <lucide-icon *ngIf="churnTrend > 0" name="trending-up" [size]="14"></lucide-icon>
+        <lucide-icon *ngIf="churnTrend <= 0" name="trending-down" [size]="14"></lucide-icon>
         {{ churnTrend > 0 ? '+' : '' }}{{ churnTrend }}% vs last period
       </span>
     </div>
@@ -144,7 +144,7 @@
             <span class="funnel-pct funnel-pct--base" *ngIf="i === 0">100%</span>
           </div>
           <div class="funnel-drop" *ngIf="i < funnelSteps.length - 1">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <lucide-icon name="chevron-down" [size]="14"></lucide-icon>
             <span class="funnel-drop__label">{{ 100 - getFunnelDropoff(i + 1) }}% drop-off</span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 /* ── Types ── */
 interface SessionHistory {
@@ -17,7 +18,7 @@ type Difficulty = 'beginner' | 'easy' | 'intermediate' | 'hard' | 'expert';
 @Component({
   selector: 'app-interview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LUCIDE_ICONS],
   templateUrl: './interview.component.html',
   styleUrl: './interview.component.scss'
 })

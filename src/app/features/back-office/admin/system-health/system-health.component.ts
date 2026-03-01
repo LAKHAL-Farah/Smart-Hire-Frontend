@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
 /* ══════════ INTERFACES ══════════ */
 
@@ -67,7 +68,7 @@ interface DeployInfo {
 @Component({
   selector: 'app-system-health',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './system-health.component.html',
   styleUrl: './system-health.component.scss'
 })

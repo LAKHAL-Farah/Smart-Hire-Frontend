@@ -1,0 +1,177 @@
+<!-- ══════ QUIZ MODE ══════ -->
+@if (quizActive()) {
+  <div class="quiz-mode">
+    <p class="quiz-mode__warning">Assessment in progress — do not close this tab</p>
+
+    <div class="quiz-wrap">
+      <!-- Progress dots -->
+      <div class="progress-dots">
+        @for (q of quizQuestions; track q.text; let i = $index) {
+          <div class="progress-dot"
+            [class.progress-dot--done]="i < currentQuestion()"
+            [class.progress-dot--active]="i === currentQuestion()">
+          </div>
+        }
+      </div>
+
+      <!-- Question card -->
+      <div class="q-card">
+        <span class="q-card__label">Question {{ currentQuestion() + 1 }} of {{ quizQuestions.length }}</span>
+        <h2 class="q-card__text">{{ quizQuestions[currentQuestion()].text }}</h2>
+
+        <div class="q-card__options">
+          @for (opt of quizQuestions[currentQuestion()].options; track opt.letter) {
+            <button class="q-option"
+              [class.q-option--active]="selectedAnswer() === opt.letter"
+              (click)="selectAnswer(opt.letter)">
+              <span class="q-option__letter" [class.q-option__letter--active]="selectedAnswer() === opt.letter">{{ opt.letter }}</span>
+              <span class="q-option__text">{{ opt.text }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="q-card__diff">
+          @for (d of [1,2,3]; track d) {
+            <span class="diff-dot" [class.diff-dot--filled]="d <= quizQuestions[currentQuestion()].difficulty"></span>
+          }
+          <span class="diff-label">{{ quizQuestions[currentQuestion()].difficultyLabel }}</span>
+        </div>
+      </div>
+
+      <!-- Nav buttons -->
+      <div class="quiz-nav">
+        <button class="btn-ghost" (click)="cancelQuiz()">Cancel</button>
+        <button class="btn-primary-grad"
+          [disabled]="!selectedAnswer()"
+          (click)="nextQuestion()">
+          {{ currentQuestion() < quizQuestions.length - 1 ? 'Next' : 'Finish' }}
+        </button>
+      </div>
+    </div>
+  </div>
+} @else {
+
+<!-- ══════ HUB VIEW ══════ -->
+<div class="hub">
+  <!-- Page Header -->
+  <section class="page-header">
+    <h1 class="page-header__title">Skill Assessment</h1>
+    <button class="btn-primary-grad" (click)="startQuiz()">Retake Assessment</button>
+  </section>
+
+  <!-- Summary Card -->
+  <section class="summary-card">
+    <div class="summary-card__left">
+      <!-- Radar chart (reused from onboarding step-results) -->
+      <div class="radar-wrap">
+        <svg viewBox="0 0 300 260" class="radar-svg">
+          <defs>
+            <linearGradient id="radarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2ee8a5" stop-opacity="0.25"/>
+              <stop offset="100%" stop-color="#10b981" stop-opacity="0.08"/>
+            </linearGradient>
+            <linearGradient id="radarStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2ee8a5"/>
+              <stop offset="100%" stop-color="#10b981"/>
+            </linearGradient>
+          </defs>
+
+          @for (ring of [0.33, 0.66, 1]; track ring) {
+            <polygon
+              [attr.points]="getHexPoints(150, 125, 100 * ring)"
+              fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+          }
+
+          @for (i of axisIndices; track i) {
+            <line x1="150" y1="125"
+              [attr.x2]="getAxisPoint(i, 100).x"
+              [attr.y2]="getAxisPoint(i, 100).y"
+              stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+          }
+
+          <polygon [attr.points]="dataPoints()" fill="url(#radarGrad)" stroke="url(#radarStroke)" stroke-width="1.5"/>
+
+          @for (skill of skills; track skill.name; let i = $index) {
+            <circle [attr.cx]="getAxisPoint(i, skill.score).x" [attr.cy]="getAxisPoint(i, skill.score).y" r="3.5" fill="#2ee8a5"/>
+          }
+
+          @for (skill of skills; track skill.name; let i = $index) {
+            <text [attr.x]="getAxisPoint(i, 118).x" [attr.y]="getAxisPoint(i, 118).y"
+              text-anchor="middle" dominant-baseline="middle"
+              fill="#6b6b80" font-size="10.5" font-family="Inter, sans-serif">{{ skill.name }}</text>
+          }
+        </svg>
+      </div>
+    </div>
+
+    <div class="summary-card__right">
+      <span class="summary-card__overall-label">Overall Score</span>
+      <span class="summary-card__score">{{ overallScore }}%</span>
+      <span class="summary-card__date">Last assessed: {{ lastDate }}</span>
+
+      <div class="summary-pills">
+        <span class="summary-pills__label">Top Strengths</span>
+        <div class="summary-pills__row">
+          @for (s of strengths; track s) {
+            <span class="pill pill--green">{{ s }}</span>
+          }
+        </div>
+      </div>
+
+      <div class="summary-pills">
+        <span class="summary-pills__label">Areas to Improve</span>
+        <div class="summary-pills__row">
+          @for (w of weaknesses; track w) {
+            <span class="pill pill--orange">{{ w }}</span>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Career Path Alignment -->
+  <section class="career-section">
+    <h2 class="section-title">Career Path Alignment</h2>
+    <div class="career-cards">
+      @for (cp of careerPaths; track cp.name) {
+        <div class="career-card">
+          <span class="career-card__name">{{ cp.name }}</span>
+          <div class="career-card__bar-track">
+            <div class="career-card__bar-fill" [style.width.%]="cp.pct" [style.background]="cp.color"></div>
+          </div>
+          <span class="career-card__pct">{{ cp.pct }}%</span>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- History -->
+  <section class="history-section">
+    <h2 class="section-title">Assessment History</h2>
+    <div class="history-table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Overall Score</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (h of history; track h.date) {
+            <tr>
+              <td>{{ h.date }}</td>
+              <td>
+                <span class="score-cell">{{ h.score }}%</span>
+              </td>
+              <td class="td-right">
+                <a href="javascript:void(0)" class="view-link">View Report</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+}

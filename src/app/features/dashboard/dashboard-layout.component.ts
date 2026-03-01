@@ -8,29 +8,8 @@ import { TopbarComponent } from './components/topbar/topbar.component';
   selector: 'app-dashboard-layout',
   standalone: true,
   imports: [CommonModule, RouterOutlet, SidebarComponent, TopbarComponent],
-  template: `
-    <div class="dashboard">
-      <app-sidebar [disabled]="quizMode()" />
-      <app-topbar [quizMode]="quizMode()" />
-      <main class="dashboard__content">
-        <router-outlet (activate)="onChildActivate($event)" (deactivate)="onChildDeactivate()" />
-      </main>
-    </div>
-  `,
-  styles: [`
-    :host { display: block; }
-
-    .dashboard {
-      min-height: 100vh;
-      background: var(--bg-primary);
-    }
-
-    .dashboard__content {
-      margin-left: 240px;
-      margin-top: 64px;
-      min-height: calc(100vh - 64px);
-    }
-  `]
+  templateUrl: './dashboard-layout.component.html',
+  styleUrl: './dashboard-layout.component.scss'
 })
 export class DashboardLayoutComponent {
   quizMode = signal(false);

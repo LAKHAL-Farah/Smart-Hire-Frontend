@@ -1,0 +1,227 @@
+<!-- ═══════════════════════ HUB VIEW ═══════════════════════ -->
+<div class="interview">
+  <!-- ── Page Header ── -->
+  <div class="page-header">
+    <div class="page-header__left">
+      <h1 class="page-header__title">Interview Simulation</h1>
+      <p class="page-header__subtitle">Practice makes permanent — train your answers, not just your knowledge.</p>
+    </div>
+    <button class="btn-primary btn-gradient" (click)="openModal('practice')">
+      Start New Session +
+    </button>
+  </div>
+
+  <!-- ── Streak & Readiness Strip ── -->
+  <div class="streak-strip">
+    <div class="streak-strip__item">
+      <div class="streak-strip__main">
+        <span class="streak-strip__emoji">🔥</span>
+        <span class="streak-strip__value">{{ streak }} day streak</span>
+      </div>
+      <span class="streak-strip__sub">Your best: {{ bestStreak }} days</span>
+    </div>
+    <div class="streak-strip__divider"></div>
+    <div class="streak-strip__item">
+      <span class="streak-strip__label">AVERAGE SCORE</span>
+      <div class="streak-strip__main">
+        <span class="streak-strip__value">{{ avgScore }} / 10</span>
+        <span class="streak-strip__trend">↑ {{ scoreTrend }} this week</span>
+      </div>
+    </div>
+    <div class="streak-strip__divider"></div>
+    <div class="streak-strip__item">
+      <span class="streak-strip__label">SESSIONS THIS MONTH</span>
+      <div class="streak-strip__main">
+        <span class="streak-strip__value">{{ sessionsThisMonth }} sessions</span>
+      </div>
+      <span class="streak-strip__sub">Last session: {{ lastSession }}</span>
+    </div>
+  </div>
+
+  <!-- ── Mode Selection Cards ── -->
+  <div class="mode-cards">
+    <!-- Practice Mode -->
+    <div class="mode-card mode-card--practice">
+      <div class="mode-card__gradient-line mode-card__gradient-line--teal"></div>
+      <div class="mode-card__body">
+        <span class="mode-card__badge mode-card__badge--teal">Recommended</span>
+        <div class="mode-card__icon mode-card__icon--teal">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="10" r="3" stroke-width="1.2"/>
+            <path d="M9 10c0-1.7 1.3-3 3-3" stroke-width="1" opacity=".5"/>
+          </svg>
+        </div>
+        <h3 class="mode-card__title">Practice Mode</h3>
+        <p class="mode-card__desc">Answer questions at your own pace and get detailed AI feedback after each response. Retry as many times as you need.</p>
+        <div class="mode-card__divider"></div>
+        <ul class="mode-card__features">
+          <li class="mode-card__feature">
+            <span class="feature-check feature-check--teal">✓</span>
+            Real-time AI feedback after every answer
+          </li>
+          <li class="mode-card__feature">
+            <span class="feature-check feature-check--teal">✓</span>
+            Retry any question multiple times
+          </li>
+          <li class="mode-card__feature">
+            <span class="feature-check feature-check--teal">✓</span>
+            Voice and emotion analysis included
+          </li>
+        </ul>
+        <button class="mode-card__btn mode-card__btn--teal" (click)="openModal('practice')">
+          Start Practice →
+        </button>
+      </div>
+    </div>
+
+    <!-- Test Mode -->
+    <div class="mode-card mode-card--test">
+      <div class="mode-card__gradient-line mode-card__gradient-line--orange"></div>
+      <div class="mode-card__body">
+        <div class="mode-card__icon mode-card__icon--orange">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h3 class="mode-card__title">Test Mode</h3>
+        <p class="mode-card__desc">Simulate a real interview — no feedback until the end. Timed questions, uninterrupted, with a final ranked score.</p>
+        <div class="mode-card__divider"></div>
+        <ul class="mode-card__features">
+          <li class="mode-card__feature">
+            <span class="feature-check feature-check--orange">✓</span>
+            No interruptions — just like the real thing
+          </li>
+          <li class="mode-card__feature">
+            <span class="feature-check feature-check--orange">✓</span>
+            Timed responses per question
+          </li>
+          <li class="mode-card__feature">
+            <span class="feature-check feature-check--orange">✓</span>
+            Final report with ranking vs other users
+          </li>
+        </ul>
+        <button class="mode-card__btn mode-card__btn--orange" (click)="openModal('test')">
+          Start Test →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Past Sessions ── -->
+  <div class="past-sessions">
+    <div class="past-sessions__header">
+      <h2 class="past-sessions__title">Past Sessions</h2>
+      <a class="past-sessions__link" href="javascript:void(0)">View All →</a>
+    </div>
+    <div class="past-sessions__list">
+      @for (s of sessions; track s.id) {
+        <div class="session-row" [class]="getScoreBorder(s.score)">
+          <div class="session-row__left">
+            <span class="session-row__badge" [class.badge--practice]="s.mode === 'practice'" [class.badge--test]="s.mode === 'test'">
+              {{ s.mode === 'practice' ? 'Practice' : 'Test' }}
+            </span>
+            <div class="session-row__info">
+              <span class="session-row__name">{{ s.questionType }} — {{ s.careerPath }}</span>
+              <span class="session-row__date">{{ s.date }}</span>
+            </div>
+          </div>
+          <div class="session-row__right">
+            <span class="session-row__score">{{ s.score }}<span class="session-row__denom">/10</span></span>
+            <a class="session-row__report" href="javascript:void(0)">View Report →</a>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SESSION SETUP MODAL ═══════════════════════ -->
+@if (showModal()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <h2 class="modal-card__title">Configure Your Session</h2>
+        <button class="modal-card__close" (click)="closeModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Question Type -->
+      <div class="modal-field">
+        <label class="modal-field__label">QUESTION TYPE</label>
+        <div class="pill-group">
+          @for (qt of questionTypes; track qt.value) {
+            <button class="pill" [class.pill--active]="questionType() === qt.value" (click)="setQuestionType(qt.value)">
+              {{ qt.label }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Career Path -->
+      <div class="modal-field">
+        <label class="modal-field__label">CAREER PATH</label>
+        <select class="modal-select" [value]="careerPath()" (change)="careerPath.set($any($event.target).value)">
+          @for (cp of careerPaths; track cp.value) {
+            <option [value]="cp.value">{{ cp.emoji }} {{ cp.label }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Difficulty -->
+      <div class="modal-field">
+        <label class="modal-field__label">DIFFICULTY</label>
+        <div class="difficulty-slider">
+          <div class="difficulty-slider__track">
+            <div class="difficulty-slider__fill" [style.width.%]="difficultyIndex() * 25"></div>
+            <div class="difficulty-slider__thumb" [style.left.%]="difficultyIndex() * 25"></div>
+          </div>
+          <div class="difficulty-slider__labels">
+            @for (d of difficulties; track d; let i = $index) {
+              <button class="difficulty-slider__label" [class.active]="difficulty() === d" (click)="setDifficulty(d)">
+                {{ d | titlecase }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Number of Questions -->
+      <div class="modal-field">
+        <label class="modal-field__label">NUMBER OF QUESTIONS</label>
+        <div class="count-group">
+          @for (n of questionCounts; track n) {
+            <button class="count-btn" [class.count-btn--active]="questionCount() === n" (click)="setQuestionCount(n)">
+              {{ n }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Video Toggle -->
+      <div class="modal-divider"></div>
+      <div class="modal-field modal-field--row">
+        <div class="modal-field__left">
+          <span class="modal-field__row-label">Enable Video Recording</span>
+          <span class="modal-field__row-desc">Enables posture and expression analysis</span>
+        </div>
+        <div class="modal-field__right">
+          @if (!cameraGranted() && videoEnabled()) {
+            <span class="camera-warning">⚠ Camera permission required</span>
+          }
+          <button class="toggle-switch" [class.toggle-switch--on]="videoEnabled()" (click)="toggleVideo()">
+            <span class="toggle-switch__thumb"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="closeModal()">Cancel</button>
+        <button class="btn-primary btn-gradient" (click)="beginSession()">Begin Session →</button>
+      </div>
+    </div>
+  </div>
+}

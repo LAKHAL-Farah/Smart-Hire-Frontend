@@ -1,0 +1,217 @@
+@if (!sessionComplete()) {
+<!-- ═══════════ SESSION TOP BAR ═══════════ -->
+<div class="session-topbar">
+  <div class="session-topbar__logo">
+    <div class="logo-mark">S</div>
+  </div>
+
+  <div class="session-topbar__center">
+    <span class="session-topbar__label">Question {{ currentIndex() + 1 }} of {{ totalQuestions }}</span>
+    <div class="progress-dots">
+      @for (q of questions; track q.id; let i = $index) {
+        <span
+          class="progress-dot"
+          [class.progress-dot--done]="i < currentIndex()"
+          [class.progress-dot--active]="i === currentIndex()"
+          [class.progress-dot--upcoming]="i > currentIndex()"
+        ></span>
+      }
+    </div>
+  </div>
+
+  <div class="session-topbar__right">
+    <span class="session-timer" [class.session-timer--warning]="mode() === 'test' && elapsedSeconds() < 60">
+      {{ formattedTime() }}
+    </span>
+    <button class="exit-btn" (click)="requestExit()">Exit Session</button>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN SESSION AREA ═══════════ -->
+<div class="session-main" [class.session-main--transitioning]="transitioning()">
+  <!-- Left Zone — Question + Answer -->
+  <div class="session-left">
+    <div class="transition-bar" [class.active]="transitioning()"></div>
+
+    <!-- Category & Difficulty chips -->
+    <div class="question-chips">
+      <span class="chip chip--category" [class.chip--technical]="currentQuestion()?.category === 'technical'" [class.chip--behavioral]="currentQuestion()?.category === 'behavioral'">
+        {{ currentQuestion()?.category === 'technical' ? 'Technical' : 'Behavioral' }}
+      </span>
+      <span class="chip chip--difficulty" [style.background]="'rgba(' + (currentQuestion()?.difficultyColor === '#ef4444' ? '239,68,68' : currentQuestion()?.difficultyColor === '#f59e0b' ? '245,158,11' : '16,185,129') + ',.12)'" [style.color]="currentQuestion()?.difficultyColor">
+        {{ currentQuestion()?.difficulty }}
+      </span>
+    </div>
+
+    <!-- Question text -->
+    <h2 class="question-text">{{ currentQuestion()?.text }}</h2>
+    @if (currentQuestion()?.context) {
+      <p class="question-context">{{ currentQuestion()?.context }}</p>
+    }
+
+    <div class="question-divider"></div>
+
+    <!-- Answer textarea -->
+    <div class="answer-area">
+      <textarea
+        class="answer-textarea"
+        placeholder="Start speaking your answer... type naturally as if you were in the room."
+        [value]="answerText()"
+        (input)="answerText.set($any($event.target).value)"
+        rows="8"
+      ></textarea>
+      <span class="char-count">{{ charCount() }} / 800</span>
+    </div>
+
+    <!-- Hint area -->
+    @if (showHint()) {
+      <div class="hint-callout">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-teal)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span>Think about the core differences in access patterns and consider real-world use cases like undo operations or task scheduling.</span>
+      </div>
+    }
+
+    <!-- Action buttons -->
+    <div class="answer-actions">
+      @if (mode() === 'practice') {
+        <button class="btn-ghost-sm" (click)="toggleHint()">
+          {{ showHint() ? 'Hide hint' : 'I need a hint' }}
+        </button>
+      }
+      <button class="btn-submit" (click)="submitAnswer()" [disabled]="answerText().length < 10">
+        Submit Answer →
+      </button>
+    </div>
+  </div>
+
+  <!-- Right Zone — Feedback / Quote -->
+  <div class="session-right">
+    @if (mode() === 'practice') {
+      <!-- Practice: AI Feedback Panel -->
+      @if (feedbackState() === 'idle') {
+        <div class="feedback-idle">
+          <svg class="brain-icon" width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="1.2">
+            <path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7z"/>
+            <line x1="9" y1="21" x2="15" y2="21"/>
+          </svg>
+          <p class="feedback-idle__text">Submit your answer to receive AI feedback</p>
+        </div>
+      }
+
+      @if (feedbackState() === 'loading') {
+        <div class="feedback-loading">
+          <div class="shimmer-row"></div>
+          <div class="shimmer-row shimmer-row--short"></div>
+          <div class="shimmer-row"></div>
+          <div class="loading-pulse">
+            <span class="pulse-dot"></span>
+            <span class="loading-text">Analyzing your response...</span>
+          </div>
+        </div>
+      }
+
+      @if (feedbackState() === 'ready') {
+        <div class="feedback-panel">
+          <!-- Overall score -->
+          <div class="feedback-score">
+            <span class="feedback-score__number">{{ overallScore() }}</span>
+            <span class="feedback-score__denom">/10</span>
+          </div>
+
+          <!-- Dimension scores -->
+          <div class="dimension-rows">
+            @for (dim of dimensionScores(); track dim.label) {
+              <div class="dimension-row">
+                <span class="dimension-row__label">{{ dim.label }}</span>
+                <div class="dimension-row__bar">
+                  <div class="dimension-row__fill" [style.width.%]="dim.score" [style.background]="dim.color"></div>
+                </div>
+                <span class="dimension-row__value" [style.color]="dim.color">{{ dim.score }}%</span>
+              </div>
+            }
+          </div>
+
+          <!-- Strengths -->
+          <div class="feedback-section">
+            <h4 class="feedback-section__title feedback-section__title--green">What went well</h4>
+            <ul class="feedback-list">
+              @for (s of strengths(); track s) {
+                <li class="feedback-item feedback-item--green">{{ s }}</li>
+              }
+            </ul>
+          </div>
+
+          <!-- Improvements -->
+          <div class="feedback-section">
+            <h4 class="feedback-section__title feedback-section__title--orange">What to improve</h4>
+            <ul class="feedback-list">
+              @for (imp of improvements(); track imp) {
+                <li class="feedback-item feedback-item--orange">{{ imp }}</li>
+              }
+            </ul>
+          </div>
+
+          <!-- Actions -->
+          <div class="feedback-actions">
+            <button class="btn-ghost-sm" (click)="retryQuestion()">Retry This Question</button>
+            <button class="btn-next" (click)="goNext()">Next Question →</button>
+          </div>
+        </div>
+      }
+    } @else {
+      <!-- Test Mode: Quote -->
+      <div class="test-quote">
+        <p class="test-quote__text">{{ currentQuote() }}</p>
+      </div>
+    }
+  </div>
+</div>
+
+} @else {
+<!-- ═══════════ SESSION COMPLETE ═══════════ -->
+<div class="session-complete">
+  <div class="session-topbar session-topbar--complete">
+    <div class="session-topbar__logo">
+      <div class="logo-mark">S</div>
+    </div>
+    <div></div>
+    <button class="exit-btn" (click)="backToHub()">Back to Hub</button>
+  </div>
+
+  <div class="complete-content">
+    <!-- Animated checkmark -->
+    <svg class="check-anim" width="80" height="80" viewBox="0 0 80 80">
+      <circle class="check-circle" cx="40" cy="40" r="36" fill="none" stroke="var(--accent-teal)" stroke-width="3"/>
+      <path class="check-path" d="M24 42 L34 52 L56 28" fill="none" stroke="var(--accent-teal)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1 class="complete-title">Session Complete</h1>
+
+    <div class="complete-stats">
+      <div class="complete-stat">
+        <span class="complete-stat__label">Your Score</span>
+        <span class="complete-stat__value">{{ finalScore() }}<span class="complete-stat__denom">/10</span></span>
+      </div>
+      <div class="complete-stat">
+        <span class="complete-stat__label">Percentile</span>
+        <span class="complete-stat__value">Top {{ 100 - percentile() }}%</span>
+      </div>
+    </div>
+
+    <button class="btn-primary btn-gradient" (click)="viewReport()">View Full Report →</button>
+  </div>
+</div>
+}
+
+<!-- ═══════════ EXIT DIALOG ═══════════ -->
+@if (showExitDialog()) {
+  <div class="exit-overlay" (click)="cancelExit()">
+    <div class="exit-dialog" (click)="$event.stopPropagation()">
+      <h3 class="exit-dialog__title">Are you sure?</h3>
+      <p class="exit-dialog__text">Your progress will be lost.</p>
+      <div class="exit-dialog__actions">
+        <button class="btn-ghost-sm" (click)="cancelExit()">Cancel</button>
+        <button class="btn-danger" (click)="confirmExit()">Confirm Exit</button>
+      </div>
+    </div>
+  </div>
+}

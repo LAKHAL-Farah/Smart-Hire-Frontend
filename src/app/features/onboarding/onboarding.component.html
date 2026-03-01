@@ -1,0 +1,119 @@
+<!-- ────────────── HEADER ────────────── -->
+<header class="ob-header">
+  <div class="ob-header__inner">
+    <a routerLink="/" class="ob-header__logo">
+      <span class="ob-header__logo-text">SmartHire</span>
+    </a>
+
+    <div class="ob-header__right">
+      <span class="ob-header__step">
+        <span class="ob-header__step-num">Step {{ currentStep() }}</span>
+        <span class="ob-header__step-of"> of {{ totalSteps }}</span>
+      </span>
+      @if (currentStep() <= 2) {
+        <a class="ob-header__skip" (click)="skip()">Skip for now &rarr;</a>
+      }
+    </div>
+  </div>
+</header>
+
+<!-- ────────────── STEPPER ────────────── -->
+<div class="ob-stepper-wrap">
+  <div class="ob-stepper">
+    @for (s of stepMeta; track s.num; let i = $index; let last = $last) {
+      <!-- Node -->
+      <div class="ob-stepper__node-group">
+        <div
+          class="ob-stepper__node"
+          [class.ob-stepper__node--active]="currentStep() === s.num"
+          [class.ob-stepper__node--done]="currentStep() > s.num"
+        >
+          @if (currentStep() > s.num) {
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          } @else {
+            <span>{{ s.num }}</span>
+          }
+        </div>
+        <span
+          class="ob-stepper__label"
+          [class.ob-stepper__label--active]="currentStep() === s.num"
+          [class.ob-stepper__label--done]="currentStep() > s.num"
+        >{{ s.label }}</span>
+      </div>
+
+      <!-- Connector -->
+      @if (!last) {
+        <div class="ob-stepper__line-wrap">
+          <div
+            class="ob-stepper__line"
+            [class.ob-stepper__line--done]="currentStep() > s.num"
+          ></div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+<!-- ────────────── CONTENT ────────────── -->
+<main class="ob-content" [class.ob-content--results]="currentStep() === 4">
+  @switch (currentStep()) {
+    @case (1) {
+      <app-step-situation
+        [selected]="situationSelection()"
+        (selectionChange)="situationSelection.set($event)"
+      />
+    }
+    @case (2) {
+      <app-step-career-goal
+        [selected]="careerSelection()"
+        (selectionChange)="careerSelection.set($event)"
+      />
+    }
+    @case (3) {
+      <app-step-skill-check
+        [currentQuestion]="currentQuestion"
+        [selectedAnswer]="currentAnswer"
+        (answerSelected)="onAnswerSelected($event)"
+      />
+    }
+    @case (4) {
+      <app-step-results />
+    }
+  }
+</main>
+
+<!-- ────────────── FOOTER ────────────── -->
+@if (currentStep() < 4) {
+  <footer class="ob-footer">
+    <div class="ob-footer__inner">
+      <!-- Back -->
+      @if (currentStep() > 1) {
+        <button class="ob-footer__back" (click)="goBack()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back
+        </button>
+      } @else {
+        <div></div>
+      }
+
+      <!-- Center hint -->
+      <span class="ob-footer__hint">Your progress is saved automatically</span>
+
+      <!-- Next -->
+      <button
+        class="ob-footer__next"
+        [disabled]="!canProceed()"
+        (click)="goNext()"
+      >
+        {{ nextLabel() }}
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </button>
+    </div>
+  </footer>
+}

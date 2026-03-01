@@ -6,68 +6,8 @@ import { ScrollAnimationService } from '../../services/scroll-animation.service'
   selector: 'app-trust-bar',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <section class="trust" #trustSection>
-      <div class="section-container">
-        <p class="trust__label">Trusted by students from</p>
-      </div>
-      <div class="trust__track">
-        <div class="trust__scroll">
-          @for (logo of allLogos; track $index) {
-            <div class="trust__logo">{{ logo }}</div>
-          }
-        </div>
-      </div>
-    </section>
-  `,
-  styles: [`
-    :host { display: block; }
-
-    .trust {
-      padding: 60px 0 80px;
-      border-top: 1px solid var(--border-subtle);
-      border-bottom: 1px solid var(--border-subtle);
-      overflow: hidden;
-    }
-
-    .trust__label {
-      text-align: center;
-      font-size: 14px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      margin-bottom: 32px;
-    }
-
-    .trust__track {
-      position: relative;
-      overflow: hidden;
-      mask-image: linear-gradient(90deg, transparent, black 15%, black 85%, transparent);
-      -webkit-mask-image: linear-gradient(90deg, transparent, black 15%, black 85%, transparent);
-    }
-
-    .trust__scroll {
-      display: flex;
-      gap: 60px;
-      width: max-content;
-      animation: scroll-left 30s linear infinite;
-    }
-
-    .trust__logo {
-      flex-shrink: 0;
-      font-family: var(--font-display);
-      font-size: 18px;
-      font-weight: 600;
-      color: var(--text-muted);
-      white-space: nowrap;
-      opacity: 0.5;
-      transition: opacity 0.3s;
-    }
-    .trust__logo:hover {
-      opacity: 1;
-      color: var(--text-secondary);
-    }
-  `]
+  templateUrl: './trust-bar.component.html',
+  styleUrl: './trust-bar.component.scss'
 })
 export class TrustBarComponent implements AfterViewInit {
   @ViewChild('trustSection') section!: ElementRef;

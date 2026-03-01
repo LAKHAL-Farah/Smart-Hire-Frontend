@@ -85,6 +85,27 @@ export const routes: Routes = [
             (m) => m.SettingsComponent
           ),
       },
+      {
+        path: 'interview',
+        loadComponent: () =>
+          import('./features/dashboard/interview/interview.component').then(
+            (m) => m.InterviewComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id',
+        loadComponent: () =>
+          import('./features/dashboard/interview/session/interview-session.component').then(
+            (m) => m.InterviewSessionComponent
+          ),
+      },
+      {
+        path: 'interview/report/:id',
+        loadComponent: () =>
+          import('./features/dashboard/interview/report/interview-report.component').then(
+            (m) => m.InterviewReportComponent
+          ),
+      },
     ],
   },
 ];

@@ -1,0 +1,158 @@
+<div class="cv-page">
+  <!-- ═══ PAGE HEADER ═══ -->
+  <section class="page-header">
+    <h1 class="page-header__title">CV Optimizer</h1>
+    <button class="btn-primary-grad" (click)="onUploadNew()">Upload New CV +</button>
+  </section>
+
+  <!-- ═══ TWO-COLUMN LAYOUT ═══ -->
+  <div class="cv-layout">
+
+    <!-- ─── LEFT: CV List (35%) ─── -->
+    <aside class="cv-list">
+      @for (cv of cvCards; track cv.id) {
+        <div
+          class="cv-card"
+          [class.cv-card--active]="selectedCvId() === cv.id"
+          (click)="selectedCvId.set(cv.id)">
+          <div class="cv-card__left-strip"></div>
+          <div class="cv-card__body">
+            <div class="cv-card__top">
+              <span class="cv-card__title">{{ cv.title }}</span>
+              <span class="cv-card__version">v{{ cv.version }}</span>
+            </div>
+            <span class="cv-card__date">{{ cv.date }}</span>
+            <div class="cv-card__bottom">
+              <!-- Mini score ring -->
+              <div class="mini-ring">
+                <svg width="48" height="48" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="4"/>
+                  <circle cx="24" cy="24" r="20" fill="none"
+                    [attr.stroke]="cv.atsScore >= 70 ? '#2ee8a5' : cv.atsScore >= 50 ? '#f59e0b' : '#ef4444'"
+                    stroke-width="4" stroke-linecap="round"
+                    [attr.stroke-dasharray]="miniCircum"
+                    [attr.stroke-dashoffset]="miniCircum * (1 - cv.atsScore / 100)"
+                    style="transform: rotate(-90deg); transform-origin: center;"/>
+                </svg>
+                <span class="mini-ring__pct">{{ cv.atsScore }}</span>
+              </div>
+              <!-- Icon buttons -->
+              <div class="cv-card__actions">
+                <button class="cv-card__icon-btn" title="Edit">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="cv-card__icon-btn" title="Enhance with AI">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </button>
+                <button class="cv-card__icon-btn" title="Set as Default" [class.cv-card__icon-btn--default]="cv.isDefault">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Upload dashed card -->
+      <button class="cv-upload-card" (click)="onUploadNew()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2ee8a5" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span class="cv-upload-card__text">Upload CV</span>
+      </button>
+    </aside>
+
+    <!-- ─── RIGHT: Preview & Analysis (65%) ─── -->
+    <main class="cv-panel">
+      <!-- Tab row -->
+      <div class="tab-row">
+        @for (tab of tabs; track tab.id) {
+          <button
+            class="tab-btn"
+            [class.tab-btn--active]="activeTab() === tab.id"
+            (click)="activeTab.set(tab.id)">
+            {{ tab.label }}
+          </button>
+        }
+      </div>
+
+      <!-- ══ Preview Tab ══ -->
+      @if (activeTab() === 'preview') {
+        <div class="tab-content">
+          @for (sec of cvSections; track sec.name) {
+            <div class="preview-section">
+              <div class="preview-section__header">
+                <span class="preview-section__label">{{ sec.name }}</span>
+                <span class="preview-section__score"
+                  [class.preview-section__score--high]="sec.score >= 70"
+                  [class.preview-section__score--mid]="sec.score >= 50 && sec.score < 70"
+                  [class.preview-section__score--low]="sec.score < 50">
+                  {{ sec.score }}%
+                </span>
+              </div>
+              <div class="preview-section__body">
+                @for (line of sec.content.split('\\n'); track line) {
+                  <p class="preview-section__line">{{ line }}</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ══ Sections Tab ══ -->
+      @if (activeTab() === 'sections') {
+        <div class="tab-content">
+          @for (sec of cvSections; track sec.name) {
+            <div class="edit-section">
+              <div class="edit-section__header">
+                <span class="edit-section__label">{{ sec.name }}</span>
+                <span class="edit-section__score"
+                  [class.edit-section__score--high]="sec.score >= 70"
+                  [class.edit-section__score--mid]="sec.score >= 50 && sec.score < 70"
+                  [class.edit-section__score--low]="sec.score < 50">
+                  {{ sec.score }}%
+                </span>
+              </div>
+              <textarea
+                class="edit-section__textarea"
+                [(ngModel)]="sec.content"
+                rows="5">
+              </textarea>
+              <button class="btn-ai-improve">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                AI Improve This Section
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ══ Enhancements Tab ══ -->
+      @if (activeTab() === 'enhancements') {
+        <div class="tab-content">
+          @if (enhancements.length === 0) {
+            <div class="empty-enhance">
+              <p class="empty-enhance__text">No enhancements yet. Use the AI to improve a section.</p>
+            </div>
+          } @else {
+            <div class="enhance-list">
+              @for (e of enhancements; track e.jobTitle + e.date) {
+                <div class="enhance-row">
+                  <div class="enhance-row__info">
+                    <span class="enhance-row__job">{{ e.jobTitle }}</span>
+                    <span class="enhance-row__date">{{ e.date }}</span>
+                  </div>
+                  <div class="enhance-row__scores">
+                    <span class="enhance-row__before">{{ e.scoreBefore }}%</span>
+                    <svg class="enhance-row__arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                    <span class="enhance-row__after">{{ e.scoreAfter }}%</span>
+                  </div>
+                  <a href="javascript:void(0)" class="enhance-row__link">View Changes</a>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </main>
+  </div>
+</div>

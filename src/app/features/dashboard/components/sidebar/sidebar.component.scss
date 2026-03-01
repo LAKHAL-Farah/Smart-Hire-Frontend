@@ -1,0 +1,129 @@
+:host { display: block; }
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 100vh;
+  background: #111D2B;
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 0;
+  z-index: 60;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Logo */
+.sidebar__logo {
+  display: block;
+  padding: 0 24px;
+  margin-bottom: 32px;
+  font-family: 'Syne', var(--font-display), sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  text-decoration: none;
+  background: linear-gradient(135deg, #2ee8a5, #10b981);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Nav */
+.sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar__section-label {
+  display: block;
+  padding: 0 24px;
+  margin-bottom: 8px;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 24px;
+}
+
+.sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 24px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  background: none;
+  font-family: var(--font-sans);
+  width: 100%;
+  text-align: left;
+}
+.sidebar__item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+}
+
+.sidebar__item--active {
+  border-left-color: var(--accent-teal) !important;
+  background: rgba(46, 232, 165, 0.05) !important;
+  color: var(--accent-teal) !important;
+}
+.sidebar__item--active .sidebar__icon {
+  color: var(--accent-teal);
+}
+
+.sidebar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: inherit;
+  flex-shrink: 0;
+}
+.sidebar__icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.sidebar__label {
+  white-space: nowrap;
+}
+
+/* Bottom */
+.sidebar__bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+}
+
+.sidebar__item--logout:hover {
+  color: #f44336;
+}
+
+/* Disabled state during quiz */
+.sidebar--disabled .sidebar__nav,
+.sidebar--disabled .sidebar__bottom {
+  opacity: 0.3;
+  pointer-events: none;
+  user-select: none;
+}

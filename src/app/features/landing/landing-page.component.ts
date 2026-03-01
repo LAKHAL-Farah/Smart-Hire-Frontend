@@ -32,31 +32,8 @@ import { ScrollAnimationService } from './services/scroll-animation.service';
     PricingComponent,
     CtaComponent,
   ],
-  template: `
-    <app-navbar />
-    <main>
-      <app-hero />
-      <app-trust-bar />
-      <app-problem />
-      <app-solution />
-      <app-features-grid />
-      <app-stats />
-      <app-how-it-works />
-      <app-testimonials />
-      <app-pricing />
-      <app-cta />
-    </main>
-    <app-footer />
-  `,
-  styles: [`
-    :host {
-      display: block;
-      min-height: 100vh;
-    }
-    main {
-      overflow-x: hidden;
-    }
-  `]
+  templateUrl: './landing-page.component.html',
+  styleUrl: './landing-page.component.scss'
 })
 export class LandingPageComponent implements AfterViewInit, OnDestroy {
 

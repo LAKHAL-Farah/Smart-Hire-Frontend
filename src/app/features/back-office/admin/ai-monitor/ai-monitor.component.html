@@ -1,0 +1,227 @@
+<!-- ═══════ AI PERFORMANCE MONITOR ═══════ -->
+<div class="ai-page">
+
+  <!-- ╌╌╌ Page Header ╌╌╌ -->
+  <header class="page-hdr">
+    <div>
+      <h1 class="page-hdr__title">AI Performance Monitor</h1>
+      <p class="page-hdr__sub">Track AI feature quality, latency, and usage across the platform</p>
+    </div>
+    <div class="page-hdr__actions">
+      <select [(ngModel)]="dateRange" class="range-select">
+        <option *ngFor="let r of dateRanges" [value]="r">{{ r }}</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- ╌╌╌ Metric Cards Strip ╌╌╌ -->
+  <div class="metrics-strip">
+
+    <!-- Card 1: Rating -->
+    <div class="mcard">
+      <div class="mcard__icon mcard__icon--teal">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <div class="mcard__body">
+        <span class="mcard__label">{{ metrics[0].label }}</span>
+        <span class="mcard__value">{{ metrics[0].value }}<span class="mcard__value-unit"> / 5</span></span>
+        <div class="mcard__stars">
+          <ng-container *ngFor="let s of getStarArray(metrics[0].ratingValue!)">
+            <svg *ngIf="s === 'full'" class="star star--full" width="16" height="16" viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <svg *ngIf="s === 'half'" class="star star--half" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1">
+              <defs><linearGradient id="halfStar"><stop offset="50%" stop-color="#fbbf24"/><stop offset="50%" stop-color="transparent"/></linearGradient></defs>
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="url(#halfStar)"/>
+            </svg>
+            <svg *ngIf="s === 'empty'" class="star star--empty" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </ng-container>
+        </div>
+      </div>
+      <span class="mcard__trend mcard__trend--up">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        +{{ metrics[0].trend }}%
+      </span>
+    </div>
+
+    <!-- Card 2: Acceptance Rate -->
+    <div class="mcard">
+      <div class="mcard__icon mcard__icon--emerald">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="mcard__body">
+        <span class="mcard__label">{{ metrics[1].label }}</span>
+        <span class="mcard__value">{{ metrics[1].value }}</span>
+      </div>
+      <span class="mcard__trend mcard__trend--up">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        +{{ metrics[1].trend }}%
+      </span>
+    </div>
+
+    <!-- Card 3: Response Time -->
+    <div class="mcard">
+      <div class="mcard__icon mcard__icon--blue">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </div>
+      <div class="mcard__body">
+        <span class="mcard__label">{{ metrics[2].label }}</span>
+        <span class="mcard__value" [class.value--warning]="metrics[2].isWarning">{{ metrics[2].value }}</span>
+      </div>
+      <span class="mcard__trend mcard__trend--down-good">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+        {{ metrics[2].trend }}%
+      </span>
+    </div>
+
+    <!-- Card 4: API Calls -->
+    <div class="mcard">
+      <div class="mcard__icon mcard__icon--amber">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <div class="mcard__body">
+        <span class="mcard__label">{{ metrics[3].label }}</span>
+        <span class="mcard__value">{{ metrics[3].value }}</span>
+        <span class="mcard__sub">{{ metrics[3].subValue }}</span>
+      </div>
+      <span class="mcard__trend mcard__trend--up">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        +{{ metrics[3].trend }}%
+      </span>
+    </div>
+  </div>
+
+  <!-- ╌╌╌ Two-Column Charts Area ╌╌╌ -->
+  <div class="charts-body">
+
+    <!-- ══════════ LEFT COLUMN ══════════ -->
+    <div class="charts-left">
+
+      <!-- Line Chart -->
+      <div class="chart-card">
+        <h3 class="chart-card__title">Recommendation Ratings Over Time</h3>
+        <div class="chart-area">
+          <svg viewBox="0 0 560 200" class="line-chart">
+            <!-- Grid lines -->
+            <line x1="20" y1="20" x2="540" y2="20" class="grid-line"/>
+            <line x1="20" y1="60" x2="540" y2="60" class="grid-line"/>
+            <line x1="20" y1="100" x2="540" y2="100" class="grid-line"/>
+            <line x1="20" y1="140" x2="540" y2="140" class="grid-line"/>
+            <line x1="20" y1="180" x2="540" y2="180" class="grid-line"/>
+
+            <!-- Y-axis labels -->
+            <text x="12" y="24" class="axis-label">5.0</text>
+            <text x="12" y="64" class="axis-label">4.4</text>
+            <text x="12" y="104" class="axis-label">3.8</text>
+            <text x="12" y="144" class="axis-label">3.1</text>
+            <text x="12" y="184" class="axis-label">2.5</text>
+
+            <!-- X-axis labels -->
+            <ng-container *ngFor="let m of chartMonths; let i = index">
+              <text [attr.x]="20 + i * (520 / 11)" y="197" class="axis-label axis-label--x">{{ m }}</text>
+            </ng-container>
+
+            <!-- Data lines -->
+            <ng-container *ngFor="let line of chartLines">
+              <g [attr.transform]="'translate(20, 20)'">
+                <path [attr.d]="getChartPath(line.points)" [attr.stroke]="line.color" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chart-path"/>
+              </g>
+            </ng-container>
+          </svg>
+        </div>
+
+        <!-- Legend -->
+        <div class="chart-legend">
+          <span *ngFor="let line of chartLines" class="legend-item">
+            <span class="legend-dot" [style.background]="line.color"></span>
+            {{ line.label }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Lowest Rated Recommendations -->
+      <div class="chart-card">
+        <h3 class="chart-card__title">Lowest Rated Recommendations</h3>
+        <div class="lowest-list">
+          <div *ngFor="let rec of lowestRated" class="lowest-item">
+            <div class="lowest-item__body">
+              <span class="lowest-item__type" [ngClass]="'type--' + rec.type.toLowerCase()">{{ rec.type }}</span>
+              <p class="lowest-item__text">{{ rec.text }}</p>
+              <div class="lowest-item__stars">
+                <ng-container *ngFor="let s of getStarArray(rec.rating)">
+                  <svg *ngIf="s === 'full'" class="star-sm star-sm--full" width="13" height="13" viewBox="0 0 24 24" fill="#fbbf24" stroke="#fbbf24" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <svg *ngIf="s === 'half'" class="star-sm star-sm--half" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1">
+                    <defs><linearGradient [attr.id]="'halfSm' + rec.id"><stop offset="50%" stop-color="#fbbf24"/><stop offset="50%" stop-color="transparent"/></linearGradient></defs>
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" [attr.fill]="'url(#halfSm' + rec.id + ')'"/>
+                  </svg>
+                  <svg *ngIf="s === 'empty'" class="star-sm star-sm--empty" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.2)" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </ng-container>
+                <span class="lowest-item__rating">{{ rec.rating }}</span>
+              </div>
+              <p *ngIf="rec.comment" class="lowest-item__comment">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                "{{ rec.comment }}"
+              </p>
+            </div>
+            <button class="lowest-item__archive" (click)="archiveType(rec)">Archive this type</button>
+          </div>
+
+          <div *ngIf="lowestRated.length === 0" class="empty-msg">All low-rated recommendations have been archived.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ RIGHT COLUMN ══════════ -->
+    <div class="charts-right">
+
+      <!-- Bar Chart: API Usage by Module -->
+      <div class="chart-card">
+        <h3 class="chart-card__title">AI API Usage by Module</h3>
+        <div class="bar-chart">
+          <div *ngFor="let m of moduleUsage" class="bar-row">
+            <span class="bar-row__label">{{ m.module }}</span>
+            <div class="bar-row__track">
+              <div class="bar-row__fill" [style.width.%]="getBarWidth(m.calls)" [style.background]="m.color"></div>
+            </div>
+            <span class="bar-row__value">{{ m.calls | number }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prompt Performance Table -->
+      <div class="chart-card">
+        <h3 class="chart-card__title">Prompt Performance</h3>
+        <div class="perf-table-wrap">
+          <table class="perf-table">
+            <thead>
+              <tr>
+                <th>Feature Name</th>
+                <th>Avg Score</th>
+                <th>Calls Today</th>
+                <th>P95 Latency</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of promptPerformance" class="perf-row">
+                <td class="perf-feature">{{ p.feature }}</td>
+                <td>
+                  <span class="perf-score" [class.perf-score--low]="p.avgScore < 3.5">{{ p.avgScore.toFixed(1) }}</span>
+                </td>
+                <td class="perf-calls">{{ p.callsToday | number }}</td>
+                <td>
+                  <span [ngClass]="getLatencyClass(p.p95Latency)">{{ p.p95Latency | number }}ms</span>
+                </td>
+                <td>
+                  <span class="st" [ngClass]="getStatusClass(p.status)">
+                    <span class="st__dot"></span>
+                    {{ p.status }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

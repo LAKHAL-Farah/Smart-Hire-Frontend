@@ -146,6 +146,20 @@ export const routes: Routes = [
             (m) => m.JobManagementComponent
           ),
       },
+      {
+        path: 'questions',
+        loadComponent: () =>
+          import('./features/back-office/admin/questions/question-management.component').then(
+            (m) => m.QuestionManagementComponent
+          ),
+      },
+      {
+        path: 'ai-monitor',
+        loadComponent: () =>
+          import('./features/back-office/admin/ai-monitor/ai-monitor.component').then(
+            (m) => m.AiMonitorComponent
+          ),
+      },
     ],
   },
 ];

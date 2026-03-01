@@ -1,0 +1,294 @@
+<!-- ═══════ INTERVIEW QUESTIONS — TWO-COLUMN LAYOUT ═══════ -->
+<div class="qm-page">
+
+  <!-- ╌╌╌ Page Header ╌╌╌ -->
+  <header class="page-hdr">
+    <div>
+      <h1 class="page-hdr__title">Interview Questions</h1>
+      <p class="page-hdr__sub">Manage the global question bank for interview practice</p>
+    </div>
+    <div class="page-hdr__stats">
+      <span class="stat-pill stat-pill--teal">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        {{ totalActive }} Active
+      </span>
+      <span class="stat-pill stat-pill--gray">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+        {{ totalArchived }} Archived
+      </span>
+      <ng-container *ngFor="let c of categoryBreakdown">
+        <span class="stat-pill stat-pill--dim">{{ c.label }}: {{ c.count }}</span>
+      </ng-container>
+    </div>
+  </header>
+
+  <!-- ╌╌╌ Two-Column Body ╌╌╌ -->
+  <div class="qm-body">
+
+    <!-- ══════════ LEFT COLUMN (65%) — Table ══════════ -->
+    <section class="qm-left">
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar__search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" [(ngModel)]="searchQuery" placeholder="Search questions or tags..." class="toolbar__input" (ngModelChange)="currentPage = 1" />
+        </div>
+
+        <select [(ngModel)]="categoryFilter" class="toolbar__select" (ngModelChange)="currentPage = 1">
+          <option *ngFor="let c of categories" [value]="c">{{ c === 'All' ? 'All Categories' : c }}</option>
+        </select>
+
+        <select [(ngModel)]="difficultyFilter" class="toolbar__select" (ngModelChange)="currentPage = 1">
+          <option *ngFor="let d of difficulties" [value]="d">{{ d === 'All' ? 'All Difficulties' : d }}</option>
+        </select>
+
+        <select [(ngModel)]="careerPathFilter" class="toolbar__select" (ngModelChange)="currentPage = 1">
+          <option *ngFor="let cp of careerPaths" [value]="cp">{{ cp === 'All' ? 'All Career Paths' : cp }}</option>
+        </select>
+      </div>
+
+      <!-- Table -->
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="col-question">Question</th>
+              <th class="col-category">Category</th>
+              <th class="col-diff">Difficulty</th>
+              <th class="col-career">Career Path</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let q of paginatedQuestions" class="data-row">
+              <!-- Question text (truncated) -->
+              <td class="col-question">
+                <span class="q-text" [title]="q.text">{{ q.text }}</span>
+                <span class="q-tags">
+                  <span *ngFor="let t of q.tags.slice(0, 3)" class="q-tag">{{ t }}</span>
+                  <span *ngIf="q.tags.length > 3" class="q-tag q-tag--more">+{{ q.tags.length - 3 }}</span>
+                </span>
+              </td>
+
+              <!-- Category badge -->
+              <td class="col-category">
+                <span class="cbadge" [ngClass]="getCategoryClass(q.category)">{{ q.category }}</span>
+              </td>
+
+              <!-- Difficulty badge -->
+              <td class="col-diff">
+                <span class="dbadge" [ngClass]="getDifficultyClass(q.difficulty)">{{ q.difficulty }}</span>
+              </td>
+
+              <!-- Career Path -->
+              <td class="col-career">
+                <span class="career-tag">{{ q.careerPath }}</span>
+              </td>
+
+              <!-- Actions -->
+              <td class="col-actions">
+                <div class="action-group">
+                  <button class="action-btn action-btn--edit" (click)="editQuestion(q)" title="Edit">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="action-btn action-btn--archive" (click)="archiveQuestion(q)" title="Archive">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+                  </button>
+                  <button class="action-btn action-btn--preview" (click)="openPreview(q)" title="Preview">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="paginatedQuestions.length === 0">
+              <td colspan="5" class="empty-row">No questions match your filters.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination" *ngIf="totalPages > 1">
+        <button class="pg-btn" (click)="goPage(currentPage - 1)" [disabled]="currentPage === 1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <ng-container *ngFor="let p of pageNumbers">
+          <button class="pg-btn" [class.pg-btn--active]="p === currentPage" (click)="goPage(p)">{{ p }}</button>
+        </ng-container>
+        <button class="pg-btn" (click)="goPage(currentPage + 1)" [disabled]="currentPage === totalPages">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <span class="pg-info">{{ filteredQuestions.length }} questions</span>
+      </div>
+    </section>
+
+    <!-- ══════════ RIGHT COLUMN (35%) — Form ══════════ -->
+    <aside class="qm-right">
+      <div class="form-panel">
+        <div class="form-panel__header">
+          <h2 class="form-panel__title">{{ editingId ? 'Edit Question' : 'Add New Question' }}</h2>
+          <span *ngIf="editingId" class="form-panel__editing">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Editing #{{ editingId }}
+          </span>
+        </div>
+
+        <!-- Question Text -->
+        <div class="form-field">
+          <label class="form-label">Question Text</label>
+          <textarea [(ngModel)]="formText" class="form-textarea" rows="4" placeholder="Type the interview question..."></textarea>
+        </div>
+
+        <!-- Category -->
+        <div class="form-field">
+          <label class="form-label">Category</label>
+          <select [(ngModel)]="formCategory" class="form-select">
+            <option value="Technical">Technical</option>
+            <option value="Behavioral">Behavioral</option>
+            <option value="System Design">System Design</option>
+          </select>
+        </div>
+
+        <!-- Difficulty -->
+        <div class="form-field">
+          <label class="form-label">Difficulty</label>
+          <select [(ngModel)]="formDifficulty" class="form-select">
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+            <option value="Expert">Expert</option>
+          </select>
+        </div>
+
+        <!-- Career Path Multi-Select -->
+        <div class="form-field">
+          <label class="form-label">Career Path</label>
+          <div class="multi-select" (click)="toggleCareerPathDropdown()">
+            <div class="multi-select__display">
+              <span *ngIf="formCareerPaths.length === 0" class="multi-select__placeholder">Select career paths...</span>
+              <span *ngFor="let cp of formCareerPaths" class="multi-chip">
+                {{ cp }}
+                <button class="multi-chip__x" (click)="removeCareerPath(cp); $event.stopPropagation()">×</button>
+              </span>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="multi-dropdown" *ngIf="careerPathDropdownOpen">
+            <label *ngFor="let cp of careerPaths.slice(1)" class="multi-option" (click)="toggleCareerPath(cp); $event.stopPropagation()">
+              <span class="multi-check" [class.multi-check--active]="isCareerPathSelected(cp)">
+                <svg *ngIf="isCareerPathSelected(cp)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              {{ cp }}
+            </label>
+          </div>
+        </div>
+
+        <!-- Tags Multi-Select -->
+        <div class="form-field">
+          <label class="form-label">Tags</label>
+          <div class="multi-select" (click)="toggleTagDropdown()">
+            <div class="multi-select__display">
+              <span *ngIf="formTags.length === 0" class="multi-select__placeholder">Select tags...</span>
+              <span *ngFor="let t of formTags" class="multi-chip multi-chip--tag">
+                {{ t }}
+                <button class="multi-chip__x" (click)="removeTag(t); $event.stopPropagation()">×</button>
+              </span>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div class="multi-dropdown" *ngIf="tagDropdownOpen">
+            <label *ngFor="let t of allTags" class="multi-option" (click)="toggleTag(t); $event.stopPropagation()">
+              <span class="multi-check" [class.multi-check--active]="isTagSelected(t)">
+                <svg *ngIf="isTagSelected(t)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              {{ t }}
+            </label>
+          </div>
+        </div>
+
+        <!-- Sample Answer -->
+        <div class="form-field">
+          <div class="form-label-row">
+            <label class="form-label">Sample Answer</label>
+            <button class="ai-btn" (click)="generateSampleAnswer()" [disabled]="aiGenerating || !formText.trim()">
+              <svg *ngIf="!aiGenerating" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
+              <span *ngIf="aiGenerating" class="ai-spinner"></span>
+              {{ aiGenerating ? 'Generating...' : 'AI Generate' }}
+            </button>
+          </div>
+          <textarea [(ngModel)]="formSampleAnswer" class="form-textarea form-textarea--tall" rows="6" placeholder="Enter the expected sample answer..."></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="form-actions">
+          <button class="btn btn--save" (click)="saveForm()" [disabled]="!formText.trim()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            {{ editingId ? 'Update Question' : 'Add Question' }}
+          </button>
+          <button class="btn btn--cancel" (click)="resetForm()">Cancel</button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<!-- ═══════ PREVIEW MODAL ═══════ -->
+<div class="modal-overlay" *ngIf="previewOpen" (click)="closePreview()">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h3 class="modal__title">Question Preview</h3>
+      <span class="modal__subtitle">As seen by candidates</span>
+      <button class="modal__close" (click)="closePreview()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="modal__body" *ngIf="previewQuestion">
+      <!-- Meta badges -->
+      <div class="preview-meta">
+        <span class="cbadge" [ngClass]="getCategoryClass(previewQuestion.category)">{{ previewQuestion.category }}</span>
+        <span class="dbadge" [ngClass]="getDifficultyClass(previewQuestion.difficulty)">{{ previewQuestion.difficulty }}</span>
+        <span class="career-tag">{{ previewQuestion.careerPath }}</span>
+      </div>
+
+      <!-- Question block (candidate view) -->
+      <div class="preview-question">
+        <div class="preview-question__icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <p class="preview-question__text">{{ previewQuestion.text }}</p>
+      </div>
+
+      <!-- Tags -->
+      <div class="preview-tags">
+        <span *ngFor="let t of previewQuestion.tags" class="q-tag q-tag--preview">{{ t }}</span>
+      </div>
+
+      <!-- Divider -->
+      <div class="preview-divider">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 2.4 1.2 4.5 3 5.7V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.3c1.8-1.2 3-3.3 3-5.7a7 7 0 0 0-7-7z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
+        Sample Answer
+      </div>
+
+      <!-- Sample answer -->
+      <div class="preview-answer">
+        <p>{{ previewQuestion.sampleAnswer }}</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="preview-stats">
+        <span class="preview-stat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          Used {{ previewQuestion.usageCount }} times
+        </span>
+        <span class="preview-stat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Added {{ previewQuestion.createdAt }}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>

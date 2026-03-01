@@ -132,6 +132,20 @@ export const routes: Routes = [
             (m) => m.UserManagementComponent
           ),
       },
+      {
+        path: 'recruiters',
+        loadComponent: () =>
+          import('./features/back-office/admin/recruiters/recruiter-management.component').then(
+            (m) => m.RecruiterManagementComponent
+          ),
+      },
+      {
+        path: 'jobs',
+        loadComponent: () =>
+          import('./features/back-office/admin/jobs/job-management.component').then(
+            (m) => m.JobManagementComponent
+          ),
+      },
     ],
   },
 ];

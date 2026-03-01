@@ -160,6 +160,27 @@ export const routes: Routes = [
             (m) => m.AiMonitorComponent
           ),
       },
+      {
+        path: 'analytics',
+        loadComponent: () =>
+          import('./features/back-office/admin/analytics/analytics.component').then(
+            (m) => m.AnalyticsComponent
+          ),
+      },
+      {
+        path: 'careers',
+        loadComponent: () =>
+          import('./features/back-office/admin/career-paths/career-paths.component').then(
+            (m) => m.CareerPathsComponent
+          ),
+      },
+      {
+        path: 'health',
+        loadComponent: () =>
+          import('./features/back-office/admin/system-health/system-health.component').then(
+            (m) => m.SystemHealthComponent
+          ),
+      },
     ],
   },
 ];

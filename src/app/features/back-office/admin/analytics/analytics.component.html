@@ -1,0 +1,180 @@
+<!-- ═══════ PLATFORM ANALYTICS ═══════ -->
+<div class="an-page">
+
+  <!-- ╌╌╌ Page Header ╌╌╌ -->
+  <header class="page-hdr">
+    <div>
+      <h1 class="page-hdr__title">Platform Analytics</h1>
+      <p class="page-hdr__sub">Business intelligence and growth metrics across SmartHire</p>
+    </div>
+    <select [(ngModel)]="dateRange" class="range-select">
+      <option *ngFor="let r of dateRanges" [value]="r">{{ r }}</option>
+    </select>
+  </header>
+
+  <!-- ══════════ SUMMARY CARDS ══════════ -->
+  <div class="summary-strip">
+
+    <!-- MRR -->
+    <div class="scard">
+      <span class="scard__label">Monthly Recurring Revenue</span>
+      <span class="scard__big">${{ mrr | number }}</span>
+      <span class="scard__change scard__change--up">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        +{{ mrrChange }}% MoM
+      </span>
+    </div>
+
+    <!-- Active Users -->
+    <div class="scard">
+      <span class="scard__label">Total Active Users</span>
+      <span class="scard__big">{{ totalActiveUsers | number }}</span>
+      <div class="scard__mini-bars">
+        <div *ngFor="let d of dailyActives" class="mini-bar"
+             [style.height.%]="(d / maxDaily) * 100"
+             [title]="d + ' users'"></div>
+      </div>
+    </div>
+
+    <!-- Churn Rate -->
+    <div class="scard">
+      <span class="scard__label">Churn Rate</span>
+      <span class="scard__big" [class.scard__big--warn]="churnTrend > 0">{{ churnRate }}%</span>
+      <span class="scard__change" [ngClass]="churnTrend > 0 ? 'scard__change--down-bad' : 'scard__change--down-good'">
+        <svg *ngIf="churnTrend > 0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        <svg *ngIf="churnTrend <= 0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+        {{ churnTrend > 0 ? '+' : '' }}{{ churnTrend }}% vs last period
+      </span>
+    </div>
+  </div>
+
+  <!-- ══════════ 2×2 CHART GRID ══════════ -->
+  <div class="chart-grid">
+
+    <!-- ━━━ Donut: User Acquisition ━━━ -->
+    <div class="chart-card">
+      <h3 class="chart-card__title">User Acquisition by Channel</h3>
+      <div class="donut-wrap">
+        <svg viewBox="0 0 180 180" class="donut-svg">
+          <ng-container *ngFor="let seg of getDonutSegments(); let i = index">
+            <circle cx="90" cy="90" r="70" fill="none"
+                    [attr.stroke]="seg.color"
+                    stroke-width="22"
+                    [attr.stroke-dasharray]="seg.dashArray"
+                    [attr.stroke-dashoffset]="'-' + seg.offset"
+                    transform="rotate(-90 90 90)"
+                    class="donut-seg" />
+          </ng-container>
+          <text x="90" y="85" text-anchor="middle" class="donut-total">{{ acquisitionTotal | number }}</text>
+          <text x="90" y="102" text-anchor="middle" class="donut-label">Total Users</text>
+        </svg>
+        <div class="donut-legend">
+          <div *ngFor="let c of acquisitionChannels" class="legend-row">
+            <span class="legend-dot" [style.background]="c.color"></span>
+            <span class="legend-name">{{ c.label }}</span>
+            <span class="legend-val">{{ c.value | number }}</span>
+            <span class="legend-pct">{{ ((c.value / acquisitionTotal) * 100).toFixed(1) }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━ Heatmap: Feature Usage ━━━ -->
+    <div class="chart-card">
+      <h3 class="chart-card__title">Feature Usage Heatmap</h3>
+      <div class="heatmap-wrap">
+        <table class="heatmap">
+          <thead>
+            <tr>
+              <th></th>
+              <th *ngFor="let d of heatmapDays" class="hm-day">{{ d }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let mod of heatmapModules; let ri = index">
+              <td class="hm-module">{{ mod }}</td>
+              <td *ngFor="let d of heatmapDays; let ci = index">
+                <span class="hm-cell"
+                      [style.background]="'rgba(46,232,165,' + getHeatmapOpacity(heatmapData[ri][ci]) + ')'"
+                      [title]="mod + ' · ' + d + ': ' + heatmapData[ri][ci] + '%'">
+                  {{ heatmapData[ri][ci] }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ━━━ Histogram: Assessment Scores ━━━ -->
+    <div class="chart-card">
+      <h3 class="chart-card__title">Assessment Score Distribution</h3>
+      <div class="histogram-wrap">
+        <div class="histogram">
+          <div *ngFor="let b of scoreBuckets; let i = index" class="hist-bar-col">
+            <div class="hist-bar" [style.height.%]="(b.count / maxBucket) * 100"></div>
+            <span class="hist-label">{{ b.range }}</span>
+          </div>
+          <!-- Average line -->
+          <div class="hist-avg-line" [style.left.%]="avgBarPosition">
+            <span class="hist-avg-tag">Avg: {{ averageScore }}</span>
+          </div>
+        </div>
+        <div class="histogram-footer">
+          <span class="hist-stat">Total assessments: {{ scoreBuckets | json | slice:0:0 }}{{ (scoreBuckets | slice:0).length > 0 ? (scoreBuckets[0].count + scoreBuckets[1].count + scoreBuckets[2].count + scoreBuckets[3].count + scoreBuckets[4].count + scoreBuckets[5].count + scoreBuckets[6].count + scoreBuckets[7].count + scoreBuckets[8].count + scoreBuckets[9].count | number) : 0 }}</span>
+          <span class="hist-stat">Average: {{ averageScore }}</span>
+          <span class="hist-stat">Median bucket: 61-70</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━ Funnel: Subscription Conversion ━━━ -->
+    <div class="chart-card">
+      <h3 class="chart-card__title">Subscription Conversion Funnel</h3>
+      <div class="funnel-wrap">
+        <div *ngFor="let step of funnelSteps; let i = index" class="funnel-row">
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar" [style.width.%]="getFunnelWidth(step.count)" [style.background]="step.color">
+              <span class="funnel-bar__label">{{ step.label }}</span>
+            </div>
+          </div>
+          <div class="funnel-stats">
+            <span class="funnel-count">{{ step.count | number }}</span>
+            <span class="funnel-pct" *ngIf="i > 0">{{ getFunnelDropoff(i) }}%</span>
+            <span class="funnel-pct funnel-pct--base" *ngIf="i === 0">100%</span>
+          </div>
+          <div class="funnel-drop" *ngIf="i < funnelSteps.length - 1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="funnel-drop__label">{{ 100 - getFunnelDropoff(i + 1) }}% drop-off</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ COHORT RETENTION ══════════ -->
+  <div class="cohort-section">
+    <h3 class="cohort-section__title">Cohort Retention</h3>
+    <p class="cohort-section__sub">Monthly retention rates by user registration cohort</p>
+    <div class="cohort-wrap">
+      <table class="cohort-table">
+        <thead>
+          <tr>
+            <th class="cohort-th cohort-th--label">Cohort</th>
+            <th *ngFor="let m of cohortMonths" class="cohort-th">{{ m }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of cohorts">
+            <td class="cohort-label">{{ row.month }}</td>
+            <td *ngFor="let val of row.retention" class="cohort-cell"
+                [style.background]="getCohortColor(val)"
+                [style.color]="getCohortTextColor(val)">
+              {{ val > 0 ? val + '%' : '—' }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

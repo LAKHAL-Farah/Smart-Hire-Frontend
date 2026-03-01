@@ -1,0 +1,466 @@
+<!-- ═══════ SYSTEM HEALTH ═══════ -->
+<div class="sh-page">
+
+  <!-- ╌╌╌ Page Header ╌╌╌ -->
+  <header class="page-hdr">
+    <div>
+      <h1 class="page-hdr__title">System Health</h1>
+      <p class="page-hdr__sub">Real-time monitoring of all platform services, APIs, and infrastructure.</p>
+    </div>
+    <div class="page-hdr__right">
+      <span class="refresh-label">
+        <svg class="refresh-icon" [class.refresh-icon--spinning]="isRefreshing" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Last refreshed {{ refreshCountdown }}s ago
+      </span>
+      <button class="btn-ghost">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export Report
+      </button>
+    </div>
+  </header>
+
+  <!-- ╌╌╌ Overall Status Banner ╌╌╌ -->
+  <div class="status-banner" [ngClass]="'banner--' + overallStatus">
+    <!-- Operational -->
+    <ng-container *ngIf="overallStatus === 'operational'">
+      <span class="banner-icon banner-icon--green">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+      <div class="banner-text">
+        <span class="banner-title">All Systems Operational</span>
+        <span class="banner-sub">Since 14 Feb 2025 — 18 days of clean uptime.</span>
+      </div>
+    </ng-container>
+    <!-- Degraded -->
+    <ng-container *ngIf="overallStatus === 'degraded'">
+      <span class="banner-icon banner-icon--orange">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </span>
+      <div class="banner-text">
+        <span class="banner-title">Partial Degradation Detected — {{ degradedServices.length }} service{{ degradedServices.length !== 1 ? 's' : '' }} affected</span>
+        <span class="banner-sub">
+          Affected: <span *ngFor="let s of degradedServices; let last = last">{{ s.name }}<span *ngIf="!last">, </span></span>
+        </span>
+      </div>
+    </ng-container>
+    <!-- Critical -->
+    <ng-container *ngIf="overallStatus === 'critical'">
+      <span class="banner-icon banner-icon--red pulse-dot"></span>
+      <div class="banner-text">
+        <span class="banner-title">Critical Outage — immediate attention required</span>
+        <span class="banner-sub">
+          Affected: <span *ngFor="let s of degradedServices; let last = last">{{ s.name }}<span *ngIf="!last">, </span></span>
+        </span>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- ╌╌╌ Main Two-Column Layout ╌╌╌ -->
+  <div class="sh-body">
+
+    <!-- ══════════ LEFT COLUMN — Services & Logs ══════════ -->
+    <div class="sh-left">
+
+      <!-- PLATFORM SERVICES -->
+      <div class="svc-section">
+        <div class="section-hdr">
+          <span class="section-label">Platform Services</span>
+          <span class="count-pill">{{ totalServiceCount }} services</span>
+        </div>
+
+        <!-- Core API -->
+        <h5 class="subsection-hdr">Core API</h5>
+        <div *ngFor="let svc of coreApi" class="svc-card" [ngClass]="getStatusClass(svc.status)">
+          <div class="svc-card__icon" [ngClass]="getStatusClass(svc.status)">
+            <!-- server icon -->
+            <svg *ngIf="svc.icon === 'server'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <svg *ngIf="svc.icon === 'radio'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.07"/><path d="M5 12.55a11 11 0 0 1 2.28-1.01"/><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>
+            <svg *ngIf="svc.icon === 'shield'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div class="svc-card__info">
+            <span class="svc-card__name">{{ svc.name }}</span>
+            <span class="svc-card__desc">{{ svc.description }}</span>
+          </div>
+          <div class="svc-card__metrics">
+            <div *ngFor="let m of svc.metrics" class="metric-chip" [class.metric-chip--amber]="m.amber">
+              <span class="metric-chip__label">{{ m.label }}</span>
+              <span class="metric-chip__value">{{ m.value }}</span>
+              <div *ngIf="m.barValue !== undefined" class="metric-bar">
+                <div class="metric-bar__fill" [style.width.%]="m.barValue" [class.metric-bar__fill--warn]="m.barValue! > 80"></div>
+              </div>
+            </div>
+          </div>
+          <div class="svc-card__right">
+            <span class="status-pill" [ngClass]="getStatusClass(svc.status)">{{ svc.status }}</span>
+            <button class="view-logs-link">View Logs →</button>
+          </div>
+          <div *ngIf="svc.warning" class="svc-card__warning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ svc.warning }}
+          </div>
+        </div>
+
+        <!-- AI Services -->
+        <h5 class="subsection-hdr">AI Services</h5>
+        <div *ngFor="let svc of aiServices" class="svc-card" [ngClass]="getStatusClass(svc.status)">
+          <div class="svc-card__icon" [ngClass]="getStatusClass(svc.status)">
+            <svg *ngIf="svc.icon === 'cpu'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+            <svg *ngIf="svc.icon === 'activity'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            <svg *ngIf="svc.icon === 'film'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
+          </div>
+          <div class="svc-card__info">
+            <span class="svc-card__name">{{ svc.name }}</span>
+            <span class="svc-card__desc">{{ svc.description }}</span>
+          </div>
+          <div class="svc-card__metrics">
+            <div *ngFor="let m of svc.metrics" class="metric-chip" [class.metric-chip--amber]="m.amber">
+              <span class="metric-chip__label">{{ m.label }}</span>
+              <span class="metric-chip__value">{{ m.value }}</span>
+            </div>
+          </div>
+          <div class="svc-card__right">
+            <span class="status-pill" [ngClass]="getStatusClass(svc.status)">{{ svc.status }}</span>
+            <button class="view-logs-link">View Logs →</button>
+          </div>
+          <div *ngIf="svc.warning" class="svc-card__warning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ svc.warning }}
+          </div>
+        </div>
+
+        <!-- External Integrations -->
+        <h5 class="subsection-hdr">External Integrations</h5>
+        <div *ngFor="let svc of integrations" class="svc-card svc-card--compact" [ngClass]="getStatusClass(svc.status)">
+          <div class="svc-card__icon svc-card__icon--sm" [ngClass]="getStatusClass(svc.status)">
+            <svg *ngIf="svc.icon === 'github'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            <svg *ngIf="svc.icon === 'globe'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <svg *ngIf="svc.icon === 'grid'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            <svg *ngIf="svc.icon === 'link'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <svg *ngIf="svc.icon === 'credit-card'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          </div>
+          <div class="svc-card__info">
+            <span class="svc-card__name">{{ svc.name }}</span>
+            <span class="svc-card__desc">{{ svc.description }}</span>
+          </div>
+          <div class="svc-card__metrics">
+            <div *ngFor="let m of svc.metrics" class="metric-chip" [class.metric-chip--amber]="m.amber">
+              <span class="metric-chip__label">{{ m.label }}</span>
+              <span class="metric-chip__value">{{ m.value }}</span>
+            </div>
+          </div>
+          <div class="svc-card__right">
+            <span class="status-pill" [ngClass]="getStatusClass(svc.status)">{{ svc.status }}</span>
+            <button class="view-logs-link">View Logs →</button>
+          </div>
+          <div *ngIf="svc.warning" class="svc-card__warning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ svc.warning }}
+          </div>
+        </div>
+
+        <!-- Infrastructure -->
+        <h5 class="subsection-hdr">Infrastructure</h5>
+        <div *ngFor="let svc of infrastructure" class="svc-card" [ngClass]="getStatusClass(svc.status)">
+          <div class="svc-card__icon" [ngClass]="getStatusClass(svc.status)">
+            <svg *ngIf="svc.icon === 'database'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            <svg *ngIf="svc.icon === 'zap'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <svg *ngIf="svc.icon === 'layers'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            <svg *ngIf="svc.icon === 'hard-drive'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/></svg>
+          </div>
+          <div class="svc-card__info">
+            <span class="svc-card__name">{{ svc.name }}</span>
+            <span class="svc-card__desc">{{ svc.description }}</span>
+          </div>
+          <div class="svc-card__metrics">
+            <div *ngFor="let m of svc.metrics" class="metric-chip" [class.metric-chip--amber]="m.amber">
+              <span class="metric-chip__label">{{ m.label }}</span>
+              <span class="metric-chip__value">{{ m.value }}</span>
+              <div *ngIf="m.barValue !== undefined" class="metric-bar">
+                <div class="metric-bar__fill" [style.width.%]="m.barValue" [class.metric-bar__fill--warn]="m.barValue! > 80"></div>
+              </div>
+            </div>
+          </div>
+          <div class="svc-card__right">
+            <span class="status-pill" [ngClass]="getStatusClass(svc.status)">{{ svc.status }}</span>
+            <button class="view-logs-link">View Logs →</button>
+          </div>
+          <div *ngIf="svc.warning" class="svc-card__warning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            {{ svc.warning }}
+          </div>
+        </div>
+      </div>
+
+      <!-- INCIDENT HISTORY -->
+      <div class="inc-section">
+        <div class="section-hdr">
+          <span class="section-label">Incident History</span>
+          <button class="view-logs-link">View Full Log →</button>
+        </div>
+
+        <div class="inc-timeline">
+          <div *ngFor="let inc of incidents; let i = index; let last = last" class="inc-entry">
+            <div class="inc-tl">
+              <span class="inc-dot" [ngClass]="getSeverityClass(inc.resolved ? 'Resolved' : inc.severity)"></span>
+              <span *ngIf="!last" class="inc-line"></span>
+            </div>
+            <div class="inc-card">
+              <div class="inc-card__top">
+                <div class="inc-card__left">
+                  <span class="inc-card__title">{{ inc.title }}</span>
+                  <div class="inc-card__meta">
+                    <span class="svc-tag">{{ inc.service }}</span>
+                    <span class="sev-badge" [ngClass]="getSeverityClass(inc.severity)">{{ inc.severity }}</span>
+                    <span class="inc-duration">{{ inc.duration }}</span>
+                  </div>
+                  <p class="inc-card__desc">{{ inc.description }}</p>
+                </div>
+                <div class="inc-card__right">
+                  <span class="inc-ts">{{ inc.timestamp }}</span>
+                  <span *ngIf="inc.resolved" class="resolve-badge resolve-badge--green">Resolved</span>
+                  <span *ngIf="!inc.resolved" class="resolve-badge resolve-badge--red"><span class="pulse-sm"></span>Ongoing</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="btn-ghost btn-ghost--full">Create Incident Report</button>
+      </div>
+
+      <!-- LIVE ERROR STREAM -->
+      <div class="error-section">
+        <div class="section-hdr">
+          <span class="section-label">Live Error Stream</span>
+          <div class="stream-controls">
+            <div class="stream-toggle">
+              <button class="stream-pill" [class.stream-pill--active]="streamMode === 'Live'" (click)="streamMode = 'Live'">
+                <span *ngIf="streamMode === 'Live'" class="live-dot"></span>Live
+              </button>
+              <button class="stream-pill" [class.stream-pill--active]="streamMode === 'Paused'" (click)="streamMode = 'Paused'">Paused</button>
+            </div>
+            <select [(ngModel)]="logLevelFilter" class="log-filter">
+              <option value="All">All Levels</option>
+              <option value="Critical">Critical</option>
+              <option value="Error">Error</option>
+              <option value="Warning">Warning</option>
+              <option value="Info">Info</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="error-stream">
+          <div *ngFor="let log of filteredErrorLogs" class="log-line" [ngClass]="getLogClass(log.level)" (click)="toggleLogExpand(log.id)">
+            <span class="log-dot" [ngClass]="getLogClass(log.level)"></span>
+            <span class="log-ts">{{ log.timestamp }}</span>
+            <span class="log-svc" [ngClass]="getLogClass(log.level)">{{ log.service }}</span>
+            <span class="log-msg">{{ log.message }}</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════ RIGHT COLUMN — Charts & Infra ══════════ -->
+    <div class="sh-right">
+
+      <!-- RESPONSE TIME CHART -->
+      <div class="chart-card">
+        <div class="section-hdr">
+          <span class="section-label">API Response Times</span>
+          <div class="rt-range">
+            <button *ngFor="let r of ['1h','6h','24h','7d']" class="range-pill"
+                    [class.range-pill--active]="rtRange === r" (click)="rtRange = $any(r)">{{ r }}</button>
+          </div>
+        </div>
+        <div class="rt-chart-wrap">
+          <svg class="rt-chart" viewBox="0 0 500 200" preserveAspectRatio="none">
+            <!-- SLA threshold -->
+            <line [attr.x1]="0" [attr.y1]="200 - (rtSlaThreshold / rtMax) * 200"
+                  [attr.x2]="500" [attr.y2]="200 - (rtSlaThreshold / rtMax) * 200"
+                  stroke="#ef4444" stroke-width="1" stroke-dasharray="6 4" opacity="0.6"/>
+            <text [attr.x]="5" [attr.y]="200 - (rtSlaThreshold / rtMax) * 200 - 4" fill="#ef4444" font-size="9" opacity="0.7">SLA 300ms</text>
+            <!-- AI Services (orange, behind) -->
+            <polyline [attr.points]="getLinePoints(rtAiServices, 200, 500)"
+                      fill="none" stroke="#f97316" stroke-width="1.5" opacity="0.7"/>
+            <!-- Auth Service (emerald) -->
+            <polyline [attr.points]="getLinePoints(rtAuthService, 200, 500)"
+                      fill="none" stroke="#34d399" stroke-width="1.5"/>
+            <!-- Main API (teal) -->
+            <polyline [attr.points]="getLinePoints(rtMainApi, 200, 500)"
+                      fill="none" stroke="#2ee8a5" stroke-width="2"/>
+          </svg>
+          <div class="rt-legend">
+            <span class="rt-legend__item"><span class="rt-dot" style="background:#2ee8a5"></span>Main API</span>
+            <span class="rt-legend__item"><span class="rt-dot" style="background:#34d399"></span>Auth Service</span>
+            <span class="rt-legend__item"><span class="rt-dot" style="background:#f97316"></span>AI Services</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 30-DAY UPTIME -->
+      <div class="uptime-card">
+        <div class="section-hdr">
+          <span class="section-label">30-Day Uptime</span>
+          <span class="sla-target">Target: 99.5%</span>
+        </div>
+        <div class="uptime-list">
+          <div *ngFor="let row of uptimeData" class="uptime-row">
+            <span class="uptime-row__name">{{ row.service }}</span>
+            <div class="uptime-track">
+              <span *ngFor="let d of row.days" class="uptime-sq" [ngClass]="'sq--' + d.status"></span>
+            </div>
+            <span class="uptime-row__pct" [class.uptime-row__pct--warn]="row.pct < 99.5">{{ row.pct }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- INFRASTRUCTURE METRICS -->
+      <div class="infra-card">
+        <div class="section-hdr">
+          <span class="section-label">Infrastructure</span>
+          <button class="view-logs-link">AWS Console →</button>
+        </div>
+        <div class="infra-grid">
+          <!-- CPU -->
+          <div class="infra-item">
+            <svg class="infra-donut" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="36" fill="none" [attr.stroke]="getDonutColor(cpuUsage)" stroke-width="6" opacity="0.1"/>
+              <circle cx="40" cy="40" r="36" fill="none" [attr.stroke]="getDonutColor(cpuUsage)" stroke-width="6"
+                      [attr.stroke-dasharray]="getDonutDash(cpuUsage)" stroke-dashoffset="56.5"
+                      stroke-linecap="round" transform="rotate(-90 40 40)"/>
+              <text x="40" y="38" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">{{ cpuUsage }}%</text>
+              <text x="40" y="50" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="8">CPU</text>
+            </svg>
+            <span class="infra-sub">4 vCPUs</span>
+          </div>
+          <!-- Memory -->
+          <div class="infra-item">
+            <svg class="infra-donut" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="36" fill="none" [attr.stroke]="getDonutColor(memoryPct)" stroke-width="6" opacity="0.1"/>
+              <circle cx="40" cy="40" r="36" fill="none" [attr.stroke]="getDonutColor(memoryPct)" stroke-width="6"
+                      [attr.stroke-dasharray]="getDonutDash(memoryPct)" stroke-dashoffset="56.5"
+                      stroke-linecap="round" transform="rotate(-90 40 40)"/>
+              <text x="40" y="38" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">{{ memoryPct }}%</text>
+              <text x="40" y="50" text-anchor="middle" fill="rgba(255,255,255,.35)" font-size="8">Memory</text>
+            </svg>
+            <span class="infra-sub">{{ memoryUsed }} / {{ memoryTotal }} GB</span>
+          </div>
+          <!-- DB Connections -->
+          <div class="infra-item infra-item--bar">
+            <span class="infra-bar-label">DB Connections</span>
+            <div class="infra-bar-track">
+              <div class="infra-bar-fill" [style.width.%]="dbConnPct" [class.infra-bar-fill--warn]="dbConnPct > 80"></div>
+            </div>
+            <span class="infra-bar-val">{{ dbConnections }} / {{ dbMaxConnections }}</span>
+          </div>
+          <!-- Storage -->
+          <div class="infra-item infra-item--bar">
+            <span class="infra-bar-label">Storage</span>
+            <div class="infra-bar-track">
+              <div class="infra-bar-fill" [style.width.%]="storagePct" [class.infra-bar-fill--warn]="storagePct > 80"></div>
+            </div>
+            <span class="infra-bar-val">{{ storageUsed }} GB / {{ storageTotal }} GB</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DEPLOYMENT INFO -->
+      <div class="deploy-card">
+        <div class="section-hdr">
+          <span class="section-label">Current Deployment</span>
+          <button class="view-logs-link">View Deploy History →</button>
+        </div>
+        <div class="deploy-grid">
+          <div *ngFor="let d of deployInfo" class="deploy-row">
+            <span class="deploy-row__label">{{ d.label }}</span>
+            <span class="deploy-row__value" [class.deploy-row__value--mono]="d.mono">
+              {{ d.value }}
+              <a *ngIf="d.link" [href]="d.link" target="_blank" class="deploy-link">View on GitHub →</a>
+            </span>
+          </div>
+        </div>
+        <div class="deploy-actions">
+          <button class="btn-danger-ghost" (click)="showRollbackModal = true">Trigger Rollback</button>
+          <button class="btn-ghost" (click)="showClearCacheModal = true">Clear Redis Cache</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ LOG DETAIL MODAL ═══════ -->
+<div class="modal-overlay" *ngIf="expandedLogId !== null" (click)="expandedLogId = null">
+  <div class="modal modal--lg" (click)="$event.stopPropagation()">
+    <ng-container *ngIf="expandedLogId !== null">
+      <ng-container *ngFor="let log of errorLogs">
+        <ng-container *ngIf="log.id === expandedLogId">
+          <div class="modal__header">
+            <div>
+              <h3 class="modal__title">{{ log.service }} — {{ log.level }}</h3>
+              <span class="modal__sub">{{ log.timestamp }}</span>
+            </div>
+            <button class="modal__close" (click)="expandedLogId = null">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div class="modal__body">
+            <p class="log-msg-full">{{ log.message }}</p>
+            <div class="stack-block">
+              <button class="copy-btn" (click)="copyStackTrace(log.stackTrace)">Copy</button>
+              <pre class="stack-pre">{{ log.stackTrace }}</pre>
+            </div>
+            <button class="view-logs-link">Create Incident from This →</button>
+          </div>
+        </ng-container>
+      </ng-container>
+    </ng-container>
+  </div>
+</div>
+
+<!-- ═══════ ROLLBACK MODAL ═══════ -->
+<div class="modal-overlay" *ngIf="showRollbackModal" (click)="showRollbackModal = false">
+  <div class="modal modal--sm" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h3 class="modal__title modal__title--danger">Trigger Rollback</h3>
+      <button class="modal__close" (click)="showRollbackModal = false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal__body">
+      <label class="form-label">Select version to rollback to:</label>
+      <select [(ngModel)]="rollbackVersion" class="form-select">
+        <option *ngFor="let v of rollbackVersions" [value]="v">{{ v }}</option>
+      </select>
+      <div class="rollback-warn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Rolling back may cause 1–3 minutes of downtime. Active user sessions will be interrupted.</span>
+      </div>
+      <label class="form-label">Type <strong>CONFIRM ROLLBACK</strong> to proceed:</label>
+      <input type="text" [(ngModel)]="rollbackConfirmText" class="form-input" placeholder="CONFIRM ROLLBACK" />
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showRollbackModal = false">Cancel</button>
+        <button class="btn-danger" [disabled]="!canRollback">Rollback to {{ rollbackVersion }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ CLEAR CACHE MODAL ═══════ -->
+<div class="modal-overlay" *ngIf="showClearCacheModal" (click)="showClearCacheModal = false">
+  <div class="modal modal--sm" (click)="$event.stopPropagation()">
+    <div class="modal__header">
+      <h3 class="modal__title">Clear Redis Cache</h3>
+      <button class="modal__close" (click)="showClearCacheModal = false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal__body">
+      <p class="confirm-text">This will clear all cached sessions and force re-authentication for active users. Continue?</p>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showClearCacheModal = false">Cancel</button>
+        <button class="btn-danger" (click)="showClearCacheModal = false">Clear Cache</button>
+      </div>
+    </div>
+  </div>
+</div>

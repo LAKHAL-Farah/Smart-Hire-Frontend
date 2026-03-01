@@ -181,6 +181,13 @@ export const routes: Routes = [
             (m) => m.SystemHealthComponent
           ),
       },
+      {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/back-office/admin/settings/settings.component').then(
+            (m) => m.SettingsComponent
+          ),
+      },
     ],
   },
 ];

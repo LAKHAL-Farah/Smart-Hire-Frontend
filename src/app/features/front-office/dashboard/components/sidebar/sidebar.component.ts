@@ -1,6 +1,7 @@
 import { Component, Input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../../auth/auth.service';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 interface NavItem {
@@ -35,7 +36,9 @@ export class SidebarComponent {
     { icon: 'briefcase', label: 'Jobs', route: '/dashboard/jobs' },
   ];
 
+  constructor(private authService: AuthService) {}
+
   logout(): void {
-    console.log('Logout');
+    this.authService.logout();
   }
 }

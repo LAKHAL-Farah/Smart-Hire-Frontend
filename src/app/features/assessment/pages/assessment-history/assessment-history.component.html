@@ -1,0 +1,145 @@
+<!-- ══════ HEADER ══════ -->
+<section class="page-header">
+  <div class="header-content">
+    <h1 class="page-title">Assessment History</h1>
+    <p class="page-subtitle">Track your progress and see how you've improved over time</p>
+  </div>
+</section>
+
+<!-- ══════ FILTER ══════ -->
+<section class="filter-section">
+  <div class="filter-tabs">
+    @for (option of filterOptions; track option.value) {
+      <button 
+        class="filter-tab"
+        [class.filter-tab--active]="selectedFilter() === option.value"
+        (click)="selectedFilter.set(option.value)">
+        {{ option.label }}
+      </button>
+    }
+  </div>
+</section>
+
+<!-- ══════ LOADING STATE ══════ -->
+@if (loading()) {
+  <div class="loading-container">
+    <div class="loader"></div>
+    <p>Loading your assessments...</p>
+  </div>
+}
+
+<!-- ══════ ASSESSMENTS TABLE ══════ -->
+@if (!loading() && getFilteredAssessments().length > 0) {
+  <section class="assessments-section">
+    <div class="table-container">
+      <table class="assessments-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Date Taken</th>
+            <th>Score</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (assessment of getFilteredAssessments(); track trackBy($index, assessment); let i = $index) {
+            <tr class="assessment-row" 
+              [class.assessment-row--completed]="assessment.status === 'COMPLETED'">
+              
+              <td class="cell-type">
+                <div class="type-badge" [class]="'type-badge--' + assessment.type?.toLowerCase()">
+                  {{ assessment.type }}
+                </div>
+              </td>
+              
+              <td class="cell-date">
+                {{ assessment.createdAt ? (assessment.createdAt | date:'short') : '-' }}
+              </td>
+              
+              <td class="cell-score">
+                @if (assessment.score) {
+                  <span class="score-display" [class]="getScoreColor(assessment.score)">
+                    {{ assessment.score }}%
+                  </span>
+                } @else {
+                  <span class="score-placeholder">-</span>
+                }
+              </td>
+              
+              <td class="cell-status">
+                <span class="status-badge" [class]="getStatusBadgeClass(assessment.status)">
+                  {{ assessment.status }}
+                </span>
+              </td>
+              
+              <td class="cell-duration">
+                <span class="duration-text">
+                  {{ getDurationMinutes(assessment.createdAt, assessment.completedAt) }}
+                </span>
+              </td>
+              
+              <td class="cell-action">
+                @if (assessment.status === 'COMPLETED') {
+                  <button class="btn-view" (click)="viewDetails(assessment)">
+                    View Report
+                  </button>
+                } @else if (assessment.status === 'IN_PROGRESS') {
+                  <button class="btn-continue" (click)="continueAssessment(assessment)">
+                    Continue
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<!-- ══════ EMPTY STATE ══════ -->
+@if (!loading() && getFilteredAssessments().length === 0) {
+  <section class="empty-state">
+    <div class="empty-content">
+      <span class="empty-icon">📋</span>
+      <h2 class="empty-title">No Assessments Yet</h2>
+      <p class="empty-description">
+        @if (selectedFilter() === 'all') {
+          Start your first assessment to track your skills and progress towards your career goals.
+        } @else {
+          No assessments found in this category.
+        }
+      </p>
+      <button class="btn-primary-grad" routerLink="/dashboard/assessment">
+        Take First Assessment
+      </button>
+    </div>
+  </section>
+}
+
+<!-- ══════ PROGRESS SUMMARY ══════ -->
+@if (getFilteredAssessments().length > 0) {
+  <section class="summary-section">
+    <h2 class="section-title">Your Progress</h2>
+    <div class="summary-cards">
+      <div class="summary-card">
+        <span class="summary-label">Total Assessments</span>
+        <span class="summary-value">{{ getFilteredAssessments().length }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Latest Score</span>
+        @if (getFilteredAssessments()[0]?.score) {
+          <span class="summary-value score-text">{{ getFilteredAssessments()[0].score }}%</span>
+        } @else {
+          <span class="summary-value">-</span>
+        }
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Best Score</span>
+        <span class="summary-value score-text">{{ getBestScore() }}%</span>
+      </div>
+    </div>
+  </section>
+}

@@ -1,0 +1,72 @@
+<!-- ══════ HEADER ══════ -->
+<section class="page-header">
+  <div class="header-content">
+    <h1 class="page-title">Start Assessment</h1>
+    <p class="page-subtitle">Choose your assessment level and test your skills</p>
+  </div>
+</section>
+
+<!-- ══════ ASSESSMENT TYPES ══════ -->
+<section class="assessment-section">
+  <h2 class="section-title">Choose Your Challenge</h2>
+  
+  <div class="assessment-grid">
+    @for (type of assessmentTypes; track type.id) {
+      <div class="assessment-card" 
+        [class.assessment-card--selected]="selectedAssessmentType() === type.id"
+        (click)="selectAssessmentType(type.id)">
+        
+        <!-- Card header -->
+        <div class="assessment-card__header">
+          <span class="assessment-card__icon">{{ type.icon }}</span>
+          <h3 class="assessment-card__title">{{ type.title }}</h3>
+        </div>
+
+        <!-- Card content -->
+        <p class="assessment-card__description">{{ type.description }}</p>
+
+        <!-- Card details -->
+        <div class="assessment-card__details">
+          <div class="detail">
+            <span class="detail__label">Duration</span>
+            <span class="detail__value">{{ type.duration }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail__label">Questions</span>
+            <span class="detail__value">{{ type.questions }}</span>
+          </div>
+          <div class="detail">
+            <span class="detail__label">Level</span>
+            <span class="detail__badge" [class]="'detail__badge--' + type.level.toLowerCase()">
+              {{ type.level }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Action button -->
+        <button class="btn-primary-grad btn-full" 
+          [disabled]="loading()"
+          (click)="startAssessment(type.id)">
+          {{ loading() ? 'Starting...' : 'Start Now' }}
+        </button>
+      </div>
+    }
+  </div>
+</section>
+
+<!-- ══════ INFO SECTION ══════ -->
+<section class="info-section">
+  <div class="info-card">
+    <span class="info-card__icon">ℹ️</span>
+    <div>
+      <h4 class="info-card__title">Tips for Success</h4>
+      <ul class="info-card__list">
+        <li>Find a quiet, distraction-free environment</li>
+        <li>Have pen and paper ready for calculations</li>
+        <li>Answer honestly - this reflects your actual skill level</li>
+        <li>Take your time with each question</li>
+        <li>Don't close the browser tab during the assessment</li>
+      </ul>
+    </div>
+  </div>
+</section>

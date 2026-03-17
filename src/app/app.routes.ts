@@ -53,9 +53,9 @@ export const routes: Routes = [
       },
       {
         path: 'assessment',
-        loadComponent: () =>
-          import('./features/front-office/dashboard/assessment/assessment.component').then(
-            (m) => m.AssessmentComponent
+        loadChildren: () =>
+          import('./features/assessment/assessment.routes').then(
+            (m) => m.ASSESSMENT_ROUTES
           ),
       },
       {
@@ -151,6 +151,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/back-office/admin/questions/question-management.component').then(
             (m) => m.QuestionManagementComponent
+          ),
+      },
+      {
+        path: 'assessments',
+        loadComponent: () =>
+          import('./features/back-office/admin/assessments/assessment-management.component').then(
+            (m) => m.AssessmentManagementComponent
           ),
       },
       {

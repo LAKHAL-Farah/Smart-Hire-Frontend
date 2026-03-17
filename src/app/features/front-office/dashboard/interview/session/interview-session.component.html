@@ -44,9 +44,9 @@
     </div>
 
     <!-- Question text -->
-    <h2 class="question-text">{{ currentQuestion()?.text }}</h2>
-    @if (currentQuestion()?.context) {
-      <p class="question-context">{{ currentQuestion()?.context }}</p>
+    <h2 class="question-text">{{ currentQuestion().text }}</h2>
+    @if (currentQuestion().context) {
+      <p class="question-context">{{ currentQuestion().context }}</p>
     }
 
     <div class="question-divider"></div>

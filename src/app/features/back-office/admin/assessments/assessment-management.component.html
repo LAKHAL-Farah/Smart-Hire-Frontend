@@ -1,0 +1,348 @@
+<div style="padding: 20px; font-family: Arial, sans-serif; background-color: #1a1a1a; min-height: 100vh; color: #e0e0e0;">
+  <h1 style="color: #fff; margin-bottom: 20px;">Assessment Management</h1>
+
+  <!-- Messages -->
+  <div *ngIf="successMessage" style="background-color: #1a4620; color: #4ade80; padding: 12px; margin-bottom: 15px; border-radius: 4px; border-left: 4px solid #4ade80;">
+    ✓ {{ successMessage }}
+  </div>
+  <div *ngIf="errorMessage" style="background-color: #4a1f1f; color: #ef4444; padding: 12px; margin-bottom: 15px; border-radius: 4px; border-left: 4px solid #ef4444;">
+    ✗ {{ errorMessage }}
+  </div>
+
+  <!-- TAB: SKILLS -->
+  <div style="margin-bottom: 40px; border: 1px solid #444; padding: 20px; border-radius: 6px; background-color: #252525;">
+    <h2 style="color: #60a5fa; margin-top: 0;">Skills Management</h2>
+
+    <!-- Create Skill Form -->
+    <div style="background-color: #1f1f1f; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #333;">
+      <h3 style="color: #93c5fd; margin-top: 0;">{{ editingSkillId ? 'Edit Skill' : 'Create New Skill' }}</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Skill Name:</label>
+        <input type="text" [(ngModel)]="newSkill.name" placeholder="e.g., Java" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Category:</label>
+        <select [(ngModel)]="newSkill.category" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+          <option value="" style="background-color: #2d2d2d; color: #e0e0e0;">Select Category</option>
+          <option value="FRONTEND" style="background-color: #2d2d2d; color: #e0e0e0;">FRONTEND</option>
+          <option value="BACKEND" style="background-color: #2d2d2d; color: #e0e0e0;">BACKEND</option>
+          <option value="DEVOPS" style="background-color: #2d2d2d; color: #e0e0e0;">DEVOPS</option>
+          <option value="SOFT" style="background-color: #2d2d2d; color: #e0e0e0;">SOFT</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Description:</label>
+        <input type="text" [(ngModel)]="newSkill.description" placeholder="Optional description" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button (click)="editingSkillId ? updateSkill() : createSkill()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">{{ editingSkillId ? 'Update Skill' : 'Create Skill' }}</button>
+        <button *ngIf="editingSkillId" (click)="cancelEditSkill()" style="padding: 10px 20px; background-color: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Filter by Category -->
+    <div style="margin-bottom: 20px; padding: 15px; background-color: #1f1f1f; border-radius: 6px; border: 1px solid #333;">
+      <label style="color: #b0b0b0; display: block; margin-bottom: 8px;">Filter by Category:</label>
+      <div style="display: flex; gap: 10px;">
+        <select [(ngModel)]="selectedSkillCategory" style="flex: 1; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
+          <option value="">All</option>
+          <option value="FRONTEND">FRONTEND</option>
+          <option value="BACKEND">BACKEND</option>
+          <option value="DEVOPS">DEVOPS</option>
+          <option value="SOFT">SOFT</option>
+        </select>
+        <button (click)="filterSkillsByCategory()" style="padding: 8px 20px; background-color: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filter</button>
+      </div>
+    </div>
+
+    <!-- Skills List -->
+    <h3 style="color: #93c5fd;">Skills List ({{ skills.length }})</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+          <tr style="background-color: #1f1f1f; border-bottom: 2px solid #444;">
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Name</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Category</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Description</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let skill of skills" style="border-bottom: 1px solid #333; background-color: #2a2a2a;">
+            <td style="padding: 12px;">{{ skill.id }}</td>
+            <td style="padding: 12px;">{{ skill.name }}</td>
+            <td style="padding: 12px;"><span style="background-color: #1f3a5f; color: #60a5fa; padding: 4px 8px; border-radius: 3px; font-size: 0.85em;">{{ skill.category }}</span></td>
+            <td style="padding: 12px; color: #b0b0b0;">{{ skill.description }}</td>
+            <td style="padding: 12px; display: flex; gap: 8px;">
+              <button (click)="editSkill(skill)" style="padding: 6px 12px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Edit</button>
+              <button (click)="deleteSkill(skill.id)" style="padding: 6px 12px; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: ASSESSMENTS -->
+  <div style="margin-bottom: 40px; border: 1px solid #444; padding: 20px; border-radius: 6px; background-color: #252525;">
+    <h2 style="color: #60a5fa; margin-top: 0;">Assessments Management</h2>
+
+    <!-- Create Assessment Form -->
+    <div style="background-color: #1f1f1f; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #333;">
+      <h3 style="color: #93c5fd; margin-top: 0;">{{ editingAssessmentId ? 'Edit Assessment' : 'Create New Assessment' }}</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">User ID:</label>
+        <input type="number" [(ngModel)]="newAssessment.userId" placeholder="e.g., 1" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Type:</label>
+        <select [(ngModel)]="newAssessment.type" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+          <option value="INITIAL">INITIAL</option>
+          <option value="PERIODIC">PERIODIC</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button (click)="editingAssessmentId ? updateAssessment() : createAssessment()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">{{ editingAssessmentId ? 'Update Assessment' : 'Create Assessment' }}</button>
+        <button *ngIf="editingAssessmentId" (click)="cancelEditAssessment()" style="padding: 10px 20px; background-color: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Filter by User -->
+    <div style="margin-bottom: 20px; padding: 15px; background-color: #1f1f1f; border-radius: 6px; border: 1px solid #333;">
+      <label style="color: #b0b0b0; display: block; margin-bottom: 8px;">Filter by User ID:</label>
+      <div style="display: flex; gap: 10px;">
+        <input type="number" [(ngModel)]="userIdFilter" placeholder="Enter User ID" style="flex: 1; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
+        <button (click)="filterAssessmentsByUser()" style="padding: 8px 20px; background-color: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Filter</button>
+      </div>
+    </div>
+
+    <!-- Assessments List -->
+    <h3 style="color: #93c5fd;">Assessments List ({{ filteredAssessments.length }})</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+          <tr style="background-color: #1f1f1f; border-bottom: 2px solid #444;">
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">User ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Type</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Status</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Created</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let assessment of filteredAssessments" style="border-bottom: 1px solid #333; background-color: #2a2a2a;">
+            <td style="padding: 12px;">{{ assessment.id }}</td>
+            <td style="padding: 12px;">{{ assessment.userId }}</td>
+            <td style="padding: 12px;"><span style="background-color: #1f3a5f; color: #60a5fa; padding: 4px 8px; border-radius: 3px; font-size: 0.85em;">{{ assessment.type }}</span></td>
+            <td style="padding: 12px;"><span style="background-color: #3f3f1f; color: #facc15; padding: 4px 8px; border-radius: 3px; font-size: 0.85em;">{{ assessment.status }}</span></td>
+            <td style="padding: 12px; color: #b0b0b0;">{{ assessment.createdAt | slice:0:10 }}</td>
+            <td style="padding: 12px; display: flex; gap: 8px;">
+              <button (click)="editAssessment(assessment)" style="padding: 6px 12px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Edit</button>
+              <button (click)="updateAssessmentStatus(assessment.id, 'COMPLETED')" style="padding: 6px 12px; background-color: #06b6d4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Complete</button>
+              <button (click)="deleteAssessment(assessment.id)" style="padding: 6px 12px; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: CAREER PATHS -->
+  <div style="margin-bottom: 40px; border: 1px solid #444; padding: 20px; border-radius: 6px; background-color: #252525;">
+    <h2 style="color: #60a5fa; margin-top: 0;">Career Paths Management</h2>
+
+    <!-- Create Career Path Form -->
+    <div style="background-color: #1f1f1f; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #333;">
+      <h3 style="color: #93c5fd; margin-top: 0;">{{ editingCareerPathId ? 'Edit Career Path' : 'Create New Career Path' }}</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Name:</label>
+        <input type="text" [(ngModel)]="newCareerPath.name" placeholder="e.g., Full Stack Developer" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Description:</label>
+        <input type="text" [(ngModel)]="newCareerPath.description" placeholder="Description" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Required Skills:</label>
+        <input type="text" [(ngModel)]="newCareerPath.requiredSkills" placeholder="Java, Spring, React" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Target Roles:</label>
+        <input type="text" [(ngModel)]="newCareerPath.targetRoles" placeholder="Developer, Tech Lead" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Average Salary:</label>
+        <input type="number" [(ngModel)]="newCareerPath.averageSalary" placeholder="80000" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button (click)="editingCareerPathId ? updateCareerPath() : createCareerPath()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">{{ editingCareerPathId ? 'Update Career Path' : 'Create Career Path' }}</button>
+        <button *ngIf="editingCareerPathId" (click)="cancelEditCareerPath()" style="padding: 10px 20px; background-color: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Career Paths List -->
+    <h3 style="color: #93c5fd;">Career Paths List ({{ careerPaths.length }})</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+          <tr style="background-color: #1f1f1f; border-bottom: 2px solid #444;">
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Name</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Required Skills</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Target Roles</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Avg Salary</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let cp of careerPaths" style="border-bottom: 1px solid #333; background-color: #2a2a2a;">
+            <td style="padding: 12px;">{{ cp.id }}</td>
+            <td style="padding: 12px;">{{ cp.name }}</td>
+            <td style="padding: 12px; color: #b0b0b0;">{{ cp.requiredSkills }}</td>
+            <td style="padding: 12px; color: #b0b0b0;">{{ cp.targetRoles }}</td>
+            <td style="padding: 12px; color: #10b981;">${{ cp.averageSalary }}</td>
+            <td style="padding: 12px; display: flex; gap: 8px;">
+              <button (click)="editCareerPath(cp)" style="padding: 6px 12px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Edit</button>
+              <button (click)="deleteCareerPath(cp.id)" style="padding: 6px 12px; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: ASSESSMENT QUESTIONS -->
+  <div style="margin-bottom: 40px; border: 1px solid #444; padding: 20px; border-radius: 6px; background-color: #252525;">
+    <h2 style="color: #60a5fa; margin-top: 0;">Assessment Questions Management</h2>
+
+    <!-- Select Assessment -->
+    <div style="margin-bottom: 20px; padding: 15px; background-color: #1f1f1f; border-radius: 6px; border: 1px solid #333;">
+      <label style="color: #b0b0b0; display: block; margin-bottom: 8px;">Select Assessment:</label>
+      <div style="display: flex; gap: 10px;">
+        <select [(ngModel)]="newQuestion.assessmentId" style="flex: 1; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px;">
+          <option value="0" style="background-color: #2d2d2d; color: #e0e0e0;">Select Assessment</option>
+          <option *ngFor="let a of assessments" [value]="a.id" style="background-color: #2d2d2d; color: #e0e0e0;">Assessment #{{ a.id }} (User {{ a.userId }})</option>
+        </select>
+        <button (click)="loadAssessmentQuestions(newQuestion.assessmentId)" style="padding: 8px 20px; background-color: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Load Questions</button>
+      </div>
+    </div>
+
+    <!-- Create Question Form -->
+    <div style="background-color: #1f1f1f; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #333;">
+      <h3 style="color: #93c5fd; margin-top: 0;">{{ editingQuestionId ? 'Edit Question' : 'Create New Question' }}</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Question Text:</label>
+        <textarea [(ngModel)]="newQuestion.questionText" placeholder="Enter question text..." style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; min-height: 80px;"></textarea>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Category:</label>
+        <select [(ngModel)]="newQuestion.category" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+          <option value="" style="background-color: #2d2d2d; color: #e0e0e0;">Select Category</option>
+          <option value="FRONTEND" style="background-color: #2d2d2d; color: #e0e0e0;">FRONTEND</option>
+          <option value="BACKEND" style="background-color: #2d2d2d; color: #e0e0e0;">BACKEND</option>
+          <option value="DEVOPS" style="background-color: #2d2d2d; color: #e0e0e0;">DEVOPS</option>
+          <option value="SOFT" style="background-color: #2d2d2d; color: #e0e0e0;">SOFT</option>
+        </select>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Difficulty (1-5):</label>
+        <input type="number" [(ngModel)]="newQuestion.difficulty" min="1" max="5" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button (click)="editingQuestionId ? updateAssessmentQuestion() : createAssessmentQuestion()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">{{ editingQuestionId ? 'Update Question' : 'Create Question' }}</button>
+        <button *ngIf="editingQuestionId" (click)="cancelEditAssessmentQuestion()" style="padding: 10px 20px; background-color: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Questions List -->
+    <h3 style="color: #93c5fd;">Questions ({{ questions.length }})</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+          <tr style="background-color: #1f1f1f; border-bottom: 2px solid #444;">
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Question</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Category</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Difficulty</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let q of questions" style="border-bottom: 1px solid #333; background-color: #2a2a2a;">
+            <td style="padding: 12px;">{{ q.id }}</td>
+            <td style="padding: 12px; color: #b0b0b0;">{{ q.questionText | slice:0:50 }}{{ q.questionText.length > 50 ? '...' : '' }}</td>
+            <td style="padding: 12px;"><span style="background-color: #1f3a5f; color: #60a5fa; padding: 4px 8px; border-radius: 3px; font-size: 0.85em;">{{ q.category }}</span></td>
+            <td style="padding: 12px;">{{ q.difficulty }}/5</td>
+            <td style="padding: 12px; display: flex; gap: 8px;">
+              <button (click)="editAssessmentQuestion(q)" style="padding: 6px 12px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Edit</button>
+              <button (click)="q.id && loadAssessmentAnswers(q.id)" style="padding: 6px 12px; background-color: #06b6d4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Answers</button>
+              <button (click)="deleteAssessmentQuestion(q.id)" style="padding: 6px 12px; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: ASSESSMENT ANSWERS -->
+  <div style="margin-bottom: 40px; border: 1px solid #444; padding: 20px; border-radius: 6px; background-color: #252525;">
+    <h2 style="color: #60a5fa; margin-top: 0;">Assessment Answers Management</h2>
+
+    <!-- Create Answer Form -->
+    <div style="background-color: #1f1f1f; padding: 15px; margin-bottom: 20px; border-radius: 6px; border: 1px solid #333;">
+      <h3 style="color: #93c5fd; margin-top: 0;">{{ editingAnswerId ? 'Edit Answer' : 'Create New Answer' }}</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Question ID:</label>
+        <input type="number" [(ngModel)]="newAnswer.assessmentQuestionId" placeholder="Enter question ID" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">User ID:</label>
+        <input type="number" [(ngModel)]="newAnswer.userId" placeholder="Enter user ID" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Answer Text:</label>
+        <textarea [(ngModel)]="newAnswer.answerText" placeholder="Enter answer text..." style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; min-height: 80px;"></textarea>
+      </div>
+      <div style="margin-bottom: 12px;">
+        <label style="color: #b0b0b0; display: block; margin-bottom: 5px;">Score (0-100):</label>
+        <input type="number" [(ngModel)]="newAnswer.score" min="0" max="100" placeholder="Enter score" style="width: 100%; padding: 8px; background-color: #2d2d2d; color: #e0e0e0; border: 1px solid #444; border-radius: 4px; box-sizing: border-box;">
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button (click)="editingAnswerId ? updateAssessmentAnswer() : createAssessmentAnswer()" style="padding: 10px 20px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">{{ editingAnswerId ? 'Update Answer' : 'Create Answer' }}</button>
+        <button *ngIf="editingAnswerId" (click)="cancelEditAssessmentAnswer()" style="padding: 10px 20px; background-color: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Answers List -->
+    <h3 style="color: #93c5fd;">Answers ({{ answers.length }})</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+        <thead>
+          <tr style="background-color: #1f1f1f; border-bottom: 2px solid #444;">
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Question ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">User ID</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Answer</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Score</th>
+            <th style="padding: 12px; text-align: left; color: #60a5fa;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let a of answers" style="border-bottom: 1px solid #333; background-color: #2a2a2a;">
+            <td style="padding: 12px;">{{ a.id }}</td>
+            <td style="padding: 12px;">{{ a.assessmentQuestionId }}</td>
+            <td style="padding: 12px;">{{ a.userId }}</td>
+            <td style="padding: 12px; color: #b0b0b0;">{{ a.answerText | slice:0:40 }}{{ a.answerText.length > 40 ? '...' : '' }}</td>
+            <td style="padding: 12px;"><span style="background-color: #1f3a5f; color: #60a5fa; padding: 4px 8px; border-radius: 3px; font-size: 0.85em;">{{ a.score }}/100</span></td>
+            <td style="padding: 12px; display: flex; gap: 8px;">
+              <button (click)="editAssessmentAnswer(a)" style="padding: 6px 12px; background-color: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Edit</button>
+              <button (click)="deleteAssessmentAnswer(a.id)" style="padding: 6px 12px; background-color: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

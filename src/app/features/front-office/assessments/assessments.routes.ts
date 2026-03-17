@@ -1,10 +1,10 @@
 import { Routes } from '@angular/router';
 
 /**
- * Assessment Feature Routes
- * Routes for the assessment module
+ * Assessment Routes (Front-Office - User Facing)
+ * Lazy-loaded from dashboard
  */
-export const ASSESSMENT_ROUTES: Routes = [
+export const ASSESSMENTS_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () =>
@@ -55,5 +55,3 @@ export const ASSESSMENT_ROUTES: Routes = [
       ),
   },
 ];
-
-export default ASSESSMENT_ROUTES;

@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AssessmentService, Skill, Assessment, CareerPath, AssessmentQuestion, AssessmentAnswer } from '../../../../core/services/assessment.service';
+import { AssessmentService } from '../../../front-office/assessments/services';
+import { Assessment, Skill, CareerPath, AssessmentQuestion, AssessmentAnswer } from '../../../front-office/assessments/models';
 
 @Component({
   selector: 'app-assessment-management',

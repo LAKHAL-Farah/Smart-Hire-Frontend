@@ -54,8 +54,8 @@ export const routes: Routes = [
       {
         path: 'assessment',
         loadChildren: () =>
-          import('./features/assessment/assessment.routes').then(
-            (m) => m.ASSESSMENT_ROUTES
+          import('./features/front-office/assessments').then(
+            (m) => m.ASSESSMENTS_ROUTES
           ),
       },
       {

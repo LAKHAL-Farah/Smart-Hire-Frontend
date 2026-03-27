@@ -4,20 +4,39 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { UserService } from '../user.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AuthLeftPanelComponent, LUCIDE_ICONS],
+  imports: [CommonModule, FormsModule, RouterLink, AuthLeftPanelComponent, LUCIDE_ICONS, HttpClientModule],
   templateUrl: './register.component.html',
   styleUrl: './register.component.scss'
 })
 export class RegisterComponent {
+
+  constructor(private userService: UserService) {}
+
+ 
+
   fullName = '';
+  firstName = '';
+  lastName = '';
   email = '';
+  headline = '';
+  location = '';
   password = '';
+  githubUrl = '';
+  linkedinUrl = '';
   acceptTerms = false;
   nameTouched = false;
+  headlineTouched = false;
+  locationTouched = false;
+  githubTouched = false;
+  lastNameTouched = false;
+  linkedinTouched = false;
+  
   emailTouched = false;
   passwordTouched = false;
 
@@ -38,6 +57,14 @@ export class RegisterComponent {
     if (!this.email) return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email);
   }
+  isValidUrl(url: string): boolean {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+  }
+}
 
   hasUppercase(): boolean { return /[A-Z]/.test(this.password); }
   hasNumber(): boolean { return /[0-9]/.test(this.password); }
@@ -52,20 +79,57 @@ export class RegisterComponent {
     this.passwordStrength.set(strength);
   }
 
+  private createUserAndProfile(userRequest: any, profileRequest: any): void {
+
+    this.userService.createUser(userRequest, profileRequest).subscribe({
+            next: (responseUser) => {
+              console.log('User created:', responseUser);
+              this.isLoading.set(false);
+            },
+            error: (error) => {
+              console.error('Error creating user:', error);
+              this.isLoading.set(false);
+            }
+    });
+  }
+
+
   onSubmit(): void {
     this.nameTouched = true;
     this.emailTouched = true;
     this.passwordTouched = true;
+    if (
+      !this.firstName.trim() || 
+      !this.isEmailValid() ||
+      !this.password ||
+      !this.acceptTerms
+    ) return;
 
-    if (!this.fullName.trim() || !this.isEmailValid() || !this.password || !this.acceptTerms) return;
+
 
     this.isLoading.set(true);
-    // TODO: call auth service
-    setTimeout(() => this.isLoading.set(false), 2000);
+    console.log(this.selectedRole());
+    let userRequest =  {
+      email: this.email, 
+      password: this.password,
+      roleName: this.selectedRole()
+    }
+
+    let profileRequest =  {
+      firstName: this.firstName,
+      lastName: this.lastName,
+      headline: this.headline,
+      location: this.location,
+      githubUrl: this.githubUrl,
+      linkedinUrl: this.linkedinUrl
+    }
+    this.createUserAndProfile(userRequest, profileRequest);
+    
+   
   }
 
   oauthSignup(provider: string): void {
     console.log('OAuth signup with:', provider);
-    // TODO: integrate OAuth
+    
   }
 }

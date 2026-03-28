@@ -2,12 +2,14 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
+import { firstValueFrom } from 'rxjs';
+import { InterviewApiService } from '../interview-api.service';
+import { InterviewQuestionDto, InterviewSessionDto, SessionQuestionOrderDto } from '../interview.models';
 
 type CodingLanguage = 'python' | 'java' | 'javascript' | 'cpp';
 
 interface CodingQuestionView {
-  type: 'CODING' | 'BEHAVIORAL' | 'SITUATIONAL';
+  type: 'CODING' | 'BEHAVIORAL' | 'SITUATIONAL' | 'TECHNICAL';
   domain: string;
   category: string;
   difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
@@ -19,11 +21,12 @@ interface CodingQuestionView {
 @Component({
   selector: 'app-interview-code-screen',
   standalone: true,
-  imports: [CommonModule, FormsModule, MonacoEditorModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './interview-code-screen.component.html',
   styleUrl: './interview-code-screen.component.scss',
 })
 export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
+  private readonly api = inject(InterviewApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -33,19 +36,12 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
   readonly currentIndex = signal(0);
   readonly totalQuestions = signal(8);
   readonly elapsedSeconds = signal(0);
+  readonly isLoaded = signal(false);
+  readonly loadError = signal<string | null>(null);
 
   readonly mode = signal<'PRACTICE' | 'TEST'>('PRACTICE');
 
-  readonly question = signal<CodingQuestionView>({
-    type: 'CODING',
-    domain: 'Data Structures',
-    category: 'HashMap + Sliding Window',
-    difficulty: 'INTERMEDIATE',
-    questionText:
-      'Given a string s, find the length of the longest substring without repeating characters. Return only the max length.',
-    hints: '["Use a hashmap to track last seen index.", "Move the left pointer when duplicate appears."]',
-    sampleCode: 'def solution():\n    pass',
-  });
+  readonly question = signal<CodingQuestionView | null>(null);
 
   readonly hintOpen = signal(false);
 
@@ -74,15 +70,6 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
 
   readonly optimizeHintOpen = signal(false);
 
-  readonly editorOptions = computed(() => ({
-    theme: 'vs-dark',
-    language: this.getMonacoLanguage(this.selectedLanguage()),
-    automaticLayout: true,
-    minimap: { enabled: false },
-    fontSize: 14,
-    scrollBeyondLastLine: false,
-  }));
-
   readonly progressPercent = computed(() => ((this.currentIndex() + 1) / this.totalQuestions()) * 100);
   readonly questionPositionLabel = computed(() => `Q${this.currentIndex() + 1} of ${this.totalQuestions()}`);
   readonly timerDisplay = computed(() => this.toClock(this.elapsedSeconds()));
@@ -92,13 +79,51 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
     const parsedId = Number(rawId);
     if (Number.isFinite(parsedId)) {
       this.sessionId.set(parsedId);
+    } else {
+      this.loadError.set('Invalid session id.');
+      this.isLoaded.set(true);
+      return;
     }
 
-    this.editorValue.set(this.question().sampleCode || this.getStarterTemplate(this.selectedLanguage()));
+    this.bootstrapSession();
+    this.startElapsedTimer();
+  }
 
-    this.timerRef = setInterval(() => {
-      this.elapsedSeconds.update((value) => value + 1);
-    }, 1000);
+  private async bootstrapSession(): Promise<void> {
+    const id = this.sessionId();
+    if (id === null) {
+      this.loadError.set('Missing session id.');
+      this.isLoaded.set(true);
+      return;
+    }
+
+    this.loadError.set(null);
+
+    try {
+      const [session, currentQuestion, questionOrders] = await Promise.all([
+        firstValueFrom(this.api.getSessionById(id)),
+        firstValueFrom(this.api.getCurrentSessionQuestion(id)),
+        firstValueFrom(this.api.getSessionQuestionOrder(id)),
+      ]);
+
+      this.applySessionMeta(session, questionOrders, currentQuestion);
+
+      const mappedQuestion = this.mapQuestion(currentQuestion);
+
+      if (mappedQuestion.type !== 'CODING') {
+        this.goToDefaultRoom();
+        return;
+      }
+
+      this.question.set(mappedQuestion);
+
+      const initialCode = mappedQuestion.sampleCode || this.getStarterTemplate(this.selectedLanguage());
+      this.editorValue.set(initialCode);
+      this.isLoaded.set(true);
+    } catch {
+      this.loadError.set('Unable to load this coding session question right now.');
+      this.isLoaded.set(true);
+    }
   }
 
   ngOnDestroy(): void {
@@ -120,8 +145,13 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
   }
 
   parsedHints(): string[] {
+    const hintsRaw = this.question()?.hints;
+    if (!hintsRaw) {
+      return [];
+    }
+
     try {
-      const parsed = JSON.parse(this.question().hints);
+      const parsed = JSON.parse(hintsRaw);
       if (Array.isArray(parsed)) {
         return parsed.map((entry) => String(entry));
       }
@@ -129,7 +159,7 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
       // Keep fallback below.
     }
 
-    return [this.question().hints];
+    return [hintsRaw];
   }
 
   onLanguageChange(value: string): void {
@@ -194,10 +224,6 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
     this.optimizeHintOpen.update((value) => !value);
   }
 
-  private getMonacoLanguage(value: CodingLanguage): string {
-    return this.languageOptions.find((item) => item.value === value)?.monaco ?? 'python';
-  }
-
   private getStarterTemplate(language: CodingLanguage): string {
     switch (language) {
       case 'python':
@@ -209,6 +235,53 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
       default:
         return '#include<bits/stdc++.h>\nusing namespace std;\n';
     }
+  }
+
+  private startElapsedTimer(): void {
+    if (this.timerRef) {
+      clearInterval(this.timerRef);
+    }
+
+    this.timerRef = setInterval(() => {
+      this.elapsedSeconds.update((value) => value + 1);
+    }, 1000);
+  }
+
+  private applySessionMeta(
+    session: InterviewSessionDto,
+    questionOrders: SessionQuestionOrderDto[],
+    currentQuestion: InterviewQuestionDto,
+  ): void {
+    this.mode.set(session.mode === 'TEST' ? 'TEST' : 'PRACTICE');
+
+    const total = questionOrders.length > 0 ? questionOrders.length : 1;
+    this.totalQuestions.set(total);
+
+    const byQuestion = questionOrders.find((entry) => entry.questionId === currentQuestion.id)?.questionOrder;
+    if (byQuestion !== undefined) {
+      this.currentIndex.set(byQuestion);
+      return;
+    }
+
+    const fallback = Math.min(Math.max(session.currentQuestionIndex ?? 0, 0), total - 1);
+    this.currentIndex.set(fallback);
+  }
+
+  private mapQuestion(source: InterviewQuestionDto): CodingQuestionView {
+    const supportedType: CodingQuestionView['type'] =
+      source.type === 'CODING' || source.type === 'BEHAVIORAL' || source.type === 'SITUATIONAL' || source.type === 'TECHNICAL'
+        ? source.type
+        : 'TECHNICAL';
+
+    return {
+      type: supportedType,
+      domain: source.domain || 'General',
+      category: source.category || 'General',
+      difficulty: source.difficulty,
+      questionText: source.questionText || 'Question is unavailable.',
+      hints: source.hints || '[]',
+      sampleCode: source.sampleCode || '',
+    };
   }
 
   private toClock(seconds: number): string {

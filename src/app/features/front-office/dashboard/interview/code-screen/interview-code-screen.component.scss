@@ -60,12 +60,23 @@
   padding: 16px;
 }
 
+.state-card--error {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.1);
+}
+
 .state-card button {
   margin-top: 8px;
   border: none;
   border-radius: 999px;
   padding: 8px 12px;
   cursor: pointer;
+}
+
+.state-card__question {
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
 }
 
 .split-layout {
@@ -184,6 +195,25 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   overflow: hidden;
+}
+
+.editor-fallback {
+  width: 100%;
+  min-height: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #0b1220;
+  color: #dbeafe;
+  padding: 12px;
+  font-family: 'Space Grotesk', monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.editor-fallback:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 0;
 }
 
 .output-panel {

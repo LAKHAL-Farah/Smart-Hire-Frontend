@@ -12,20 +12,34 @@
     <span class="mode-pill">{{ mode() }}</span>
   </div>
 
-  @if (question().type !== 'CODING') {
+  @if (!isLoaded() && !loadError()) {
     <div class="state-card">
-      <p>This question type should use the default interview room page.</p>
+      <p>Loading coding question...</p>
+    </div>
+  }
+
+  @if (loadError()) {
+    <div class="state-card state-card--error">
+      <p>{{ loadError() }}</p>
       <button type="button" (click)="goToDefaultRoom()">Open Standard Room</button>
     </div>
-  } @else {
+  }
+
+  @if (isLoaded() && question() && question()!.type !== 'CODING') {
+    <div class="state-card">
+      <p>This question type should use the default interview room page.</p>
+      <p class="state-card__question">Current question: {{ question()!.questionText }}</p>
+      <button type="button" (click)="goToDefaultRoom()">Open Standard Room</button>
+    </div>
+  } @else if (isLoaded() && question() && question()!.type === 'CODING') {
     <div class="split-layout">
       <section class="left-panel">
-        <span class="title-tag">{{ question().domain }} · {{ question().category }}</span>
+        <span class="title-tag">{{ question()!.domain }} · {{ question()!.category }}</span>
         <h2>Problem Statement</h2>
-        <p class="problem-text">{{ question().questionText }}</p>
+        <p class="problem-text">{{ question()!.questionText }}</p>
 
         <div class="meta-row">
-          <span class="difficulty-pill">{{ question().difficulty }}</span>
+          <span class="difficulty-pill">{{ question()!.difficulty }}</span>
           @if (mode() === 'PRACTICE') {
             <button class="small-btn" type="button" (click)="toggleHint()">Hint</button>
           }
@@ -69,12 +83,12 @@
           </button>
         </div>
 
-        <ngx-monaco-editor
-          class="editor-box"
-          [options]="editorOptions()"
-          [ngModel]="editorValue()"
-          (ngModelChange)="setEditorValue($event)"
-        ></ngx-monaco-editor>
+        <textarea
+          class="editor-fallback"
+          rows="14"
+          [value]="editorValue()"
+          (input)="setEditorValue($any($event.target).value)"
+        ></textarea>
 
         <div class="output-panel">
           <h3>Output</h3>

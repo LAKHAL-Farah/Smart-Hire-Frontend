@@ -6,8 +6,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { InterviewApiService } from '../interview-api.service';
+import { resolveCurrentUserId } from '../interview-user.util';
+import { BookmarkButtonComponent } from '../components/bookmark-button/bookmark-button.component';
 import { MicButtonComponent } from '../components/mic-button/mic-button.component';
 import { AnswerService } from '../services/answer.service';
+import { StreakService } from '../services/streak.service';
 import {
   AnswerEvaluationDto,
   InterviewQuestionDto,
@@ -23,13 +26,14 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 @Component({
   selector: 'app-interview-session',
   standalone: true,
-  imports: [CommonModule, FormsModule, LUCIDE_ICONS, MicButtonComponent],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS, MicButtonComponent, BookmarkButtonComponent],
   templateUrl: './interview-session.component.html',
   styleUrl: './interview-session.component.scss'
 })
 export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly api = inject(InterviewApiService);
   private readonly answerService = inject(AnswerService);
+  private readonly streakService = inject(StreakService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -67,10 +71,14 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly followUpState = signal<string | null>(null);
 
   readonly showAbandonConfirm = signal(false);
+  readonly showStreakCelebration = signal(false);
+  readonly streakCelebrationValue = signal(0);
+  readonly celebrationConfettiPieces = Array.from({ length: 20 }, (_, index) => index);
 
   readonly elapsedSeconds = signal(0);
   readonly countdownTotal = signal(120);
   readonly countdownLeft = signal(120);
+  readonly currentUserId = resolveCurrentUserId();
 
   readonly isPractice = computed(() => this.session()?.mode === 'PRACTICE');
   readonly isTest = computed(() => this.session()?.mode === 'TEST');
@@ -145,6 +153,9 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
 
     this.sessionId = id;
+    if (this.currentUserId) {
+      this.streakService.ensureLoaded(this.currentUserId).subscribe();
+    }
     this.bootstrapSession();
   }
 
@@ -457,8 +468,21 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
   private async completeAndGenerateReport(): Promise<void> {
     try {
+      const previousStreak = this.streakService.getSnapshot()?.currentStreak ?? 0;
+
       await firstValueFrom(this.api.completeSession(this.sessionId));
       const report = await firstValueFrom(this.api.generateReport(this.sessionId));
+
+      if (this.currentUserId) {
+        const updatedStreak = await firstValueFrom(this.streakService.refresh(this.currentUserId));
+        if (updatedStreak.currentStreak > previousStreak) {
+          this.streakCelebrationValue.set(updatedStreak.currentStreak);
+          this.showStreakCelebration.set(true);
+          await this.sleep(1500);
+          this.showStreakCelebration.set(false);
+        }
+      }
+
       this.router.navigate(['/dashboard/interview/report', report.id]);
     } catch {
       this.loadError.set('Session completed but report generation failed.');

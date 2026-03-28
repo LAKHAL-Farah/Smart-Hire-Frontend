@@ -103,6 +103,10 @@ export class InterviewComponent implements OnInit {
     this.router.navigate(['/dashboard/interview/bookmarks']);
   }
 
+  openDiscover(): void {
+    this.router.navigate(['/dashboard/interview/discover']);
+  }
+
   openReport(reportId: number | null): void {
     if (!reportId) {
       return;

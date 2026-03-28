@@ -108,6 +108,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'interview/discover',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/discover/interview-discover.component').then(
+            (m) => m.InterviewDiscoverComponent
+          ),
+      },
+      {
         path: 'interview',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(

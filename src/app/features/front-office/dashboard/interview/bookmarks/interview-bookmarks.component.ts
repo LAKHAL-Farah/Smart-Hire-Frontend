@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
-import { InterviewApiService } from '../interview-api.service';
+import { catchError, of } from 'rxjs';
 import { InterviewType, QuestionBookmarkDto } from '../interview.models';
+import { BookmarkService } from '../services/bookmark.service';
 import { resolveCurrentUserId } from '../interview-user.util';
 
 @Component({
@@ -15,8 +16,11 @@ import { resolveCurrentUserId } from '../interview-user.util';
   styleUrl: './interview-bookmarks.component.scss',
 })
 export class InterviewBookmarksComponent implements OnInit {
-  private readonly api = inject(InterviewApiService);
+  private readonly bookmarkStore = inject(BookmarkService);
   private readonly router = inject(Router);
+  private readonly bookmarksState = toSignal(this.bookmarkStore.bookmarks$, {
+    initialValue: [] as QuestionBookmarkDto[],
+  });
 
   readonly userId = resolveCurrentUserId();
   readonly noteMaxLength = 600;
@@ -24,8 +28,15 @@ export class InterviewBookmarksComponent implements OnInit {
   readonly loading = signal(true);
   readonly loadError = signal<string | null>(null);
 
-  readonly bookmarks = signal<QuestionBookmarkDto[]>([]);
-  readonly tags = signal<string[]>([]);
+  readonly bookmarks = computed(() => this.bookmarksState());
+  readonly tags = computed(() => {
+    const set = new Set(
+      this.bookmarks()
+        .map((bookmark) => bookmark.tagLabel ?? 'NONE')
+        .filter((tag) => tag && tag !== 'NONE')
+    );
+    return [...set].sort((left, right) => left.localeCompare(right));
+  });
 
   readonly search = signal('');
   readonly selectedTag = signal<string>('ALL');
@@ -77,13 +88,14 @@ export class InterviewBookmarksComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(null);
 
-    forkJoin({
-      bookmarks: this.api.getBookmarksByUser(userId).pipe(catchError(() => of([]))),
-      tags: this.api.getBookmarkTags(userId).pipe(catchError(() => of([]))),
-    }).subscribe({
-      next: ({ bookmarks, tags }) => {
-        this.bookmarks.set(bookmarks);
-        this.tags.set(tags);
+    this.bookmarkStore
+      .ensureLoaded(userId)
+      .pipe(catchError(() => of([])))
+      .subscribe({
+      next: (bookmarks) => {
+        if (!bookmarks.length && !this.bookmarkStore.getSnapshot().length) {
+          this.loadError.set(null);
+        }
         this.loading.set(false);
       },
       error: () => {
@@ -121,7 +133,9 @@ export class InterviewBookmarksComponent implements OnInit {
 
   saveNote(): void {
     const bookmarkId = this.editingBookmarkId();
-    if (!bookmarkId || this.noteSaving()) {
+    const userId = this.userId;
+    const activeBookmark = this.bookmarks().find((bookmark) => bookmark.id === bookmarkId);
+    if (!bookmarkId || !userId || !activeBookmark || this.noteSaving()) {
       return;
     }
 
@@ -137,8 +151,8 @@ export class InterviewBookmarksComponent implements OnInit {
     }
 
     this.noteSaving.set(true);
-    this.api
-      .updateBookmarkNote(bookmarkId, note)
+    this.bookmarkStore
+      .saveBookmark(userId, activeBookmark.questionId, note, activeBookmark.tagLabel ?? '')
       .pipe(catchError(() => of(null)))
       .subscribe((updated) => {
         this.noteSaving.set(false);
@@ -146,10 +160,6 @@ export class InterviewBookmarksComponent implements OnInit {
           this.noteError.set('Unable to save note right now.');
           return;
         }
-
-        this.bookmarks.update((items) =>
-          items.map((item) => (item.id === updated.id ? updated : item))
-        );
         this.closeNoteEditor();
       });
   }
@@ -165,18 +175,13 @@ export class InterviewBookmarksComponent implements OnInit {
     }
 
     this.deletingQuestionId.set(bookmark.questionId);
-    this.api
+    this.bookmarkStore
       .removeBookmark(userId, bookmark.questionId)
       .pipe(catchError(() => of(null)))
       .subscribe((result) => {
         this.deletingQuestionId.set(null);
         if (result === null) {
           return;
-        }
-
-        this.bookmarks.update((items) => items.filter((item) => item.id !== bookmark.id));
-        if (bookmark.tagLabel && !this.bookmarks().some((item) => item.tagLabel === bookmark.tagLabel)) {
-          this.tags.update((items) => items.filter((tag) => tag !== bookmark.tagLabel));
         }
       });
   }

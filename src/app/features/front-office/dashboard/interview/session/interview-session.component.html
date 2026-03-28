@@ -217,6 +217,14 @@
         </section>
 
         <section class="feedback-block">
+          <h3>Bookmark this question</h3>
+          <app-bookmark-button
+            [questionId]="currentQuestion()!.id"
+            [userId]="currentUserId"
+          ></app-bookmark-button>
+        </section>
+
+        <section class="feedback-block">
           <h3>Expected points</h3>
           <ul class="expected-list">
             @for (point of expectedPoints(); track point) {
@@ -288,6 +296,22 @@
         <div class="confirm-actions">
           <button type="button" (click)="cancelAbandon()">Cancel</button>
           <button class="danger" type="button" (click)="confirmAbandon()">Abandon</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showStreakCelebration()) {
+    <div class="streak-celebration-overlay" aria-live="polite">
+      <div class="streak-celebration-card">
+        <p class="streak-celebration-label">Streak Unlocked</p>
+        <h3>🔥 {{ streakCelebrationValue() }} day streak</h3>
+        <p>Momentum updated. Opening your report...</p>
+
+        <div class="confetti-burst" aria-hidden="true">
+          @for (piece of celebrationConfettiPieces; track piece) {
+            <span class="confetti-piece" [style.--piece]="piece"></span>
+          }
         </div>
       </div>
     </div>

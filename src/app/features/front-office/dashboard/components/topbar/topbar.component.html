@@ -23,6 +23,19 @@
     />
   </div>
 
+  @if (!quizMode) {
+    <a
+      routerLink="/dashboard/interview"
+      class="topbar__streak"
+      [class.topbar__streak--pulse]="streakPulse()"
+      title="Current interview streak"
+    >
+      <lucide-icon name="zap" [size]="14" [strokeWidth]="2"></lucide-icon>
+      <span>{{ currentStreak() }} day streak</span>
+      <small>Best {{ longestStreak() }}</small>
+    </a>
+  }
+
   <!-- Right: Bell + Divider + Avatar -->
   <div class="topbar__actions">
     <!-- Notifications -->

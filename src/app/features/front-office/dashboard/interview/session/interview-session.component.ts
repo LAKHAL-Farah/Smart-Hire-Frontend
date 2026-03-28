@@ -6,6 +6,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { InterviewApiService } from '../interview-api.service';
+import { MicButtonComponent } from '../components/mic-button/mic-button.component';
+import { AnswerService } from '../services/answer.service';
 import {
   AnswerEvaluationDto,
   InterviewQuestionDto,
@@ -21,12 +23,13 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 @Component({
   selector: 'app-interview-session',
   standalone: true,
-  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
+  imports: [CommonModule, FormsModule, LUCIDE_ICONS, MicButtonComponent],
   templateUrl: './interview-session.component.html',
   styleUrl: './interview-session.component.scss'
 })
 export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly api = inject(InterviewApiService);
+  private readonly answerService = inject(AnswerService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -40,6 +43,10 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly currentQuestion = signal<InterviewQuestionDto | null>(null);
   readonly currentIndex = signal(0);
   readonly answerText = signal('');
+  readonly submissionMode = signal<'text' | 'audio'>('text');
+  readonly transcribingMessage = signal('');
+  readonly audioTranscriptDebug = signal<string | null>(null);
+  readonly audioEvaluationDebug = signal<AnswerEvaluationDto | null>(null);
   readonly isAnswerFocused = signal(false);
   readonly isSubmitting = signal(false);
   readonly isLoaded = signal(false);
@@ -168,11 +175,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
     try {
       const submitResponse = await firstValueFrom(
-        this.api.submitAnswer({
-          sessionId: this.sessionId,
-          questionId: currentQuestion.id,
-          answerText: typed || 'No answer provided.',
-        })
+        this.answerService.submitTextAnswer(this.sessionId, currentQuestion.id, typed || 'No answer provided.')
       );
 
       this.lastAnswerId.set(submitResponse.id);
@@ -189,8 +192,60 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     } catch {
       this.loadError.set('Unable to submit answer. Please try again.');
     } finally {
+      this.transcribingMessage.set('');
       this.isSubmitting.set(false);
     }
+  }
+
+  async onAudioReady(audioBlob: Blob): Promise<void> {
+    const currentQuestion = this.currentQuestion();
+    if (!currentQuestion || this.isSubmitting()) {
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.transcribingMessage.set('Transcribing your answer...');
+    this.audioTranscriptDebug.set(null);
+    this.audioEvaluationDebug.set(null);
+    this.hintOpen.set(false);
+    this.followUpInputOpen.set(false);
+    this.showFollowUpDialog.set(false);
+    this.followUpState.set(null);
+
+    try {
+      const submitResponse = await firstValueFrom(
+        this.answerService.submitAudioAnswer(this.sessionId, currentQuestion.id, audioBlob)
+      );
+
+      this.lastAnswerId.set(submitResponse.id);
+      this.audioTranscriptDebug.set(submitResponse.answerText ?? '[No transcript returned]');
+      this.transcribingMessage.set('Transcript received. Evaluating...');
+
+      await firstValueFrom(this.api.triggerEvaluation(submitResponse.id));
+      const evaluation = await this.pollEvaluation(submitResponse.id);
+      this.audioEvaluationDebug.set(evaluation);
+
+      if (this.isPractice()) {
+        this.feedbackEvaluation.set(evaluation);
+        this.openFeedbackDrawer();
+      } else {
+        await this.advanceSessionOrComplete();
+      }
+    } catch {
+      this.loadError.set('Audio submit failed. Please try again.');
+    } finally {
+      this.transcribingMessage.set('');
+      this.isSubmitting.set(false);
+    }
+  }
+
+  toggleInputMode(mode?: 'text' | 'audio'): void {
+    if (mode) {
+      this.submissionMode.set(mode);
+      return;
+    }
+
+    this.submissionMode.update((value) => (value === 'text' ? 'audio' : 'text'));
   }
 
   async tryAgain(): Promise<void> {
@@ -214,6 +269,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     this.answerText.set('');
     this.feedbackOpen.set(false);
     this.feedbackEvaluation.set(null);
+    this.audioEvaluationDebug.set(null);
     this.idealExpanded.set(false);
     this.idealReveal.set(false);
     this.showFollowUpDialog.set(false);
@@ -222,6 +278,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   async nextQuestion(): Promise<void> {
     this.feedbackOpen.set(false);
     this.feedbackEvaluation.set(null);
+    this.audioTranscriptDebug.set(null);
+    this.audioEvaluationDebug.set(null);
     this.idealExpanded.set(false);
     this.idealReveal.set(false);
     this.followUpInputOpen.set(false);

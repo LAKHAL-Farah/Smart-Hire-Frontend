@@ -116,6 +116,7 @@ export const routes: Routes = [
       },
       {
         path: 'interview',
+        pathMatch: 'full',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(
             (m) => m.InterviewComponent

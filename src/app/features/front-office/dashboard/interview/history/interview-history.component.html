@@ -11,19 +11,14 @@
 
   <div class="history-top-controls">
     <div class="user-loader">
-      <label for="userId">User ID</label>
-      <input
-        id="userId"
-        type="number"
-        min="1"
-        [ngModel]="userInput()"
-        (ngModelChange)="setUserInput($event)"
-      />
-      <button type="button" [disabled]="!isUserInputValid() || loading()" (click)="loadHistory()">Load</button>
+      <label>User</label>
+      <strong>#{{ userId() }}</strong>
+      <button type="button" [disabled]="loading()" (click)="loadHistory()">Refresh</button>
+      <span class="user-loader__meta">{{ activeSessionLabel() }}</span>
+      @if (activeSession() && (activeSession()!.status === 'IN_PROGRESS' || activeSession()!.status === 'PAUSED')) {
+        <button type="button" class="btn-resume" (click)="openSession(activeSession()!.id)">Resume Active</button>
+      }
     </div>
-    @if (userInputError()) {
-      <p class="inline-error">{{ userInputError() }}</p>
-    }
   </div>
 
   @if (loadError()) {
@@ -36,7 +31,7 @@
         <article class="kpi-card">
           <span class="kpi-card__label">Sessions</span>
           <strong class="kpi-card__value">{{ sessions().length }}</strong>
-          <span class="kpi-card__hint">{{ thisMonthCount() }} this month</span>
+          <span class="kpi-card__hint">{{ thisMonthCount() }} this month · {{ bookmarkCount() }} bookmarks</span>
         </article>
         <article class="kpi-card">
           <span class="kpi-card__label">Completion</span>
@@ -55,7 +50,7 @@
           <strong class="kpi-card__value">
             @if (bestScore() === null) { — } @else { {{ bestScore()! | number: '1.1-1' }} }
           </strong>
-          <span class="kpi-card__hint">Personal best</span>
+          <span class="kpi-card__hint">Current streak {{ streak()?.currentStreak ?? 0 }}d</span>
         </article>
       </div>
 

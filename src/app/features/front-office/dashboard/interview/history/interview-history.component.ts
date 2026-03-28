@@ -19,20 +19,28 @@ export class InterviewHistoryComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-  readonly userId = signal<number | null>(resolveCurrentUserId());
-  readonly userInput = signal(resolveCurrentUserId() ? String(resolveCurrentUserId()) : '');
+  readonly userId = signal(resolveCurrentUserId());
   readonly loading = signal(true);
   readonly loadError = signal<string | null>(null);
   readonly sessions = signal<InterviewSessionDto[]>([]);
   readonly reports = signal<InterviewReportDto[]>([]);
   readonly leaderboard = signal<InterviewStreakDto[]>([]);
+  readonly streak = signal<InterviewStreakDto | null>(null);
+  readonly activeSession = signal<InterviewSessionDto | null>(null);
+  readonly bookmarkCount = signal(0);
 
   readonly search = signal('');
   readonly roleFilter = signal<'ALL' | 'SE' | 'CLOUD' | 'AI'>('ALL');
   readonly modeFilter = signal<'ALL' | 'PRACTICE' | 'TEST'>('ALL');
   readonly statusFilter = signal<'ALL' | SessionStatus>('ALL');
-  readonly userInputError = computed(() => this.validateUserInput(this.userInput()));
-  readonly isUserInputValid = computed(() => this.userInputError() === null);
+  readonly activeSessionLabel = computed(() => {
+    const active = this.activeSession();
+    if (!active) {
+      return 'No active session';
+    }
+
+    return `Active session #${active.id} (${active.status})`;
+  });
 
   readonly reportBySession = computed(() => {
     const map = new Map<number, InterviewReportDto>();
@@ -84,17 +92,23 @@ export class InterviewHistoryComponent implements OnInit {
   );
 
   readonly avgCompletedScore = computed(() => {
-    const scored = this.completedSessions().filter((session) => typeof session.totalScore === 'number');
+    const scored = this.completedSessions()
+      .map((session) => this.resolveSessionScore(session))
+      .filter((score): score is number => typeof score === 'number');
+
     if (!scored.length) {
       return null;
     }
 
-    const total = scored.reduce((sum, session) => sum + (session.totalScore ?? 0), 0);
+    const total = scored.reduce((sum, score) => sum + score, 0);
     return total / scored.length;
   });
 
   readonly bestScore = computed(() => {
-    const scored = this.completedSessions().map((session) => session.totalScore ?? 0);
+    const scored = this.completedSessions()
+      .map((session) => this.resolveSessionScore(session))
+      .filter((score): score is number => typeof score === 'number');
+
     return scored.length ? Math.max(...scored) : null;
   });
 
@@ -126,31 +140,17 @@ export class InterviewHistoryComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    if (this.isUserInputValid()) {
-      this.loadHistory();
-      return;
-    }
-
-    this.loading.set(false);
-    this.loadError.set('Enter a valid user id to load interview history.');
-  }
-
-  setUserInput(value: string | number | null): void {
-    const normalized = String(value ?? '');
-    this.userInput.set(normalized.replace(/[^\d]/g, '').slice(0, 10));
+    this.loadHistory();
   }
 
   loadHistory(): void {
-    const validation = this.validateUserInput(this.userInput());
-    if (validation) {
+    const userId = this.userId();
+    if (!userId) {
       this.loading.set(false);
-      this.loadError.set(validation);
+      this.loadError.set('No active user found.');
       return;
     }
 
-    const userId = Number(this.userInput());
-
-    this.userId.set(userId);
     this.loading.set(true);
     this.loadError.set(null);
 
@@ -158,11 +158,17 @@ export class InterviewHistoryComponent implements OnInit {
       sessions: this.api.getSessionsByUser(userId).pipe(catchError(() => of([]))),
       reports: this.api.getReportsByUser(userId).pipe(catchError(() => of([]))),
       leaderboard: this.api.getLeaderboard(8).pipe(catchError(() => of([]))),
+      streak: this.api.getStreak(userId).pipe(catchError(() => of(null))),
+      activeSession: this.api.getActiveSession(userId).pipe(catchError(() => of(null))),
+      bookmarks: this.api.getBookmarksByUser(userId).pipe(catchError(() => of([]))),
     }).subscribe({
-      next: ({ sessions, reports, leaderboard }) => {
+      next: ({ sessions, reports, leaderboard, streak, activeSession, bookmarks }) => {
         this.sessions.set(sessions);
         this.reports.set(reports);
         this.leaderboard.set(leaderboard);
+        this.streak.set(streak);
+        this.activeSession.set(activeSession);
+        this.bookmarkCount.set(bookmarks.length);
         this.loading.set(false);
       },
       error: () => {
@@ -181,7 +187,10 @@ export class InterviewHistoryComponent implements OnInit {
   }
 
   openSession(sessionId: number): void {
-    this.router.navigate(['/dashboard/interview/session', sessionId]);
+    const target = `/dashboard/interview/session/${sessionId}`;
+    this.router.navigateByUrl(target).catch(() => {
+      globalThis.location.assign(target);
+    });
   }
 
   clearFilters(): void {
@@ -192,7 +201,8 @@ export class InterviewHistoryComponent implements OnInit {
   }
 
   getDisplayScore(session: InterviewSessionDto): string {
-    return session.totalScore === null ? '—' : `${session.totalScore.toFixed(1)} / 10`;
+    const score = this.resolveSessionScore(session);
+    return score === null ? '—' : `${score.toFixed(1)} / 10`;
   }
 
   getSessionDurationLabel(session: InterviewSessionDto): string {
@@ -248,21 +258,16 @@ export class InterviewHistoryComponent implements OnInit {
     this.router.navigate(['/dashboard/interview']);
   }
 
-  private validateUserInput(value: string): string | null {
-    const raw = value.trim();
-    if (!raw) {
-      return 'User id is required.';
+  private resolveSessionScore(session: InterviewSessionDto): number | null {
+    if (typeof session.totalScore === 'number') {
+      return session.totalScore;
     }
 
-    if (!/^\d+$/.test(raw)) {
-      return 'User id must contain digits only.';
+    if (typeof session.report?.finalScore === 'number') {
+      return session.report.finalScore;
     }
 
-    const parsed = Number(raw);
-    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 2147483647) {
-      return 'User id must be a positive integer.';
-    }
-
-    return null;
+    const reportScore = this.reportBySession().get(session.id)?.finalScore;
+    return typeof reportScore === 'number' ? reportScore : null;
   }
 }

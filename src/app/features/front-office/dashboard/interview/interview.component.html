@@ -38,9 +38,9 @@
     </div>
     <div class="streak-strip__divider"></div>
     <div class="streak-strip__item">
-      <span class="streak-strip__label">SESSIONS COMPLETED</span>
+      <span class="streak-strip__label">TOTAL SESSIONS</span>
       <div class="streak-strip__main">
-        <span class="streak-strip__value">{{ totalSessionsCompleted }}</span>
+        <span class="streak-strip__value">{{ totalSessions }}</span>
       </div>
     </div>
   </div>
@@ -96,7 +96,7 @@
 
   <div class="past-sessions">
     <div class="past-sessions__header">
-      <h2 class="past-sessions__title">Past Sessions</h2>
+      <h2 class="past-sessions__title">Recent Sessions</h2>
       <div class="past-sessions__header-actions">
         <button class="past-sessions__link" type="button" (click)="openDiscover()">Discover Feed</button>
         <button class="past-sessions__link" type="button" (click)="openBookmarks()">Bookmarks</button>
@@ -107,7 +107,7 @@
     @if (isLoading()) {
       <div class="state-box">Loading interview history...</div>
     } @else if (pastSessionRows().length === 0) {
-      <div class="state-box">No completed sessions yet.</div>
+      <div class="state-box">No sessions found yet.</div>
     } @else {
       <div class="past-sessions__list">
         @for (s of pastSessionRows(); track s.id) {
@@ -126,6 +126,11 @@
               <button class="session-row__report" type="button" [disabled]="!s.reportId" (click)="openReport(s.reportId)">
                 View Report
               </button>
+              @if (s.status === 'IN_PROGRESS' || s.status === 'PAUSED') {
+                <button class="session-row__report" type="button" (click)="resumeSessionById(s.id)">
+                  Resume
+                </button>
+              }
             </div>
           </div>
         }

@@ -50,6 +50,7 @@
 .user-loader {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -62,6 +63,20 @@
   color: rgba(255, 255, 255, 0.52);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.user-loader strong {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 4px 9px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.user-loader__meta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  margin-left: 4px;
 }
 
 .user-loader input {
@@ -85,6 +100,12 @@
 .user-loader button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.user-loader .btn-resume {
+  border-color: rgba(59, 130, 246, 0.42);
+  background: rgba(59, 130, 246, 0.14);
+  color: #93c5fd;
 }
 
 .state {

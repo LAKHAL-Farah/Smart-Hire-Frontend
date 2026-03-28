@@ -10,7 +10,7 @@ import {
   InterviewSessionDto,
   SessionAnswerDto,
 } from '../interview.models';
-import { resolveCurrentUserId } from '../interview-user.util';
+import { isCurrentInterviewUser, resolveCurrentUserId } from '../interview-user.util';
 
 /* ── Types ── */
 interface DimensionScore {
@@ -314,14 +314,19 @@ export class InterviewReportComponent implements OnInit, OnDestroy {
     this.api
       .getReportById(reportId)
       .pipe(
-        switchMap((report) =>
-          forkJoin({
+        switchMap((report) => {
+          if (!isCurrentInterviewUser(report.userId)) {
+            this.loadError.set('This report does not belong to user #1.');
+            return of(null);
+          }
+
+          return forkJoin({
             report: of(report),
             session: this.api.getSessionById(report.sessionId).pipe(catchError(() => of(null))),
             answers: this.api.getAnswersBySession(report.sessionId).pipe(catchError(() => of([]))),
             evaluations: this.api.getEvaluationsBySession(report.sessionId).pipe(catchError(() => of([]))),
-          })
-        ),
+          });
+        }),
         catchError(() => {
           this.loadError.set('Unable to load report data.');
           return of(null);
@@ -329,6 +334,12 @@ export class InterviewReportComponent implements OnInit, OnDestroy {
       )
       .subscribe((result) => {
         if (!result) {
+          this.isLoading.set(false);
+          return;
+        }
+
+        if (result.session && !isCurrentInterviewUser(result.session.userId)) {
+          this.loadError.set('This report session does not belong to user #1.');
           this.isLoading.set(false);
           return;
         }

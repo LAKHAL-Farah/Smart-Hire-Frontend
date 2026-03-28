@@ -74,19 +74,19 @@ export class InterviewSetupComponent implements OnInit {
     this.selectedMode.set('PRACTICE');
 
     this.route.queryParamMap.subscribe((params) => {
-      const mode = params.get('mode');
-      const role = params.get('role');
-      const type = params.get('type');
+      const mode = this.normalizeMode(params.get('mode'));
+      const role = this.normalizeRole(params.get('role'));
+      const type = this.normalizeType(params.get('type'));
 
-      if (mode === 'PRACTICE' || mode === 'TEST') {
+      if (mode) {
         this.selectedMode.set(mode);
       }
 
-      if (role === 'SE' || role === 'CLOUD' || role === 'AI' || role === 'ALL') {
+      if (role) {
         this.selectedRole.set(role);
       }
 
-      if (type === 'TECHNICAL' || type === 'BEHAVIORAL' || type === 'MIXED') {
+      if (type) {
         this.selectedType.set(type);
       }
     });
@@ -145,7 +145,7 @@ export class InterviewSetupComponent implements OnInit {
           }
 
           this.isStarting.set(false);
-          this.navigateAfterStart(session.id, role, type);
+          this.navigateAfterStart(session.id, role, type, mode);
         },
         error: (error: HttpErrorResponse) => {
           this.isStarting.set(false);
@@ -161,30 +161,96 @@ export class InterviewSetupComponent implements OnInit {
       });
   }
 
-  private async navigateAfterStart(sessionId: number, role: RoleType, type: InterviewType): Promise<void> {
-    const targets: string[][] = [];
+  private async navigateAfterStart(
+    sessionId: number,
+    role: RoleType,
+    type: InterviewType,
+    mode: InterviewMode,
+  ): Promise<void> {
+    if (mode === 'PRACTICE') {
+      const navigated = await this.safeNavigate(`/dashboard/interview/session/${sessionId}`);
+      if (!navigated) {
+        this.errorMessage.set('Session started, but navigation failed. Open it from Interview Hub.');
+      }
+      return;
+    }
+
+    const targets: string[] = [];
 
     if (role === 'SE' && type === 'TECHNICAL') {
-      targets.push(['/dashboard/interview/session', String(sessionId), 'code']);
+      targets.push(`/dashboard/interview/session/${sessionId}/code`);
     }
 
     if (role === 'CLOUD') {
-      targets.push(['/dashboard/interview/session', String(sessionId), 'cloud']);
+      targets.push(`/dashboard/interview/session/${sessionId}/cloud`);
     }
 
     if (role === 'AI') {
-      targets.push(['/dashboard/interview/session', String(sessionId), 'ml']);
+      targets.push(`/dashboard/interview/session/${sessionId}/ml`);
     }
 
-    targets.push(['/dashboard/interview/session', String(sessionId)]);
+    targets.push(`/dashboard/interview/session/${sessionId}`);
 
     for (const target of targets) {
-      const navigated = await this.router.navigate(target);
+      const navigated = await this.safeNavigate(target);
       if (navigated) {
         return;
       }
     }
 
     this.errorMessage.set('Session started, but navigation failed. Open it from Interview Hub.');
+  }
+
+  private async safeNavigate(target: string): Promise<boolean> {
+    try {
+      const navigated = await this.router.navigateByUrl(target, { replaceUrl: true });
+      if (navigated) {
+        return true;
+      }
+    } catch (error) {
+      console.error('[InterviewSetup] router navigation failed', { target, error });
+    }
+
+    try {
+      globalThis.location.assign(target);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private normalizeMode(raw: string | null): InterviewMode | null {
+    const value = (raw ?? '').trim().toUpperCase();
+    if (!value) {
+      return null;
+    }
+
+    if (value === 'TEST' || value.startsWith('TEST')) {
+      return 'TEST';
+    }
+
+    if (value === 'PRACTICE' || value === 'PRACTICAL' || value.startsWith('PRACTIC')) {
+      return 'PRACTICE';
+    }
+
+    return null;
+  }
+
+  private normalizeRole(raw: string | null): RoleType | null {
+    const value = (raw ?? '').trim().toUpperCase();
+    if (value === 'SE' || value === 'CLOUD' || value === 'AI' || value === 'ALL') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private normalizeType(raw: string | null): InterviewType | null {
+    const value = (raw ?? '').trim().toUpperCase();
+    if (value === 'TECHNICAL' || value === 'BEHAVIORAL' || value === 'MIXED') {
+      return value;
+    }
+
+    return null;
   }
 }

@@ -8,13 +8,9 @@
 
     <div class="status-bar__right">
       <span class="elapsed">{{ toClock(elapsedSeconds()) }}</span>
-      <span class="connection-pill">
-        <span class="dot dot-online"></span>
-        HTTP
-      </span>
-      <span class="connection-pill connection-pill--live" title="Live mode in Phase 2">
-        <span class="dot dot-offline"></span>
-        Live mode
+      <span class="connection-pill" [class.connection-pill--live-connected]="isWsConnected()">
+        <span class="dot" [class.dot-online]="isWsConnected()" [class.dot-offline]="!isWsConnected()"></span>
+        {{ isWsConnected() ? 'Live' : 'Connecting...' }}
       </span>
       <button class="abandon-btn" type="button" (click)="requestAbandon()" title="Abandon session">
         🚪

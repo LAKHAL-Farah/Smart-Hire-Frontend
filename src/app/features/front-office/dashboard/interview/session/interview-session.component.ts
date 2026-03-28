@@ -3,11 +3,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { TtsService } from '../../../../../shared/services/tts.service';
+import { SessionEvent, WebSocketService } from '../../../../../shared/services/websocket.service';
 import { InterviewApiService } from '../interview-api.service';
-import { resolveCurrentUserId } from '../interview-user.util';
+import { isCurrentInterviewUser, resolveCurrentUserId } from '../interview-user.util';
 import { BookmarkButtonComponent } from '../components/bookmark-button/bookmark-button.component';
 import { MicButtonComponent } from '../components/mic-button/mic-button.component';
 import { AnswerService } from '../services/answer.service';
@@ -16,11 +17,13 @@ import {
   AnswerEvaluationDto,
   InterviewQuestionDto,
   InterviewSessionDto,
+  SessionAnswerDto,
   SessionQuestionOrderDto,
 } from '../interview.models';
 
-const POLL_INTERVAL_MS = 2000;
-const POLL_MAX_ATTEMPTS = 30;
+const EVALUATION_WAIT_TIMEOUT_MS = 70_000;
+const EVALUATION_POLL_INTERVAL_MS = 2000;
+const EVALUATION_POLL_ATTEMPTS = 35;
 const TIMER_RADIUS = 54;
 const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 
@@ -36,6 +39,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly answerService = inject(AnswerService);
   private readonly streakService = inject(StreakService);
   private readonly ttsService = inject(TtsService);
+  private readonly websocketService = inject(WebSocketService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -43,6 +47,16 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private elapsedTimerRef: ReturnType<typeof setInterval> | null = null;
   private questionTimerRef: ReturnType<typeof setInterval> | null = null;
   private scoreAnimRef: ReturnType<typeof setInterval> | null = null;
+  private wsConnectionSub: Subscription | null = null;
+  private wsSessionSub: Subscription | null = null;
+  private pendingEvaluations = new Map<
+    number,
+    {
+      resolve: (evaluation: AnswerEvaluationDto) => void;
+      reject: (reason?: unknown) => void;
+      timeoutRef: ReturnType<typeof setTimeout>;
+    }
+  >();
 
   readonly session = signal<InterviewSessionDto | null>(null);
   readonly questionOrders = signal<SessionQuestionOrderDto[]>([]);
@@ -51,6 +65,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly answerText = signal('');
   readonly submissionMode = signal<'text' | 'audio'>('text');
   readonly transcribingMessage = signal('');
+  readonly isWsConnected = signal(false);
   readonly audioTranscriptDebug = signal<string | null>(null);
   readonly audioEvaluationDebug = signal<AnswerEvaluationDto | null>(null);
   readonly isAnswerFocused = signal(false);
@@ -158,11 +173,17 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     if (this.currentUserId) {
       this.streakService.ensureLoaded(this.currentUserId).subscribe();
     }
+
+    this.initializeRealtime();
     this.bootstrapSession();
   }
 
   ngOnDestroy(): void {
     this.ttsService.stop();
+    this.rejectPendingEvaluations('Interview room closed before evaluation completed.');
+    this.wsSessionSub?.unsubscribe();
+    this.wsConnectionSub?.unsubscribe();
+    this.websocketService.unsubscribeFromSession(this.sessionId);
     this.clearIntervals();
   }
 
@@ -198,8 +219,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
       this.lastAnswerId.set(submitResponse.id);
 
-      await firstValueFrom(this.api.triggerEvaluation(submitResponse.id));
-      const evaluation = await this.pollEvaluation(submitResponse.id);
+      const evaluationPromise = this.waitForEvaluationEvent(submitResponse.id);
+      const evaluation = await evaluationPromise;
 
       if (this.isPractice()) {
         this.feedbackEvaluation.set(evaluation);
@@ -239,8 +260,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
       this.audioTranscriptDebug.set(submitResponse.answerText ?? '[No transcript returned]');
       this.transcribingMessage.set('Transcript received. Evaluating...');
 
-      await firstValueFrom(this.api.triggerEvaluation(submitResponse.id));
-      const evaluation = await this.pollEvaluation(submitResponse.id);
+      const evaluationPromise = this.waitForEvaluationEvent(submitResponse.id);
+      const evaluation = await evaluationPromise;
       this.audioEvaluationDebug.set(evaluation);
 
       if (this.isPractice()) {
@@ -369,8 +390,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         })
       );
 
-      await firstValueFrom(this.api.triggerEvaluation(submitted.id));
-      const followUpEvaluation = await this.pollEvaluation(submitted.id);
+      const evaluationPromise = this.waitForEvaluationEvent(submitted.id);
+      const followUpEvaluation = await evaluationPromise;
       this.followUpState.set(
         followUpEvaluation.overallScore === null
           ? 'Follow-up submitted.'
@@ -430,15 +451,25 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private bootstrapSession(): void {
     this.loadError.set(null);
 
-    Promise.all([
-      firstValueFrom(this.api.getSessionById(this.sessionId)),
-      firstValueFrom(this.api.getCurrentSessionQuestion(this.sessionId)),
-      firstValueFrom(this.api.getSessionQuestionOrder(this.sessionId)),
-    ])
-      .then(([session, currentQuestion, questionOrders]) => {
+    firstValueFrom(this.api.getSessionById(this.sessionId))
+      .then(async (session) => {
+        if (!isCurrentInterviewUser(session.userId)) {
+          this.loadError.set('This session does not belong to user #1.');
+          this.isLoaded.set(false);
+          return;
+        }
+
+        const [currentQuestion, questionOrders, answers, evaluations] = await Promise.all([
+          firstValueFrom(this.api.getCurrentSessionQuestion(this.sessionId)),
+          firstValueFrom(this.api.getSessionQuestionOrder(this.sessionId)),
+          firstValueFrom(this.api.getAnswersBySession(this.sessionId)),
+          firstValueFrom(this.api.getEvaluationsBySession(this.sessionId)),
+        ]);
+
         this.session.set(session);
         this.currentQuestion.set(currentQuestion);
         this.questionOrders.set(questionOrders);
+        this.restoreSessionState(answers, evaluations);
         this.currentIndex.set(this.resolveCurrentIndex(session, questionOrders, currentQuestion));
         this.isLoaded.set(true);
         this.startElapsedTimer();
@@ -457,6 +488,12 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         firstValueFrom(this.api.getSessionById(this.sessionId)),
         firstValueFrom(this.api.getSessionQuestionOrder(this.sessionId)),
       ]);
+
+      if (!isCurrentInterviewUser(session.userId)) {
+        this.loadError.set('This session does not belong to user #1.');
+        this.router.navigate(['/dashboard/interview']);
+        return;
+      }
 
       this.session.set(session);
       this.questionOrders.set(questionOrders);
@@ -499,21 +536,111 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
   }
 
+  private waitForEvaluationEvent(answerId: number): Promise<AnswerEvaluationDto> {
+    if (!this.isWsConnected()) {
+      return this.pollEvaluation(answerId);
+    }
+
+    const existing = this.pendingEvaluations.get(answerId);
+    if (existing) {
+      clearTimeout(existing.timeoutRef);
+      this.pendingEvaluations.delete(answerId);
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutRef = setTimeout(async () => {
+        this.pendingEvaluations.delete(answerId);
+
+        // Single fallback fetch for resilience if an event is missed.
+        try {
+          const evaluation = await firstValueFrom(this.api.getEvaluationByAnswer(answerId));
+          if (evaluation.overallScore !== null) {
+            resolve(evaluation);
+            return;
+          }
+        } catch {
+          // Ignore fallback failure and reject with timeout below.
+        }
+
+        reject(new Error('Evaluation timeout'));
+      }, EVALUATION_WAIT_TIMEOUT_MS);
+
+      this.pendingEvaluations.set(answerId, {
+        resolve,
+        reject,
+        timeoutRef,
+      });
+    });
+  }
+
   private async pollEvaluation(answerId: number): Promise<AnswerEvaluationDto> {
-    for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 0; attempt < EVALUATION_POLL_ATTEMPTS; attempt++) {
       try {
         const evaluation = await firstValueFrom(this.api.getEvaluationByAnswer(answerId));
-        if (evaluation.overallScore !== null) {
+        if (evaluation.overallScore !== null && evaluation.overallScore !== undefined) {
           return evaluation;
         }
       } catch {
-        // Keep polling while async evaluation is still running.
+        // Ignore transient read errors while backend is still evaluating.
       }
 
-      await this.sleep(POLL_INTERVAL_MS);
+      await this.sleep(EVALUATION_POLL_INTERVAL_MS);
     }
 
     throw new Error('Evaluation polling timeout');
+  }
+
+  private initializeRealtime(): void {
+    try {
+      this.websocketService.connect();
+      this.wsConnectionSub = this.websocketService.isConnected$.subscribe((connected) => {
+        this.isWsConnected.set(connected);
+      });
+      this.wsSessionSub = this.websocketService
+        .subscribeToSession(this.sessionId)
+        .subscribe((event) => this.handleSessionEvent(event));
+    } catch {
+      this.isWsConnected.set(false);
+    }
+  }
+
+  private handleSessionEvent(event: SessionEvent): void {
+    if (event.sessionId !== this.sessionId) {
+      return;
+    }
+
+    if (event.eventType === 'EVALUATION_READY') {
+      const payload = event.payload as Partial<AnswerEvaluationDto> | null;
+      const answerId = payload?.answerId;
+
+      if (!answerId) {
+        return;
+      }
+
+      const pending = this.pendingEvaluations.get(answerId);
+      if (!pending) {
+        return;
+      }
+
+      clearTimeout(pending.timeoutRef);
+      this.pendingEvaluations.delete(answerId);
+      pending.resolve(payload as AnswerEvaluationDto);
+      return;
+    }
+
+    if (event.eventType === 'ERROR') {
+      const message = event.message || 'Live evaluation failed. Please retry.';
+      this.rejectPendingEvaluations(message);
+    }
+  }
+
+  private rejectPendingEvaluations(reason: string): void {
+    this.pendingEvaluations.forEach((pending) => {
+      clearTimeout(pending.timeoutRef);
+      pending.reject(new Error(reason));
+    });
+
+    this.pendingEvaluations.clear();
   }
 
   private openFeedbackDrawer(): void {
@@ -557,6 +684,27 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
 
     return 0;
+  }
+
+  private restoreSessionState(answers: SessionAnswerDto[], evaluations: AnswerEvaluationDto[]): void {
+    const latestPrimaryAnswer = [...answers]
+      .filter((answer) => !answer.isFollowUp)
+      .sort((left, right) => new Date(left.submittedAt ?? 0).getTime() - new Date(right.submittedAt ?? 0).getTime())
+      .at(-1);
+
+    this.lastAnswerId.set(latestPrimaryAnswer?.id ?? null);
+
+    if (!this.isPractice() || !latestPrimaryAnswer) {
+      return;
+    }
+
+    const latestEvaluation = latestPrimaryAnswer.answerEvaluation
+      ?? evaluations.find((evaluation) => evaluation.answerId === latestPrimaryAnswer.id)
+      ?? null;
+
+    if (latestEvaluation && latestEvaluation.overallScore !== null && latestEvaluation.overallScore !== undefined) {
+      this.feedbackEvaluation.set(latestEvaluation);
+    }
   }
 
   private startElapsedTimer(): void {

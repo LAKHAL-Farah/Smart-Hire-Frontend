@@ -11,7 +11,7 @@ describe('InterviewSetupComponent', () => {
 
   beforeEach(async () => {
     apiSpy = jasmine.createSpyObj<InterviewApiService>('InterviewApiService', ['startSession']);
-    routerSpy = jasmine.createSpyObj<Router>('Router', ['navigate']);
+    routerSpy = jasmine.createSpyObj<Router>('Router', ['navigateByUrl']);
 
     await TestBed.configureTestingModule({
       imports: [InterviewSetupComponent],
@@ -41,13 +41,13 @@ describe('InterviewSetupComponent', () => {
 
   it('should navigate to session on successful start', fakeAsync(() => {
     apiSpy.startSession.and.returnValue(of({ id: 42 } as any));
-    routerSpy.navigate.and.returnValue(Promise.resolve(true));
+    routerSpy.navigateByUrl.and.returnValue(Promise.resolve(true));
 
     component.startInterview();
     flushMicrotasks();
 
     expect(apiSpy.startSession).toHaveBeenCalled();
-    expect(routerSpy.navigate).toHaveBeenCalledWith(['/dashboard/interview/session', '42', 'code']);
+    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/dashboard/interview/session/42', { replaceUrl: true });
   }));
 
   it('should show backend message on start error', () => {

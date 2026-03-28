@@ -136,7 +136,10 @@ export class InterviewCodeScreenComponent implements OnInit, OnDestroy {
   goToDefaultRoom(): void {
     const id = this.sessionId();
     if (id !== null) {
-      this.router.navigate(['/dashboard/interview/session', id]);
+      const target = `/dashboard/interview/session/${id}`;
+      this.router.navigateByUrl(target).catch(() => {
+        globalThis.location.assign(target);
+      });
     }
   }
 

@@ -87,6 +87,27 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'interview/setup',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/setup/interview-setup.component').then(
+            (m) => m.InterviewSetupComponent
+          ),
+      },
+      {
+        path: 'interview/history',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/history/interview-history.component').then(
+            (m) => m.InterviewHistoryComponent
+          ),
+      },
+      {
+        path: 'interview/bookmarks',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/bookmarks/interview-bookmarks.component').then(
+            (m) => m.InterviewBookmarksComponent
+          ),
+      },
+      {
         path: 'interview',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(
@@ -98,6 +119,27 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/session/interview-session.component').then(
             (m) => m.InterviewSessionComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/code',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/code-screen/interview-code-screen.component').then(
+            (m) => m.InterviewCodeScreenComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/cloud',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/cloud-screen/interview-cloud-screen.component').then(
+            (m) => m.InterviewCloudScreenComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/ml',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/ml-screen/interview-ml-screen.component').then(
+            (m) => m.InterviewMlScreenComponent
           ),
       },
       {
@@ -151,6 +193,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/back-office/admin/questions/question-management.component').then(
             (m) => m.QuestionManagementComponent
+          ),
+      },
+      {
+        path: 'interview',
+        loadComponent: () =>
+          import('./features/back-office/admin/interview/admin-interview-hub.component').then(
+            (m) => m.AdminInterviewHubComponent
           ),
       },
       {

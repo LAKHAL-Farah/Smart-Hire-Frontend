@@ -1,6 +1,16 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
+import { catchError, forkJoin, of, switchMap } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
+import { InterviewApiService } from '../interview-api.service';
+import {
+  AnswerEvaluationDto,
+  InterviewReportDto,
+  InterviewSessionDto,
+  SessionAnswerDto,
+} from '../interview.models';
+import { resolveCurrentUserId } from '../interview-user.util';
 
 /* ── Types ── */
 interface DimensionScore {
@@ -11,13 +21,18 @@ interface DimensionScore {
 }
 
 interface QuestionReview {
+  questionId: number;
+  answerId: number | null;
   number: number;
   text: string;
   answer: string;
+  role: string;
+  difficulty: string;
+  category: string;
   dimensions: { label: string; score: number; color: string }[];
   feedback: string;
-  strengths: string[];
-  improvements: string[];
+  followUp: string | null;
+  submittedAt: string | null;
 }
 
 interface RecommendedAction {
@@ -33,181 +48,829 @@ interface RecommendedAction {
   templateUrl: './interview-report.component.html',
   styleUrl: './interview-report.component.scss'
 })
-export class InterviewReportComponent {
-  /* ── Report header ── */
-  sessionDate = 'February 27, 2026';
-  sessionType = 'Practice';
-  questionType = 'Technical';
-  careerPath = 'Backend Engineer';
-  duration = '18 min 42 sec';
-  finalScore = 7.8;
-  percentile = 68;
+export class InterviewReportComponent implements OnInit, OnDestroy {
+  private readonly api = inject(InterviewApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private pollRef: ReturnType<typeof setInterval> | null = null;
+  private percentileAnimRef: ReturnType<typeof setInterval> | null = null;
+  private toastTimeoutRef: ReturnType<typeof setTimeout> | null = null;
 
-  /* ── Dimension scores ── */
-  dimensions: DimensionScore[] = [
-    { label: 'Content', score: 8.2, outOf: 10, color: '#2ee8a5' },
-    { label: 'Clarity', score: 7.4, outOf: 10, color: '#3b82f6' },
-    { label: 'Confidence', score: 6.8, outOf: 10, color: '#10b981' },
-    { label: 'Tone', score: 7.8, outOf: 10, color: '#8b5cf6' },
-    { label: 'Non-verbal', score: 5.5, outOf: 10, color: '#f59e0b' },
-  ];
+  readonly userId = resolveCurrentUserId();
 
-  /* ── Radar chart ── */
-  radarPoints = this.computeRadar();
+  private readonly longDateFormatter = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
-  /* ── AI Analysis ── */
-  strengths = [
-    'Demonstrated strong understanding of data structure fundamentals with practical examples',
-    'Responses showed clear logical progression and well-structured arguments',
-    'Effective use of technical vocabulary appropriate for a Backend Engineer role',
-    'Good at breaking down complex problems into smaller, manageable parts',
-  ];
-
-  areasToImprove = [
-    'Could improve confidence when discussing system design topics — more practice with scale problems recommended',
-    'Non-verbal communication needs attention — maintain more consistent eye contact',
-    'Some answers lacked depth in edge case analysis',
-  ];
-
-  recommendations: RecommendedAction[] = [
-    { icon: '🎯', title: 'Complete 3 more practice sessions focusing on vocal confidence', description: 'Your Confidence score was below average — targeted practice will help.' },
-    { icon: '📚', title: 'Review System Design fundamentals on the Roadmap', description: 'Questions about scaling showed gaps in knowledge.' },
-    { icon: '🎥', title: 'Enable video recording in your next session', description: 'Non-verbal analysis requires camera — this will help improve posture and expression.' },
-  ];
-
-  /* ── Question-by-question ── */
   expandedQuestion = signal<number | null>(null);
+  readonly isLoading = signal(true);
+  readonly loadError = signal<string | null>(null);
+  readonly processingHint = signal<string | null>(null);
+  readonly report = signal<InterviewReportDto | null>(null);
+  readonly session = signal<InterviewSessionDto | null>(null);
+  readonly sessionAnswers = signal<SessionAnswerDto[]>([]);
+  readonly evaluations = signal<AnswerEvaluationDto[]>([]);
+  readonly animatedPercentile = signal(0);
+  readonly actionToast = signal<string | null>(null);
+  readonly downloadingPdf = signal(false);
+  readonly bookmarkingByQuestion = signal<Record<number, 'idle' | 'saving' | 'saved' | 'error'>>({});
 
-  questions: QuestionReview[] = [
-    {
-      number: 1,
-      text: 'Explain the difference between a stack and a queue. When would you choose one over the other?',
-      answer: 'A stack follows Last-In-First-Out (LIFO) principle while a queue follows First-In-First-Out (FIFO). Stacks are ideal for undo operations, expression parsing, and backtracking algorithms. Queues are perfect for task scheduling, BFS traversal, and message buffering. In backend systems, I would use a queue for processing async jobs and a stack for managing recursive operations.',
-      dimensions: [
-        { label: 'Content', score: 90, color: '#2ee8a5' },
-        { label: 'Clarity', score: 82, color: '#3b82f6' },
-        { label: 'Confidence', score: 75, color: '#10b981' },
-        { label: 'Tone', score: 80, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 60, color: '#f59e0b' },
-      ],
-      feedback: 'Strong answer with good real-world examples. The comparison was clear and the mention of backend-specific use cases showed practical understanding.',
-      strengths: ['Clear LIFO/FIFO comparison', 'Good real-world examples'],
-      improvements: ['Could mention thread-safety considerations'],
-    },
-    {
-      number: 2,
-      text: 'Tell me about a time you had to resolve a conflict within your team.',
-      answer: 'During a sprint at my previous internship, two team members disagreed about the database architecture. I organized a meeting where each person presented their approach with pros and cons. I facilitated the discussion by focusing on our project requirements rather than personal preferences. We ended up combining the best aspects of both proposals.',
-      dimensions: [
-        { label: 'Content', score: 78, color: '#2ee8a5' },
-        { label: 'Clarity', score: 85, color: '#3b82f6' },
-        { label: 'Confidence', score: 70, color: '#10b981' },
-        { label: 'Tone', score: 82, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 55, color: '#f59e0b' },
-      ],
-      feedback: 'Good use of the STAR method implicitly. The response demonstrated leadership qualities and a collaborative mindset.',
-      strengths: ['Structured response with clear outcome', 'Showed leadership initiative'],
-      improvements: ['Add more specifics about the technical decision', 'Quantify the outcome if possible'],
-    },
-    {
-      number: 3,
-      text: 'How would you design a rate limiter for an API that handles 10,000 requests per second?',
-      answer: 'I would implement a token bucket algorithm backed by Redis for distributed rate limiting. Each client gets a bucket with a configurable capacity and refill rate. On each request, we check the token count, decrement if available, or return a 429 status. For the 10K RPS scale, Redis MULTI/EXEC ensures atomicity. I would also add sliding window logging as a secondary mechanism.',
-      dimensions: [
-        { label: 'Content', score: 88, color: '#2ee8a5' },
-        { label: 'Clarity', score: 72, color: '#3b82f6' },
-        { label: 'Confidence', score: 65, color: '#10b981' },
-        { label: 'Tone', score: 74, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 50, color: '#f59e0b' },
-      ],
-      feedback: 'Excellent technical depth. The mention of token bucket with Redis shows practical experience. Consider discussing failover scenarios.',
-      strengths: ['Strong algorithm choice with justification', 'Mentioned distributed concerns'],
-      improvements: ['Discuss failover and edge cases', 'Could draw a diagram to improve clarity'],
-    },
-    {
-      number: 4,
-      text: 'Walk me through how you would optimize a slow database query that involves multiple JOINs.',
-      answer: 'First, I would use EXPLAIN ANALYZE to identify the query plan and bottlenecks. Common fixes include adding indexes on JOIN columns and WHERE clauses, reducing SELECT to only needed columns, and considering denormalization for frequently accessed data. If JOINs are too expensive, I might use materialized views or break the query into smaller subqueries with application-level joining.',
-      dimensions: [
-        { label: 'Content', score: 85, color: '#2ee8a5' },
-        { label: 'Clarity', score: 78, color: '#3b82f6' },
-        { label: 'Confidence', score: 72, color: '#10b981' },
-        { label: 'Tone', score: 76, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 52, color: '#f59e0b' },
-      ],
-      feedback: 'Systematic approach starting with EXPLAIN ANALYZE is the right call. Good range of optimization strategies mentioned.',
-      strengths: ['Methodical debugging approach', 'Multiple optimization strategies'],
-      improvements: ['Mention query caching strategies', 'Discuss monitoring tools for ongoing optimization'],
-    },
-    {
-      number: 5,
-      text: 'Describe a situation where you had to learn a new technology quickly to meet a deadline.',
-      answer: 'When our team was assigned a real-time dashboard project, I had to learn WebSockets and Socket.io within a week. I started with official documentation, built a small proof-of-concept in the first two days, then iterated on the actual implementation. I also pair-programmed with a senior dev for the complex parts. We delivered on time and the feature became one of our most-used.',
-      dimensions: [
-        { label: 'Content', score: 80, color: '#2ee8a5' },
-        { label: 'Clarity', score: 88, color: '#3b82f6' },
-        { label: 'Confidence', score: 74, color: '#10b981' },
-        { label: 'Tone', score: 82, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 58, color: '#f59e0b' },
-      ],
-      feedback: 'Great narrative structure with a clear timeline. Showed resourcefulness by mentioning pair programming.',
-      strengths: ['Clear timeline and milestones', 'Demonstrated adaptability and collaboration'],
-      improvements: ['Mention how you validated your learning', 'Could discuss challenges faced during the learning process'],
-    },
-    {
-      number: 6,
-      text: 'What is the difference between horizontal and vertical scaling?',
-      answer: 'Vertical scaling means adding more power to a single machine — more CPU, RAM, or storage. Horizontal scaling means adding more machines to distribute the load. Vertical is simpler but has hardware limits and single point of failure. Horizontal offers better fault tolerance and theoretically unlimited scale but requires load balancing and data consistency strategies. For a 10K RPS API, horizontal scaling with load balancers is typically the better approach.',
-      dimensions: [
-        { label: 'Content', score: 82, color: '#2ee8a5' },
-        { label: 'Clarity', score: 80, color: '#3b82f6' },
-        { label: 'Confidence', score: 68, color: '#10b981' },
-        { label: 'Tone', score: 78, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 54, color: '#f59e0b' },
-      ],
-      feedback: 'Solid comparison with good mention of trade-offs. Connecting it back to the earlier rate limiter question showed good contextual awareness.',
-      strengths: ['Clear comparison with trade-offs', 'Connected to practical context'],
-      improvements: ['Mention specific tools or services for each approach'],
-    },
-    {
-      number: 7,
-      text: 'How do you handle disagreements about technical decisions with senior engineers?',
-      answer: 'I approach it with data and respect. First, I try to understand their perspective fully before presenting mine. If I disagree, I prepare evidence — benchmarks, documentation, or proof-of-concepts — to support my position. Ultimately, if the senior engineer still disagrees after hearing my points, I respect the decision while documenting my concerns. I have learned that experience often sees things I might miss.',
-      dimensions: [
-        { label: 'Content', score: 76, color: '#2ee8a5' },
-        { label: 'Clarity', score: 82, color: '#3b82f6' },
-        { label: 'Confidence', score: 64, color: '#10b981' },
-        { label: 'Tone', score: 80, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 52, color: '#f59e0b' },
-      ],
-      feedback: 'Mature and professional approach. The emphasis on data-driven arguments and respect for experience is excellent.',
-      strengths: ['Professional and mature approach', 'Data-driven decision making'],
-      improvements: ['Could give a specific example to strengthen the answer'],
-    },
-    {
-      number: 8,
-      text: 'Implement a function that detects a cycle in a linked list.',
-      answer: 'I would use Floyd\'s cycle detection algorithm — two pointers, slow and fast. Slow moves one node at a time, fast moves two. If there is a cycle, they will eventually meet. If fast reaches null, there is no cycle. Time complexity is O(n) and space is O(1), which is optimal. For finding the cycle start, once detected, reset one pointer to head and advance both by one — they meet at the cycle start.',
-      dimensions: [
-        { label: 'Content', score: 92, color: '#2ee8a5' },
-        { label: 'Clarity', score: 76, color: '#3b82f6' },
-        { label: 'Confidence', score: 70, color: '#10b981' },
-        { label: 'Tone', score: 74, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 48, color: '#f59e0b' },
-      ],
-      feedback: 'Excellent algorithmic knowledge. Bonus points for explaining the cycle start detection. Could improve by writing pseudocode.',
-      strengths: ['Optimal algorithm choice', 'Explained complexity and follow-up'],
-      improvements: ['Write pseudocode or actual code', 'Discuss alternative approaches briefly'],
-    },
-  ];
+  readonly dimensions = computed<DimensionScore[]>(() => {
+    const report = this.report();
+    const fallbackFromAnswers = {
+      content: this.avgEvalScore('contentScore'),
+      clarity: this.avgEvalScore('clarityScore'),
+      technical: this.avgEvalScore('technicalScore'),
+      confidence: this.avgEvalScore('confidenceScore'),
+      presence: this.avgEvalScore('postureScore'),
+    };
 
-  toggleQuestion(n: number): void {
-    this.expandedQuestion.update(v => v === n ? null : n);
+    return [
+      this.createDimension('Content', report?.contentAvg ?? fallbackFromAnswers.content, '#2ee8a5'),
+      this.createDimension('Clarity', fallbackFromAnswers.clarity, '#3b82f6'),
+      this.createDimension('Technical', report?.technicalAvg ?? fallbackFromAnswers.technical, '#8b5cf6'),
+      this.createDimension('Confidence', fallbackFromAnswers.confidence, '#10b981'),
+      this.createDimension('Presence', report?.presenceAvg ?? fallbackFromAnswers.presence, '#f59e0b'),
+    ]
+      .filter((dim): dim is DimensionScore => dim !== null)
+      .map((dim) => ({ ...dim, score: this.clampScore(dim.score) }));
+  });
+
+  readonly radarPoints = computed(() => this.computeRadar(this.dimensions()));
+
+  readonly strongestAreas = computed(() => {
+    const fromReport = this.parseTextList(this.report()?.strengths);
+    if (fromReport.length) {
+      return fromReport;
+    }
+
+    return [...this.dimensions()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((dim) => `Strong ${dim.label.toLowerCase()} performance (${dim.score.toFixed(1)}/10).`);
+  });
+
+  readonly improvementAreas = computed(() => {
+    const fromReport = this.parseTextList(this.report()?.weaknesses);
+    if (fromReport.length) {
+      return fromReport;
+    }
+
+    return [...this.dimensions()]
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 3)
+      .map((dim) => `Improve ${dim.label.toLowerCase()} with focused practice.`);
+  });
+
+  readonly recommendations = computed<RecommendedAction[]>(() => {
+    const fromReport = this.parseTextList(this.report()?.recommendations);
+    if (!fromReport.length) {
+      return [];
+    }
+
+    const icons = ['🎯', '📚', '🛠️', '🧠', '✅'];
+    return fromReport.slice(0, 5).map((item, index) => ({
+      icon: icons[index % icons.length],
+      title: item,
+      description: 'Generated from your report recommendations.',
+    }));
+  });
+
+  readonly questions = computed<QuestionReview[]>(() => this.buildQuestionReviews());
+  readonly recruiterVerdict = computed(() => {
+    const direct = this.report()?.recruiterVerdict?.trim();
+    if (direct) {
+      return direct;
+    }
+
+    const score = this.finalScore();
+    if (score === null) {
+      return 'Verdict is being generated by the evaluator. Please refresh shortly.';
+    }
+    if (score >= 8) {
+      return 'Strong hire signal. Candidate demonstrates high readiness for this role.';
+    }
+    if (score >= 6.5) {
+      return 'Promising profile. Recommend one focused preparation sprint and re-evaluation.';
+    }
+    return 'Not interview-ready yet. Target weaknesses and retake after structured practice.';
+  });
+
+  readonly sessionDate = computed(() => {
+    const report = this.report();
+    const session = this.session();
+    return this.formatDate(report?.generatedAt ?? session?.startedAt ?? null);
+  });
+
+  readonly sessionType = computed(() => this.session()?.mode ?? '—');
+  readonly questionType = computed(() => this.session()?.type ?? '—');
+  readonly careerPath = computed(() => this.roleLabel(this.session()?.roleType ?? null));
+  readonly duration = computed(() => this.formatDuration(this.resolveDurationSeconds(this.session())));
+  readonly finalScore = computed(() => {
+    const score = this.report()?.finalScore ?? this.session()?.totalScore ?? null;
+    return score === null ? null : this.clampScore(score);
+  });
+  readonly percentile = computed(() => {
+    const raw = this.report()?.percentileRank;
+    if (raw === null || raw === undefined) {
+      return null;
+    }
+
+    const normalized = raw <= 1 ? raw * 100 : raw;
+    return Math.max(0, Math.min(100, normalized));
+  });
+
+  ngOnDestroy(): void {
+    this.clearTimers();
   }
 
-  private computeRadar(): string {
-    const cx = 100, cy = 100, r = 70;
-    const scores = this.dimensions.map(d => d.score / d.outOf);
+  ngOnInit(): void {
+    const rawId = this.route.snapshot.paramMap.get('id');
+    const reportId = Number(rawId);
+
+    if (!Number.isFinite(reportId)) {
+      this.loadError.set('Invalid report id.');
+      this.isLoading.set(false);
+      return;
+    }
+
+    this.loadReport(reportId);
+  }
+
+  toggleQuestion(n: number): void {
+    this.expandedQuestion.update((value) => (value === n ? null : n));
+  }
+
+  retakeSession(): void {
+    const mode = this.session()?.mode;
+    const role = this.session()?.roleType;
+    const type = this.session()?.type;
+    this.router.navigate(['/dashboard/interview/setup'], {
+      queryParams: {
+        ...(mode ? { mode } : {}),
+        ...(role ? { role } : {}),
+        ...(type ? { type } : {}),
+      },
+    });
+  }
+
+  downloadPdf(): void {
+    const reportId = this.report()?.id;
+    if (!reportId || this.downloadingPdf()) {
+      return;
+    }
+
+    this.downloadingPdf.set(true);
+    this.generateVisualPdf(reportId)
+      .then(() => {
+        this.downloadingPdf.set(false);
+        this.showToast('Visual PDF exported successfully.');
+      })
+      .catch(() => {
+        this.api
+          .getReportPdfUrl(reportId)
+          .pipe(catchError(() => of('')))
+          .subscribe((pdfPath) => {
+            this.downloadingPdf.set(false);
+            if (!pdfPath) {
+              this.showToast('Unable to generate PDF right now.');
+              return;
+            }
+
+            const normalized = this.api.resolveBackendAssetUrl(pdfPath);
+            window.open(normalized, '_blank', 'noopener');
+            this.showToast('Opened server-generated PDF.');
+          });
+      });
+  }
+
+  async shareReport(): Promise<void> {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.showToast('Report link copied to clipboard.');
+    } catch {
+      this.showToast('Unable to copy link automatically.');
+    }
+  }
+
+  bookmarkQuestion(question: QuestionReview): void {
+    const userId = this.userId;
+    if (!question.questionId || !userId) {
+      return;
+    }
+
+    this.updateBookmarkState(question.questionId, 'saving');
+    this.api
+      .addBookmark({
+        userId,
+        questionId: question.questionId,
+        note: `Saved from report #${this.report()?.id ?? ''}`.trim(),
+        tagLabel: question.category,
+      })
+      .pipe(catchError(() => of(null)))
+      .subscribe((bookmark) => {
+        if (!bookmark) {
+          this.updateBookmarkState(question.questionId, 'error');
+          return;
+        }
+
+        this.updateBookmarkState(question.questionId, 'saved');
+      });
+  }
+
+  bookmarkLabel(questionId: number): string {
+    if (!this.userId) {
+      return 'Sign in required';
+    }
+
+    const state = this.bookmarkingByQuestion()[questionId] ?? 'idle';
+    if (state === 'saving') {
+      return 'Saving...';
+    }
+    if (state === 'saved') {
+      return 'Saved';
+    }
+    if (state === 'error') {
+      return 'Retry Save';
+    }
+    return 'Bookmark';
+  }
+
+  bookmarkDisabled(questionId: number): boolean {
+    return !this.userId || (this.bookmarkingByQuestion()[questionId] ?? 'idle') === 'saving';
+  }
+
+  backToHub(): void {
+    this.router.navigate(['/dashboard/interview']);
+  }
+
+  private loadReport(reportId: number): void {
+    this.isLoading.set(true);
+    this.loadError.set(null);
+
+    this.api
+      .getReportById(reportId)
+      .pipe(
+        switchMap((report) =>
+          forkJoin({
+            report: of(report),
+            session: this.api.getSessionById(report.sessionId).pipe(catchError(() => of(null))),
+            answers: this.api.getAnswersBySession(report.sessionId).pipe(catchError(() => of([]))),
+            evaluations: this.api.getEvaluationsBySession(report.sessionId).pipe(catchError(() => of([]))),
+          })
+        ),
+        catchError(() => {
+          this.loadError.set('Unable to load report data.');
+          return of(null);
+        })
+      )
+      .subscribe((result) => {
+        if (!result) {
+          this.isLoading.set(false);
+          return;
+        }
+
+        this.report.set(result.report);
+        this.session.set(result.session);
+        this.sessionAnswers.set(result.answers);
+        this.evaluations.set(result.evaluations);
+        this.animatePercentileTo(this.percentile() ?? 0);
+
+        if (result.report.finalScore === null) {
+          this.processingHint.set('Your final score is still processing. We are refreshing automatically...');
+          this.startReportPolling(reportId);
+        } else {
+          this.processingHint.set(null);
+        }
+
+        this.isLoading.set(false);
+      });
+  }
+
+  private buildQuestionReviews(): QuestionReview[] {
+    const session = this.session();
+    if (!session) {
+      return [];
+    }
+
+    const orders = [...(session.questionOrders ?? [])].sort((a, b) => a.questionOrder - b.questionOrder);
+    const answers = this.allAnswers();
+    const evaluationByAnswerId = this.evaluationByAnswerId();
+    const answerByQuestion = new Map<number, SessionAnswerDto>();
+
+    for (const answer of answers) {
+      if (answer.isFollowUp) {
+        continue;
+      }
+
+      if (!answerByQuestion.has(answer.questionId)) {
+        answerByQuestion.set(answer.questionId, answer);
+      }
+    }
+
+    if (!orders.length) {
+      return answers.map((answer, index) => {
+        const evaluation = answer.answerEvaluation ?? evaluationByAnswerId.get(answer.id) ?? null;
+        return {
+          questionId: answer.questionId,
+          answerId: answer.id,
+          number: index + 1,
+          text: `Question ${index + 1}`,
+          answer: answer.answerText?.trim() || answer.codeAnswer?.trim() || 'No answer submitted.',
+          role: this.roleLabel(this.session()?.roleType ?? null),
+          difficulty: '—',
+          category: 'GENERAL',
+          dimensions: this.extractQuestionDimensions(evaluation),
+          feedback: evaluation?.aiFeedback?.trim() || 'No AI feedback generated for this answer.',
+          followUp: evaluation?.followUpGenerated ?? null,
+          submittedAt: answer.submittedAt,
+        };
+      });
+    }
+
+    return orders.map((order, index) => {
+      const answer = answerByQuestion.get(order.questionId);
+      const evaluation = answer?.answerEvaluation ?? (answer ? evaluationByAnswerId.get(answer.id) : null) ?? null;
+      return {
+        questionId: order.questionId,
+        answerId: answer?.id ?? null,
+        number: index + 1,
+        text: order.question?.questionText ?? `Question ${index + 1}`,
+        answer: answer?.answerText?.trim() || answer?.codeAnswer?.trim() || 'No answer submitted.',
+        role: this.roleLabel(order.question?.roleType ?? this.session()?.roleType ?? null),
+        difficulty: order.question?.difficulty ?? '—',
+        category: order.question?.type ?? 'GENERAL',
+        dimensions: this.extractQuestionDimensions(evaluation),
+        feedback: evaluation?.aiFeedback?.trim() || 'No AI feedback generated for this answer.',
+        followUp: evaluation?.followUpGenerated ?? null,
+        submittedAt: answer?.submittedAt ?? null,
+      };
+    });
+  }
+
+  private allAnswers(): SessionAnswerDto[] {
+    const fromSession = this.session()?.answers ?? [];
+    const fromEndpoint = this.sessionAnswers();
+    const byId = new Map<number, SessionAnswerDto>();
+
+    for (const answer of [...fromSession, ...fromEndpoint]) {
+      if (!answer || answer.isFollowUp) {
+        continue;
+      }
+
+      byId.set(answer.id, answer);
+    }
+
+    return [...byId.values()].sort((a, b) => this.dateValue(a.submittedAt) - this.dateValue(b.submittedAt));
+  }
+
+  private evaluationByAnswerId(): Map<number, AnswerEvaluationDto> {
+    const map = new Map<number, AnswerEvaluationDto>();
+
+    for (const evaluation of this.evaluations()) {
+      map.set(evaluation.answerId, evaluation);
+    }
+
+    return map;
+  }
+
+  private extractQuestionDimensions(evaluation: AnswerEvaluationDto | null): Array<{ label: string; score: number; color: string }> {
+    if (!evaluation) {
+      return [];
+    }
+
+    const dims: Array<{ label: string; score: number; color: string } | null> = [
+      this.questionDimension('Content', evaluation.contentScore, '#2ee8a5'),
+      this.questionDimension('Clarity', evaluation.clarityScore, '#3b82f6'),
+      this.questionDimension('Technical', evaluation.technicalScore, '#8b5cf6'),
+      this.questionDimension('Confidence', evaluation.confidenceScore, '#10b981'),
+      this.questionDimension('Tone', evaluation.toneScore, '#f59e0b'),
+    ];
+
+    return dims.filter((dim): dim is { label: string; score: number; color: string } => dim !== null);
+  }
+
+  private questionDimension(label: string, score: number | null, color: string): { label: string; score: number; color: string } | null {
+    if (score === null || score === undefined) {
+      return null;
+    }
+
+    const normalized = this.clampScore(score);
+    return {
+      label,
+      score: normalized,
+      color,
+    };
+  }
+
+  private createDimension(label: string, score: number | null | undefined, color: string): DimensionScore | null {
+    if (score === null || score === undefined) {
+      return null;
+    }
+
+    return {
+      label,
+      score,
+      outOf: 10,
+      color,
+    };
+  }
+
+  private avgEvalScore(key: keyof AnswerEvaluationDto): number | null {
+    const evaluations = this.evaluations().length
+      ? this.evaluations()
+      : this.allAnswers().map((answer) => answer.answerEvaluation).filter((value): value is AnswerEvaluationDto => !!value);
+    const scores = evaluations
+      .map((evaluation) => evaluation?.[key])
+      .filter((score): score is number => typeof score === 'number');
+
+    if (!scores.length) {
+      return null;
+    }
+
+    const total = scores.reduce((sum, value) => sum + value, 0);
+    return total / scores.length;
+  }
+
+  private parseTextList(raw: string | null | undefined): string[] {
+    if (!raw) {
+      return [];
+    }
+
+    const normalized = raw.trim();
+    if (!normalized) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((value) => String(value).trim()).filter(Boolean);
+      }
+    } catch {
+      // Fall back to plain-text parsing.
+    }
+
+    return normalized
+      .split(/\r?\n|;/)
+      .map((line) => line.replace(/^[-*]\s*/, '').trim())
+      .filter(Boolean);
+  }
+
+  private formatDate(value: string | null): string {
+    if (!value) {
+      return '—';
+    }
+
+    return this.longDateFormatter.format(new Date(value));
+  }
+
+  formatDateTime(value: string | null): string {
+    if (!value) {
+      return '—';
+    }
+
+    const date = new Date(value);
+    return `${this.longDateFormatter.format(date)} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
+  private formatDuration(seconds: number | null): string {
+    if (seconds === null || seconds === undefined || seconds < 0) {
+      return '—';
+    }
+
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins} min ${secs.toString().padStart(2, '0')} sec`;
+  }
+
+  private resolveDurationSeconds(session: InterviewSessionDto | null): number | null {
+    if (!session) {
+      return null;
+    }
+
+    if (session.durationSeconds && session.durationSeconds > 0) {
+      return session.durationSeconds;
+    }
+
+    if (session.startedAt && session.endedAt) {
+      const start = new Date(session.startedAt).getTime();
+      const end = new Date(session.endedAt).getTime();
+      const deltaSeconds = Math.floor((end - start) / 1000);
+      return deltaSeconds > 0 ? deltaSeconds : null;
+    }
+
+    return null;
+  }
+
+  private roleLabel(roleType: InterviewSessionDto['roleType'] | null): string {
+    switch (roleType) {
+      case 'SE':
+        return 'Software Engineer';
+      case 'CLOUD':
+        return 'Cloud Engineer';
+      case 'AI':
+        return 'AI Engineer';
+      case 'ALL':
+        return 'General';
+      default:
+        return '—';
+    }
+  }
+
+  private clampScore(value: number): number {
+    return Math.max(0, Math.min(10, value));
+  }
+
+  private dateValue(value: string | null): number {
+    if (!value) {
+      return 0;
+    }
+
+    return new Date(value).getTime();
+  }
+
+  private startReportPolling(reportId: number): void {
+    let attempts = 0;
+    this.stopPoll();
+    this.pollRef = setInterval(() => {
+      attempts += 1;
+      this.api
+        .getReportById(reportId)
+        .pipe(catchError(() => of(null)))
+        .subscribe((freshReport) => {
+          if (!freshReport) {
+            return;
+          }
+
+          this.report.set(freshReport);
+          this.animatePercentileTo(this.percentile() ?? 0);
+
+          if (freshReport.finalScore !== null) {
+            this.processingHint.set(null);
+            this.stopPoll();
+          }
+
+          if (attempts >= 20) {
+            this.processingHint.set('Report processing is taking longer than expected. Please refresh soon.');
+            this.stopPoll();
+          }
+        });
+    }, 3000);
+  }
+
+  private animatePercentileTo(target: number): void {
+    if (this.percentileAnimRef) {
+      clearInterval(this.percentileAnimRef);
+      this.percentileAnimRef = null;
+    }
+
+    const start = this.animatedPercentile();
+    if (start === target) {
+      return;
+    }
+
+    const delta = target - start;
+    const step = delta / 24;
+    let current = start;
+    let ticks = 0;
+
+    this.percentileAnimRef = setInterval(() => {
+      ticks += 1;
+      current += step;
+      if (ticks >= 24) {
+        this.animatedPercentile.set(target);
+        clearInterval(this.percentileAnimRef!);
+        this.percentileAnimRef = null;
+        return;
+      }
+
+      this.animatedPercentile.set(Math.max(0, Math.min(100, current)));
+    }, 25);
+  }
+
+  private showToast(message: string): void {
+    this.actionToast.set(message);
+    if (this.toastTimeoutRef) {
+      clearTimeout(this.toastTimeoutRef);
+    }
+
+    this.toastTimeoutRef = setTimeout(() => {
+      this.actionToast.set(null);
+      this.toastTimeoutRef = null;
+    }, 2200);
+  }
+
+  private updateBookmarkState(questionId: number, state: 'idle' | 'saving' | 'saved' | 'error'): void {
+    this.bookmarkingByQuestion.update((existing) => ({
+      ...existing,
+      [questionId]: state,
+    }));
+  }
+
+  private stopPoll(): void {
+    if (this.pollRef) {
+      clearInterval(this.pollRef);
+      this.pollRef = null;
+    }
+  }
+
+  private clearTimers(): void {
+    this.stopPoll();
+    if (this.percentileAnimRef) {
+      clearInterval(this.percentileAnimRef);
+      this.percentileAnimRef = null;
+    }
+    if (this.toastTimeoutRef) {
+      clearTimeout(this.toastTimeoutRef);
+      this.toastTimeoutRef = null;
+    }
+  }
+
+  private async generateVisualPdf(reportId: number): Promise<void> {
+    const { default: jsPDF } = await import('jspdf');
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 15;
+    const lineHeight = 5.5;
+    let yPos = margin;
+
+    const renderWrappedText = (text: string, x: number, yPosCurrent: number, maxWidth: number, fontSize: number = 9): number => {
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setFontSize(fontSize);
+      pdf.setTextColor(50, 50, 50);
+      
+      const wrapped = pdf.splitTextToSize(text, maxWidth);
+      let currentY = yPosCurrent;
+      
+      wrapped.forEach((line: string) => {
+        pdf.text(line, x, currentY);
+        currentY += lineHeight;
+      });
+      
+      return currentY + 1;
+    };
+
+    const ensureSpace = (requiredHeight: number): void => {
+      if (yPos + requiredHeight > pageHeight - 15) {
+        pdf.addPage();
+        yPos = margin;
+      }
+    };
+
+    // ── Title & Metadata ──
+    pdf.setFillColor(46, 232, 165);
+    pdf.rect(0, 0, pageWidth, 25, 'F');
+    
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(20);
+    pdf.text('SmartHire Interview Report', margin, 12);
+    pdf.setFontSize(9);
+    pdf.text(`Report ID: ${reportId}`, margin, 18);
+
+    yPos = 32;
+
+    // ── Session Metadata ──
+    pdf.setTextColor(100, 100, 100);
+    pdf.setFontSize(9);
+    const sessionDate = this.sessionDate() || 'N/A';
+    const sessionInfo = `${sessionDate} · ${this.sessionType()} · ${this.questionType()}`;
+    pdf.text(sessionInfo, margin, yPos);
+    yPos += 8;
+
+    // ── Score Section ──
+    const finalScore = this.finalScore();
+    pdf.setDrawColor(46, 232, 165);
+    pdf.setLineWidth(0.5);
+    pdf.rect(margin, yPos, pageWidth - 2 * margin, 35);
+
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(14);
+    pdf.text('Overall Score', margin + 5, yPos + 10);
+
+    pdf.setFontSize(32);
+    const scoreText = finalScore === null ? '—' : finalScore.toFixed(1);
+    pdf.text(scoreText, margin + 60, yPos + 28);
+
+    pdf.setFontSize(10);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.text('/10', margin + 95, yPos + 28);
+
+    // Percentile info
+    const percentile = this.percentile();
+    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
+    if (percentile !== null) {
+      pdf.text(`Percentile: ${percentile.toFixed(0)}%`, margin + 130, yPos + 15);
+    }
+    pdf.text(this.careerPath() || 'N/A', margin + 130, yPos + 22);
+    pdf.text(this.duration() || 'N/A', margin + 130, yPos + 29);
+
+    yPos += 42;
+
+    // ── Verdict ──
+    ensureSpace(20);
+    const verdict = this.recruiterVerdict() || 'Verdict pending.';
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.text('Verdict', margin, yPos);
+    yPos += 6;
+
+    yPos = renderWrappedText(verdict, margin, yPos, pageWidth - 2 * margin - 5);
+    yPos += 3;
+
+    // ── Performance Dimensions ──
+    ensureSpace(40);
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.text('Performance Dimensions', margin, yPos);
+    yPos += 8;
+
+    const dimensions = this.dimensions();
+    dimensions.forEach((dim) => {
+      pdf.setFontSize(9);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(dim.label, margin, yPos);
+      pdf.text(`${dim.score.toFixed(1)}/10`, pageWidth - margin - 20, yPos);
+
+      // Progress bar
+      const barWidth = 60;
+      const barX = margin + 50;
+      pdf.setDrawColor(220, 220, 220);
+      pdf.rect(barX, yPos - 2.5, barWidth, 3);
+
+      const displayColor = dim.color.replace(/#/g, '').match(/.{1,2}/g);
+      if (displayColor) {
+        const [r, g, b] = displayColor.map((x) => parseInt(x, 16));
+        pdf.setFillColor(r, g, b);
+      }
+      const fillWidth = (dim.score / 10) * barWidth;
+      pdf.rect(barX, yPos - 2.5, fillWidth, 3, 'F');
+
+      yPos += lineHeight + 1;
+    });
+
+    yPos += 3;
+
+    // ── Strengths ──
+    ensureSpace(35);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Strengths', margin, yPos);
+    yPos += 6;
+
+    const strengths = this.strongestAreas();
+    strengths.slice(0, 3).forEach((strength) => {
+      yPos = renderWrappedText(`• ${strength}`, margin + 3, yPos, pageWidth - 2 * margin - 8, 8.5);
+      yPos += 1;
+    });
+
+    // ── Improvements ──
+    ensureSpace(35);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('Areas for Improvement', margin, yPos);
+    yPos += 6;
+
+    const improvements = this.improvementAreas();
+    improvements.slice(0, 3).forEach((improvement) => {
+      yPos = renderWrappedText(`• ${improvement}`, margin + 3, yPos, pageWidth - 2 * margin - 8, 8.5);
+      yPos += 1;
+    });
+
+    // ── Footer ──
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 150, 150);
+    const generatedOn = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    pdf.text(`Generated on ${generatedOn}`, margin, pageHeight - 10);
+    pdf.text(`SmartHire © 2026`, pageWidth - margin - 30, pageHeight - 10);
+
+    const fileName = `smarthire-report-${reportId}-${new Date().toISOString().slice(0, 10)}.pdf`;
+    pdf.save(fileName);
+  }
+
+  private computeRadar(dimensions: DimensionScore[]): string {
+    if (!dimensions.length) {
+      return '';
+    }
+
+    const cx = 100;
+    const cy = 100;
+    const r = 70;
+    const scores = dimensions.map((dim) => dim.score / dim.outOf);
     const angleStep = (2 * Math.PI) / scores.length;
     const points = scores.map((s, i) => {
       const angle = angleStep * i - Math.PI / 2;
@@ -220,9 +883,14 @@ export class InterviewReportComponent {
 
   getRadarAxisPoints(): { label: string; x: number; y: number; lx: number; ly: number }[] {
     const cx = 100, cy = 100, r = 70;
-    const n = this.dimensions.length;
+    const dims = this.dimensions();
+    const n = dims.length;
+    if (!n) {
+      return [];
+    }
+
     const angleStep = (2 * Math.PI) / n;
-    return this.dimensions.map((d, i) => {
+    return dims.map((d, i) => {
       const angle = angleStep * i - Math.PI / 2;
       return {
         label: d.label,
@@ -236,7 +904,11 @@ export class InterviewReportComponent {
 
   getGridPolygon(scale: number): string {
     const cx = 100, cy = 100, r = 70;
-    const n = this.dimensions.length;
+    const n = this.dimensions().length;
+    if (!n) {
+      return '';
+    }
+
     const angleStep = (2 * Math.PI) / n;
     const points: string[] = [];
     for (let i = 0; i < n; i++) {
@@ -247,6 +919,6 @@ export class InterviewReportComponent {
   }
 
   getDimensionDots(q: QuestionReview): string {
-    return q.dimensions.map(d => d.color).join(',');
+    return q.dimensions.map((d) => d.color).join(',');
   }
 }

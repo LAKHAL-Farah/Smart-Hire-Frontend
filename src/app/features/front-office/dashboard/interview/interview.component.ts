@@ -1,19 +1,22 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { catchError, forkJoin, of } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { InterviewApiService } from './interview-api.service';
+import { InterviewSessionDto, InterviewStreakDto, SessionStatus } from './interview.models';
+import { resolveCurrentUserId } from './interview-user.util';
 
-/* ── Types ── */
-interface SessionHistory {
-  id: string;
-  mode: 'practice' | 'test';
-  questionType: string;
-  careerPath: string;
-  date: string;
-  score: number;
+interface PastSessionRow {
+  id: number;
+  roleLabel: string;
+  modeLabel: string;
+  modeClass: 'mode-practice' | 'mode-test';
+  scoreLabel: string;
+  dateLabel: string;
+  status: SessionStatus;
+  reportId: number | null;
 }
-
-type QuestionType = 'technical' | 'behavioral' | 'mixed';
-type Difficulty = 'beginner' | 'easy' | 'intermediate' | 'hard' | 'expert';
 
 @Component({
   selector: 'app-interview',
@@ -22,100 +25,179 @@ type Difficulty = 'beginner' | 'easy' | 'intermediate' | 'hard' | 'expert';
   templateUrl: './interview.component.html',
   styleUrl: './interview.component.scss'
 })
-export class InterviewComponent {
-  /* ── Hub state ── */
-  sessionActive = signal(false);
-  showModal = signal(false);
-  selectedMode = signal<'practice' | 'test'>('practice');
+export class InterviewComponent implements OnInit {
+  private readonly interviewApi = inject(InterviewApiService);
+  private readonly router = inject(Router);
 
-  /* ── Modal config ── */
-  questionType = signal<QuestionType>('technical');
-  careerPath = signal('backend');
-  difficulty = signal<Difficulty>('intermediate');
-  questionCount = signal(10);
-  videoEnabled = signal(false);
-  cameraGranted = signal(false);
+  private readonly shortDateFormatter = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
 
-  questionTypes: { label: string; value: QuestionType }[] = [
-    { label: 'Technical', value: 'technical' },
-    { label: 'Behavioral', value: 'behavioral' },
-    { label: 'Mixed', value: 'mixed' },
-  ];
+  readonly userId = resolveCurrentUserId();
+  readonly isLoading = signal(true);
+  readonly loadError = signal<string | null>(null);
 
-  careerPaths = [
-    { value: 'backend', label: 'Backend Engineer', emoji: '⚙️' },
-    { value: 'frontend', label: 'Frontend Engineer', emoji: '🎨' },
-    { value: 'fullstack', label: 'Full-Stack Developer', emoji: '🔗' },
-    { value: 'devops', label: 'DevOps Engineer', emoji: '🚀' },
-    { value: 'data', label: 'Data Scientist', emoji: '📊' },
-    { value: 'mobile', label: 'Mobile Developer', emoji: '📱' },
-  ];
+  readonly streak = signal<InterviewStreakDto | null>(null);
+  readonly sessions = signal<InterviewSessionDto[]>([]);
+  readonly activeSession = signal<InterviewSessionDto | null>(null);
 
-  difficulties: Difficulty[] = ['beginner', 'easy', 'intermediate', 'hard', 'expert'];
-  questionCounts = [5, 10, 15];
+  readonly completedSessions = computed(() =>
+    [...this.sessions()]
+      .filter((session) => session.status === 'COMPLETED')
+      .sort((a, b) => this.dateValue(b.startedAt) - this.dateValue(a.startedAt))
+  );
 
-  /* ── Streak / Stats ── */
-  streak = 9;
-  bestStreak = 14;
-  avgScore = 7.8;
-  scoreTrend = '+0.4';
-  sessionsThisMonth = 12;
-  lastSession = '2 days ago';
+  readonly averageScoreLastTen = computed(() => {
+    const scored = this.completedSessions()
+      .filter((session) => session.totalScore !== null)
+      .slice(0, 10);
 
-  /* ── Session History ── */
-  sessions: SessionHistory[] = [
-    { id: 'sess-1', mode: 'practice', questionType: 'Technical', careerPath: 'Backend Engineer', date: 'Feb 27, 2026', score: 8.4 },
-    { id: 'sess-2', mode: 'test', questionType: 'Behavioral', careerPath: 'Frontend Engineer', date: 'Feb 25, 2026', score: 7.2 },
-    { id: 'sess-3', mode: 'practice', questionType: 'Mixed', careerPath: 'Backend Engineer', date: 'Feb 23, 2026', score: 9.1 },
-    { id: 'sess-4', mode: 'test', questionType: 'Technical', careerPath: 'Full-Stack Developer', date: 'Feb 20, 2026', score: 5.8 },
-    { id: 'sess-5', mode: 'practice', questionType: 'Behavioral', careerPath: 'Backend Engineer', date: 'Feb 18, 2026', score: 6.5 },
-  ];
+    if (!scored.length) {
+      return null;
+    }
 
-  selectedCareerPath = computed(() => this.careerPaths.find(c => c.value === this.careerPath()));
+    const total = scored.reduce((sum, session) => sum + (session.totalScore ?? 0), 0);
+    return total / scored.length;
+  });
 
-  difficultyIndex = computed(() => this.difficulties.indexOf(this.difficulty()));
+  readonly pastSessionRows = computed<PastSessionRow[]>(() =>
+    this.completedSessions()
+      .slice(0, 5)
+      .map((session) => ({
+        id: session.id,
+        roleLabel: this.getRoleLabel(session),
+        modeLabel: session.mode,
+        modeClass: session.mode === 'PRACTICE' ? 'mode-practice' : 'mode-test',
+        scoreLabel: session.totalScore === null ? '—' : session.totalScore.toFixed(1),
+        dateLabel: this.formatShortDate(session.startedAt),
+        status: session.status,
+        reportId: session.report?.id ?? null,
+      }))
+  );
 
-  openModal(mode: 'practice' | 'test'): void {
-    this.selectedMode.set(mode);
-    this.showModal.set(true);
+  ngOnInit(): void {
+    this.loadHubData();
   }
 
-  closeModal(): void {
-    this.showModal.set(false);
-  }
-
-  setQuestionType(t: QuestionType): void {
-    this.questionType.set(t);
-  }
-
-  setDifficulty(d: Difficulty): void {
-    this.difficulty.set(d);
-  }
-
-  setQuestionCount(n: number): void {
-    this.questionCount.set(n);
-  }
-
-  toggleVideo(): void {
-    this.videoEnabled.update(v => !v);
-  }
-
-  beginSession(): void {
-    this.showModal.set(false);
-    // Navigate to session — in a real app would use Router
-    console.log('Begin session:', {
-      mode: this.selectedMode(),
-      questionType: this.questionType(),
-      careerPath: this.careerPath(),
-      difficulty: this.difficulty(),
-      count: this.questionCount(),
-      video: this.videoEnabled(),
+  goToSetup(mode?: 'PRACTICE' | 'TEST'): void {
+    this.router.navigate(['/dashboard/interview/setup'], {
+      queryParams: mode ? { mode } : undefined,
     });
   }
 
-  getScoreBorder(score: number): string {
-    if (score >= 8) return 'border-green';
-    if (score < 6) return 'border-orange';
-    return '';
+  resumeActiveSession(): void {
+    const active = this.activeSession();
+    if (!active) {
+      return;
+    }
+
+    this.router.navigate(['/dashboard/interview/session', active.id]);
+  }
+
+  openHistory(): void {
+    this.router.navigate(['/dashboard/interview/history']);
+  }
+
+  openBookmarks(): void {
+    this.router.navigate(['/dashboard/interview/bookmarks']);
+  }
+
+  openReport(reportId: number | null): void {
+    if (!reportId) {
+      return;
+    }
+
+    this.router.navigate(['/dashboard/interview/report', reportId]);
+  }
+
+  getStatusClass(status: SessionStatus): string {
+    switch (status) {
+      case 'COMPLETED':
+        return 'status-completed';
+      case 'PAUSED':
+        return 'status-paused';
+      case 'IN_PROGRESS':
+        return 'status-active';
+      case 'ABANDONED':
+        return 'status-abandoned';
+      default:
+        return 'status-evaluating';
+    }
+  }
+
+  get currentStreak(): number {
+    return this.streak()?.currentStreak ?? 0;
+  }
+
+  get longestStreak(): number {
+    return this.streak()?.longestStreak ?? 0;
+  }
+
+  get totalSessionsCompleted(): number {
+    return this.streak()?.totalSessionsCompleted ?? 0;
+  }
+
+  private loadHubData(): void {
+    const userId = this.userId;
+    if (!userId) {
+      this.isLoading.set(false);
+      this.loadError.set('No active user found. Please sign in again to load your interview data.');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.loadError.set(null);
+
+    forkJoin({
+      streak: this.interviewApi.getStreak(userId).pipe(catchError(() => of(null))),
+      sessions: this.interviewApi.getSessionsByUser(userId).pipe(catchError(() => of([]))),
+      activeSession: this.interviewApi.getActiveSession(userId).pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ streak, sessions, activeSession }) => {
+        this.streak.set(streak);
+        this.sessions.set(sessions);
+        this.activeSession.set(activeSession);
+
+        if (!streak) {
+          this.loadError.set('Some interview data could not be loaded.');
+        }
+
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.loadError.set('Failed to load interview data.');
+        this.isLoading.set(false);
+      },
+    });
+  }
+
+  private getRoleLabel(session: InterviewSessionDto): string {
+    switch (session.roleType) {
+      case 'SE':
+        return 'SE';
+      case 'CLOUD':
+        return 'CLOUD';
+      case 'AI':
+        return 'AI';
+      default:
+        return session.roleType;
+    }
+  }
+
+  private formatShortDate(value: string | null): string {
+    if (!value) {
+      return '—';
+    }
+
+    return this.shortDateFormatter.format(new Date(value));
+  }
+
+  private dateValue(value: string | null): number {
+    if (!value) {
+      return 0;
+    }
+
+    return new Date(value).getTime();
   }
 }

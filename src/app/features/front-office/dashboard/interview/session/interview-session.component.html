@@ -55,6 +55,14 @@
           </div>
 
           <h2 class="question-text">{{ currentQuestion()!.questionText }}</h2>
+          <button
+            class="question-audio-btn"
+            type="button"
+            [disabled]="!currentQuestion()!.ttsAudioUrl"
+            (click)="playCurrentQuestionAudio()"
+          >
+            Replay audio
+          </button>
           <p class="question-index">Question {{ currentIndex() + 1 }} of {{ totalQuestions() }}</p>
         </article>
 

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
+import { TtsService } from '../../../../../shared/services/tts.service';
 import { InterviewApiService } from '../interview-api.service';
 import { resolveCurrentUserId } from '../interview-user.util';
 import { BookmarkButtonComponent } from '../components/bookmark-button/bookmark-button.component';
@@ -34,6 +35,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private readonly api = inject(InterviewApiService);
   private readonly answerService = inject(AnswerService);
   private readonly streakService = inject(StreakService);
+  private readonly ttsService = inject(TtsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -160,7 +162,12 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.ttsService.stop();
     this.clearIntervals();
+  }
+
+  playCurrentQuestionAudio(): void {
+    this.playQuestionAudio(this.currentQuestion());
   }
 
   async submitAnswer(isAutoSubmit = false): Promise<void> {
@@ -436,6 +443,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         this.isLoaded.set(true);
         this.startElapsedTimer();
         this.configureQuestionTimer();
+        this.playQuestionAudio(currentQuestion);
       })
       .catch(() => {
         this.loadError.set('Failed to load the interview room.');
@@ -456,6 +464,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
       this.currentIndex.set(this.resolveCurrentIndex(session, questionOrders, currentQuestion));
       this.answerText.set('');
       this.configureQuestionTimer();
+      this.playQuestionAudio(currentQuestion);
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 404) {
         await this.completeAndGenerateReport();
@@ -612,6 +621,17 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => {
       setTimeout(resolve, ms);
+    });
+  }
+
+  private playQuestionAudio(question: InterviewQuestionDto | null): void {
+    const audioUrl = question?.ttsAudioUrl;
+    if (!audioUrl) {
+      return;
+    }
+
+    this.ttsService.playFromUrl(audioUrl).catch(() => {
+      // Ignore autoplay or playback failures to avoid blocking question flow.
     });
   }
 

@@ -273,6 +273,23 @@
   line-height: 1.8;
 }
 
+.question-audio-btn {
+  margin-top: 10px;
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  border-radius: var(--radius-full);
+  background: rgba(59, 130, 246, 0.16);
+  color: #bfdbfe;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.question-audio-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .question-index {
   margin-top: 8px;
   color: rgba(255, 255, 255, 0.45);

@@ -48,6 +48,7 @@ export interface InterviewQuestionDto {
   idealAnswer: string | null;
   sampleCode: string | null;
   tags: string | null;
+  ttsAudioUrl: string | null;
   active: boolean;
 }
 

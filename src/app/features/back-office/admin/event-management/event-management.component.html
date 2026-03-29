@@ -105,27 +105,7 @@
               {{ event.status }}
             </span>
           </td>
-<td class="col-online">
-  <span class="badge-online" [class.online]="event.online" [class.offline]="!event.online">
-    <span class="online-dot"></span>
-    {{ event.online ? 'Online' : 'Offline' }}
-  </span>
-</td>
-            <td class="col-actions" (click)="$event.stopPropagation()">
-  <div class="actions-wrap">
-    <button class="dots-btn" (click)="toggleMenu(event.id)">
-      <lucide-icon name="ellipsis-vertical" [size]="18"></lucide-icon>
-    </button>
 
-    @if (openMenuId === event.id) {
-      <div class="action-menu">
-        <button class="action-menu__item">View</button>
-        <button class="action-menu__item">Edit</button>
-        <button class="action-menu__item danger">Delete</button>
-      </div>
-    }
-  </div>
-</td>
 
         </tr>
 

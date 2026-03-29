@@ -105,6 +105,13 @@
               {{ event.status }}
             </span>
           </td>
+<td class="col-online">
+  <span class="badge-online" [class.online]="event.online" [class.offline]="!event.online">
+    <span class="online-dot"></span>
+    {{ event.online ? 'Online' : 'Offline' }}
+  </span>
+</td>
+            
 
 
         </tr>

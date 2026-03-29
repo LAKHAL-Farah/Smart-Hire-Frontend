@@ -31,6 +31,11 @@ export class AdminSidebarComponent {
     { icon: 'circle-question-mark', label: 'Interview Questions', route: '/admin/questions' },
     { icon: 'clock', label: 'Career Paths', route: '/admin/careers' },
   ];
+   contentEventItems: NavItem[] = [
+    { icon: 'briefcase', label: 'Event Management', route: '/admin/events' },
+    { icon: 'circle-question-mark', label: 'Event Review ', route: '#' },
+    { icon: 'clock', label: 'Hackathon ', route: '/admin/hackathons' },
+  ];
 
   systemItems: NavItem[] = [
     { icon: 'lightbulb', label: 'AI Monitor', route: '/admin/ai-monitor' },

@@ -181,6 +181,13 @@ export const routes: Routes = [
             (m) => m.SystemHealthComponent
           ),
       },
+       {
+        path: 'events',
+        loadComponent: () =>
+          import('./features/back-office/admin/event-management/event-management.component').then(
+            (m) => m.EventManagementComponent
+          ),
+      },
       {
         path: 'settings',
         loadComponent: () =>

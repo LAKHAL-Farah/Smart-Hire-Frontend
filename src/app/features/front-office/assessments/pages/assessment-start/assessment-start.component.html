@@ -1,44 +1,44 @@
 <!-- ══════ HEADER ══════ -->
 <section class="page-header">
   <div class="header-content">
-    <h1 class="page-title">Start Assessment</h1>
-    <p class="page-subtitle">Choose your assessment level and test your skills</p>
+    <h1 class="page-title">Skill Assessment</h1>
+    <p class="page-subtitle">Choose a skill category to begin your adaptive assessment</p>
   </div>
 </section>
 
-<!-- ══════ ASSESSMENT TYPES ══════ -->
+<!-- ══════ SKILL CATEGORIES ══════ -->
 <section class="assessment-section">
-  <h2 class="section-title">Choose Your Challenge</h2>
+  <h2 class="section-title">Choose Your Skill</h2>
   
   <div class="assessment-grid">
-    @for (type of assessmentTypes; track type.id) {
+    @for (skill of skillCategories; track skill.id) {
       <div class="assessment-card" 
-        [class.assessment-card--selected]="selectedAssessmentType() === type.id"
-        (click)="selectAssessmentType(type.id)">
+        [class.assessment-card--selected]="selectedSkill() === skill.id"
+        (click)="selectSkill(skill.id)">
         
         <!-- Card header -->
         <div class="assessment-card__header">
-          <span class="assessment-card__icon">{{ type.icon }}</span>
-          <h3 class="assessment-card__title">{{ type.title }}</h3>
+          <span class="assessment-card__icon">{{ skill.icon }}</span>
+          <h3 class="assessment-card__title">{{ skill.title }}</h3>
         </div>
 
         <!-- Card content -->
-        <p class="assessment-card__description">{{ type.description }}</p>
+        <p class="assessment-card__description">{{ skill.description }}</p>
 
         <!-- Card details -->
         <div class="assessment-card__details">
           <div class="detail">
             <span class="detail__label">Duration</span>
-            <span class="detail__value">{{ type.duration }}</span>
+            <span class="detail__value">{{ skill.duration }}</span>
           </div>
           <div class="detail">
             <span class="detail__label">Questions</span>
-            <span class="detail__value">{{ type.questions }}</span>
+            <span class="detail__value">{{ skill.questions }}</span>
           </div>
           <div class="detail">
-            <span class="detail__label">Level</span>
-            <span class="detail__badge" [class]="'detail__badge--' + type.level.toLowerCase()">
-              {{ type.level }}
+            <span class="detail__label">Category</span>
+            <span class="detail__badge" [class]="'detail__badge--' + skill.color">
+              {{ skill.id }}
             </span>
           </div>
         </div>
@@ -46,7 +46,7 @@
         <!-- Action button -->
         <button class="btn-primary-grad btn-full" 
           [disabled]="loading()"
-          (click)="startAssessment(type.id)">
+          (click)="startAssessment(skill.id)">
           {{ loading() ? 'Starting...' : 'Start Now' }}
         </button>
       </div>
@@ -59,13 +59,13 @@
   <div class="info-card">
     <span class="info-card__icon">ℹ️</span>
     <div>
-      <h4 class="info-card__title">Tips for Success</h4>
+      <h4 class="info-card__title">How Our Adaptive Assessments Work</h4>
       <ul class="info-card__list">
-        <li>Find a quiet, distraction-free environment</li>
-        <li>Have pen and paper ready for calculations</li>
-        <li>Answer honestly - this reflects your actual skill level</li>
-        <li>Take your time with each question</li>
-        <li>Don't close the browser tab during the assessment</li>
+        <li><strong>Intelligent Difficulty:</strong> Questions adapt based on your responses</li>
+        <li><strong>Personalized:</strong> Each assessment is unique to your skill level</li>
+        <li><strong>Efficient:</strong> Get comprehensive evaluation in 10-15 minutes</li>
+        <li><strong>Accurate:</strong> Uses Item Response Theory for precise results</li>
+        <li><strong>Actionable:</strong> Receive detailed feedback and improvement recommendations</li>
       </ul>
     </div>
   </div>

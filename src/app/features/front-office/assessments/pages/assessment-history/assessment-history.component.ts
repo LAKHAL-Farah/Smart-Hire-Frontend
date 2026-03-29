@@ -1,83 +1,37 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
-import { AssessmentService } from '../../services';
-import { Assessment } from '../../models';
-
-interface AssessmentHistory extends Assessment {
-  score?: number;
-  skillsCount?: number;
-  feedback?: string;
-}
+import { RouterModule, Router } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
+import { AssessmentService, AssessmentHistoryItem } from '../../services/assessment.service';
 
 /**
  * Assessment History Page Component
- * Displays all user assessments and their historical data
+ * Displays all user's past assessments and performance trends
  */
 @Component({
   selector: 'app-assessment-history',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './assessment-history.component.html',
   styleUrl: './assessment-history.component.scss'
 })
-export class AssessmentHistoryComponent implements OnInit {
-  assessments = signal<AssessmentHistory[]>([]);
+export class AssessmentHistoryComponent implements OnInit, OnDestroy {
+  assessments = signal<AssessmentHistoryItem[]>([]);
   loading = signal(false);
-  selectedFilter = signal('all');
+  selectedSkillFilter = signal<string | null>(null);
+  userId: number = 1; // TODO: Get from auth service
 
-  filterOptions = [
-    { label: 'All Assessments', value: 'all' },
-    { label: 'Completed', value: 'completed' },
-    { label: 'In Progress', value: 'in_progress' },
+  skillOptions = [
+    { label: 'All Skills', value: null },
+    { label: 'Frontend', value: 'FRONTEND' },
+    { label: 'Backend', value: 'BACKEND' },
+    { label: 'Soft Skills', value: 'SOFT_SKILLS' },
+    { label: 'DevOps', value: 'DEVOPS' },
+    { label: 'Databases', value: 'DATABASES' },
+    { label: 'Cloud', value: 'CLOUD' },
   ];
 
-  mockAssessments: AssessmentHistory[] = [
-    {
-      id: 5,
-      userId: 1,
-      type: 'INITIAL',
-      status: 'COMPLETED',
-      score: 77,
-      skillsCount: 6,
-      feedback: 'Great overall performance with strong frontend skills',
-      createdAt: '2026-03-15T10:30:00Z',
-      completedAt: '2026-03-15T10:48:00Z'
-    },
-    {
-      id: 4,
-      userId: 1,
-      type: 'INTERMEDIATE',
-      status: 'COMPLETED',
-      score: 68,
-      skillsCount: 8,
-      feedback: 'Solid understanding of core concepts, room for growth in DevOps',
-      createdAt: '2026-02-20T14:00:00Z',
-      completedAt: '2026-02-20T14:35:00Z'
-    },
-    {
-      id: 3,
-      userId: 1,
-      type: 'INITIAL',
-      status: 'COMPLETED',
-      score: 62,
-      skillsCount: 6,
-      feedback: 'Good foundation in technical skills',
-      createdAt: '2026-01-10T09:15:00Z',
-      completedAt: '2026-01-10T09:28:00Z'
-    },
-    {
-      id: 2,
-      userId: 1,
-      type: 'ADVANCED',
-      status: 'IN_PROGRESS',
-      score: 0,
-      skillsCount: 0,
-      feedback: 'In progress...',
-      createdAt: '2026-03-17T08:00:00Z',
-      completedAt: undefined
-    },
-  ];
+  private destroy$ = new Subject<void>();
 
   constructor(
     private assessmentService: AssessmentService,
@@ -85,66 +39,106 @@ export class AssessmentHistoryComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadAssessments();
+    this.loadAssessmentHistory();
   }
 
-  loadAssessments(): void {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  loadAssessmentHistory(): void {
     this.loading.set(true);
-    // TODO: Load assessments from API
-    // this.assessmentService.getAssessmentsByUserId(userId).subscribe({
-    //   next: (data) => {
-    //     this.assessments.set(data);
-    //     this.loading.set(false);
-    //   },
-    //   error: () => this.loading.set(false)
-    // });
-
-    // For now, use mock data
-    this.assessments.set(this.mockAssessments);
-    this.loading.set(false);
+    this.assessmentService.getAssessmentHistory(this.userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (data) => {
+          this.assessments.set(data);
+          this.loading.set(false);
+        },
+        error: (err) => {
+          console.error('Error loading assessment history:', err);
+          this.loading.set(false);
+          alert('Failed to load assessment history');
+        }
+      });
   }
 
-  getFilteredAssessments(): AssessmentHistory[] {
-    const filter = this.selectedFilter();
-    if (filter === 'all') return this.assessments();
-    return this.assessments().filter(a => a.status?.toLowerCase() === filter.replace('_', '').toLowerCase());
+  getFilteredAssessments(): AssessmentHistoryItem[] {
+    const filter = this.selectedSkillFilter();
+    if (!filter) return this.assessments();
+    
+    // Extract skill category from skillBreakdown key or use sessionId logic
+    return this.assessments().filter(a => {
+      // This would depend on how skillBreakdown is stored
+      return Object.keys(a.skillBreakdown).some(skill => 
+        skill.toLowerCase().includes(filter.toLowerCase())
+      );
+    });
   }
 
-  getScoreColor(score: number): string {
+  getScoreLevel(score: number): string {
+    if (score >= 80) return 'Expert';
+    if (score >= 60) return 'Advanced';
+    if (score >= 40) return 'Intermediate';
+    return 'Beginner';
+  }
+
+  getScoreLevelClass(score: number): string {
     if (score >= 80) return 'score-excellent';
     if (score >= 60) return 'score-good';
-    return 'score-fair';
+    if (score >= 40) return 'score-fair';
+    return 'score-poor';
   }
 
-  getStatusBadgeClass(status?: string): string {
-    return status?.toLowerCase() === 'completed' ? 'status-completed' : 'status-in-progress';
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 
-  viewDetails(assessment: AssessmentHistory): void {
-    if (assessment.status?.toUpperCase() === 'COMPLETED') {
-      this.router.navigate(['/dashboard/assessment/report', assessment.id]);
-    }
+  getDurationMinutes(seconds: number): string {
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}m ${secs}s`;
   }
 
-  continueAssessment(assessment: AssessmentHistory): void {
-    this.router.navigate(['/dashboard/assessment/quiz', assessment.id]);
-  }
-
-  trackBy(index: number, assessment: AssessmentHistory): number {
-    return assessment.id || index;
-  }
-
-  getDurationMinutes(createdAt?: string, completedAt?: string): string {
-    if (!createdAt || !completedAt) return 'In progress';
-    const start = new Date(createdAt).getTime();
-    const end = new Date(completedAt).getTime();
-    const minutes = Math.round((end - start) / 60000);
-    return `${minutes}m`;
+  getAverageScore(): number {
+    const filtered = this.getFilteredAssessments();
+    if (filtered.length === 0) return 0;
+    const sum = filtered.reduce((acc, a) => acc + a.overallScore, 0);
+    return Math.round(sum / filtered.length);
   }
 
   getBestScore(): number {
-    const assessments = this.getFilteredAssessments();
-    if (assessments.length === 0) return 0;
-    return Math.max(...assessments.map(a => a.score || 0));
+    const filtered = this.getFilteredAssessments();
+    if (filtered.length === 0) return 0;
+    return Math.max(...filtered.map(a => a.overallScore));
+  }
+
+  getTotalAssessments(): number {
+    return this.getFilteredAssessments().length;
+  }
+
+  viewDetails(assessment: AssessmentHistoryItem): void {
+    // Navigate to view assessment details
+    this.router.navigate(['/assessments/results', assessment.sessionId]);
+  }
+
+  retakeAssessment(): void {
+    this.router.navigate(['/assessments/start']);
+  }
+
+  downloadReport(): void {
+    // TODO: Implement PDF download for all history
+    alert('Download functionality coming soon');
+  }
+
+  setSkillFilter(skill: string | null): void {
+    this.selectedSkillFilter.set(skill);
   }
 }

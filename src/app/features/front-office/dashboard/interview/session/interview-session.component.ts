@@ -10,7 +10,9 @@ import { SessionEvent, WebSocketService } from '../../../../../shared/services/w
 import { InterviewApiService } from '../interview-api.service';
 import { isCurrentInterviewUser, resolveCurrentUserId } from '../interview-user.util';
 import { BookmarkButtonComponent } from '../components/bookmark-button/bookmark-button.component';
-import { MicButtonComponent } from '../components/mic-button/mic-button.component';
+import { CodingInterviewComponent } from '../components/coding-interview/coding-interview.component';
+import { VerbalInterviewComponent } from '../components/verbal-interview/verbal-interview.component';
+import { ComingSoonComponent } from '../components/coming-soon/coming-soon.component';
 import { AnswerService } from '../services/answer.service';
 import { StreakService } from '../services/streak.service';
 import {
@@ -30,7 +32,15 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 @Component({
   selector: 'app-interview-session',
   standalone: true,
-  imports: [CommonModule, FormsModule, LUCIDE_ICONS, MicButtonComponent, BookmarkButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LUCIDE_ICONS,
+    BookmarkButtonComponent,
+    CodingInterviewComponent,
+    VerbalInterviewComponent,
+    ComingSoonComponent,
+  ],
   templateUrl: './interview-session.component.html',
   styleUrl: './interview-session.component.scss'
 })
@@ -66,6 +76,9 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly submissionMode = signal<'text' | 'audio'>('text');
   readonly transcribingMessage = signal('');
   readonly isWsConnected = signal(false);
+  readonly activeView = signal<'verbal' | 'coding' | 'coming-soon-cloud' | 'coming-soon-ai'>('verbal');
+  readonly questionMetadata = signal<any>(null);
+  readonly audioBlocked = signal(false);
   readonly audioTranscriptDebug = signal<string | null>(null);
   readonly audioEvaluationDebug = signal<AnswerEvaluationDto | null>(null);
   readonly isAnswerFocused = signal(false);
@@ -189,6 +202,54 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
   playCurrentQuestionAudio(): void {
     this.playQuestionAudio(this.currentQuestion());
+  }
+
+  loadQuestion(question: InterviewQuestionDto | null): void {
+    this.currentQuestion.set(question);
+    this.questionMetadata.set(null);
+    this.activeView.set('verbal');
+    this.audioBlocked.set(false);
+    this.ttsService.stop();
+
+    if (!question) {
+      return;
+    }
+
+    if (question.metadata) {
+      try {
+        this.questionMetadata.set(JSON.parse(question.metadata));
+      } catch {
+        this.questionMetadata.set(null);
+      }
+    }
+
+    const questionRoleType = String(question.roleType ?? '').toUpperCase();
+    const sessionRoleType = String(this.session()?.roleType ?? '').toUpperCase();
+    const effectiveRoleType = !questionRoleType || questionRoleType === 'ALL' ? sessionRoleType : questionRoleType;
+
+    if (question.type === 'CODING' && (effectiveRoleType === 'SE' || effectiveRoleType === 'SOFTWARE_ENGINEER')) {
+      this.activeView.set('coding');
+    } else if (effectiveRoleType === 'CLOUD' || effectiveRoleType === 'CLOUD_ENGINEER') {
+      this.activeView.set('coming-soon-cloud');
+    } else if (effectiveRoleType === 'AI' || effectiveRoleType === 'AI_ENGINEER') {
+      this.activeView.set('coming-soon-ai');
+    } else {
+      this.activeView.set('verbal');
+    }
+
+    if (question.ttsAudioUrl) {
+      setTimeout(() => {
+        this.ttsService.playFromUrl(question.ttsAudioUrl as string).catch(() => {
+          this.audioBlocked.set(true);
+        });
+      }, 500);
+    }
+  }
+
+  onAnswerSubmitted(answer: SessionAnswerDto | null): void {
+    if (answer?.id) {
+      this.startEvaluationPolling(answer.id);
+    }
   }
 
   async submitAnswer(isAutoSubmit = false): Promise<void> {
@@ -467,14 +528,13 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         ]);
 
         this.session.set(session);
-        this.currentQuestion.set(currentQuestion);
         this.questionOrders.set(questionOrders);
         this.restoreSessionState(answers, evaluations);
         this.currentIndex.set(this.resolveCurrentIndex(session, questionOrders, currentQuestion));
         this.isLoaded.set(true);
         this.startElapsedTimer();
         this.configureQuestionTimer();
-        this.playQuestionAudio(currentQuestion);
+        this.loadQuestion(currentQuestion);
       })
       .catch(() => {
         this.loadError.set('Failed to load the interview room.');
@@ -497,11 +557,10 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
       this.session.set(session);
       this.questionOrders.set(questionOrders);
-      this.currentQuestion.set(currentQuestion);
       this.currentIndex.set(this.resolveCurrentIndex(session, questionOrders, currentQuestion));
       this.answerText.set('');
       this.configureQuestionTimer();
-      this.playQuestionAudio(currentQuestion);
+      this.loadQuestion(currentQuestion);
     } catch (error) {
       if (error instanceof HttpErrorResponse && error.status === 404) {
         await this.completeAndGenerateReport();
@@ -571,6 +630,26 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         timeoutRef,
       });
     });
+  }
+
+  private async startEvaluationPolling(answerId: number): Promise<void> {
+    this.lastAnswerId.set(answerId);
+    this.isSubmitting.set(true);
+
+    try {
+      const evaluation = await this.waitForEvaluationEvent(answerId);
+
+      if (this.isPractice()) {
+        this.feedbackEvaluation.set(evaluation);
+        this.openFeedbackDrawer();
+      } else {
+        await this.advanceSessionOrComplete();
+      }
+    } catch {
+      this.loadError.set('Unable to evaluate this answer right now.');
+    } finally {
+      this.isSubmitting.set(false);
+    }
   }
 
   private async pollEvaluation(answerId: number): Promise<AnswerEvaluationDto> {

@@ -38,6 +38,7 @@ export interface InterviewQuestionDto {
   careerPathId: number;
   roleType: RoleType;
   questionText: string;
+  metadata: string | null;
   type: QuestionType;
   difficulty: DifficultyLevel;
   domain: string | null;
@@ -162,6 +163,7 @@ export interface UpsertQuestionRequest {
   careerPathId: number;
   roleType: RoleType;
   questionText: string;
+  metadata?: string | null;
   type: QuestionType;
   difficulty: DifficultyLevel;
   domain?: string | null;

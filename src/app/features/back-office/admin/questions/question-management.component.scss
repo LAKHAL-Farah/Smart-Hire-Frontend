@@ -373,3 +373,127 @@
   .qm-body { grid-template-columns: 1fr; }
   .qm-right { position: static; }
 }
+
+:host-context([data-mode='light']) {
+  .page-hdr__title,
+  .form-panel__title,
+  .q-text,
+  .modal__title,
+  .preview-question__text,
+  .dropdown__item,
+  .data-row td,
+  .toolbar__input,
+  .form-textarea,
+  .form-select,
+  .multi-option {
+    color: var(--text-primary) !important;
+  }
+
+  .page-hdr__sub,
+  .form-label,
+  .pg-info,
+  .empty-row,
+  .career-tag,
+  .q-tag,
+  .modal__subtitle,
+  .preview-stat,
+  .form-panel__editing,
+  .toolbar__search,
+  .toolbar__select,
+  .multi-option,
+  .multi-select__placeholder,
+  .form-textarea::placeholder,
+  .toolbar__input::placeholder {
+    color: var(--text-secondary) !important;
+  }
+
+  .qm-left,
+  .form-panel,
+  .modal,
+  .multi-dropdown {
+    background: var(--bg-card) !important;
+    border-color: var(--border-subtle) !important;
+  }
+
+  .toolbar,
+  .form-panel__header,
+  .form-actions,
+  .pagination,
+  .modal__header {
+    border-color: var(--border-subtle) !important;
+  }
+
+  .toolbar__search,
+  .toolbar__select,
+  .form-textarea,
+  .form-select,
+  .multi-select,
+  .action-btn,
+  .btn--cancel,
+  .modal__close {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .toolbar__select option,
+  .form-select option {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .data-table th {
+    color: var(--text-secondary) !important;
+    border-bottom-color: var(--border-subtle) !important;
+    background: color-mix(in srgb, var(--bg-tertiary) 88%, var(--color-primary) 12%) !important;
+  }
+
+  .data-row {
+    border-bottom-color: var(--border-subtle) !important;
+  }
+
+  .data-row:nth-child(even) {
+    background: color-mix(in srgb, var(--bg-card) 95%, var(--bg-tertiary) 5%) !important;
+  }
+
+  .data-row:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-tertiary) 92%) !important;
+  }
+
+  .q-tag,
+  .career-tag,
+  .action-btn,
+  .pg-btn,
+  .multi-check {
+    border-color: var(--border-subtle) !important;
+  }
+
+  .q-tag,
+  .career-tag,
+  .preview-question,
+  .preview-answer,
+  .preview-divider::after,
+  .pg-btn,
+  .multi-dropdown,
+  .multi-select,
+  .action-btn,
+  .modal__close {
+    background: var(--bg-tertiary) !important;
+  }
+
+  .pg-btn:hover:not(:disabled),
+  .action-btn:hover,
+  .multi-option:hover,
+  .modal__close:hover {
+    background: color-mix(in srgb, var(--bg-tertiary) 86%, var(--color-primary) 14%) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .stat-pill--gray,
+  .stat-pill--dim,
+  .q-tag,
+  .career-tag {
+    color: var(--text-secondary) !important;
+    background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--bg-card) 8%) !important;
+  }
+}

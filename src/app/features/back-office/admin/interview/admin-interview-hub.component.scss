@@ -1,7 +1,13 @@
 :host {
   display: block;
   padding: 24px 28px;
-  color: #fff;
+}
+
+.admin-interview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--text-primary);
 }
 
 .admin-interview__header {
@@ -9,72 +15,91 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 16px;
 }
 
 .admin-interview__header h1 {
   margin: 0;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 1.5rem;
+  font-family: var(--font-display, 'Space Grotesk', sans-serif);
+  font-size: 1.55rem;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
 }
 
 .admin-interview__header p {
   margin: 6px 0 0;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 13px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
 }
 
 .admin-interview__header button {
-  border: 1px solid rgba(46, 232, 165, 0.38);
-  background: rgba(46, 232, 165, 0.12);
-  color: #9bf7d5;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 38%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
   border-radius: var(--radius-full);
-  padding: 8px 13px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-interview__header button:hover {
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 52%, transparent);
 }
 
 .state {
   border: 1px dashed var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 12px;
-  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-tertiary) 90%, var(--bg-card) 10%);
 }
 
 .state--error {
-  border-color: rgba(239, 68, 68, 0.45);
-  background: rgba(239, 68, 68, 0.09);
-  color: #fecaca;
-  margin-bottom: 12px;
+  border-style: solid;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .tab-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 14px;
 }
 
 .tab-nav button {
   border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.74);
-  padding: 8px 11px;
-  font-size: 12px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-nav button:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
 }
 
 .tab-nav button.active {
-  border-color: rgba(59, 130, 246, 0.4);
-  background: rgba(59, 130, 246, 0.16);
-  color: #bfdbfe;
+  border-color: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-card) 88%);
+  color: var(--text-primary);
 }
 
 .panel {
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
-  padding: 14px;
+  padding: 16px;
+  box-shadow: 0 10px 28px rgba(var(--color-bg-rgb), 0.12);
 }
 
 .stats-grid {
@@ -86,24 +111,26 @@
 
 .stat-card {
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  padding: 11px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
 .stat-card span {
-  font-size: 11px;
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 }
 
 .stat-card strong {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--font-display, 'Syne', sans-serif);
   font-size: 1.25rem;
+  color: var(--text-primary);
 }
 
 .split-grid {
@@ -114,14 +141,15 @@
 
 .card {
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
   padding: 12px;
 }
 
 .card h3 {
   margin: 0 0 10px;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .card .mt {
@@ -141,21 +169,28 @@
   justify-content: space-between;
   align-items: center;
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  padding: 7px 9px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-card) 92%, var(--bg-tertiary) 8%);
+}
+
+.coverage-row strong,
+.leaderboard-row strong {
+  color: var(--text-primary);
 }
 
 .muted {
-  color: rgba(255, 255, 255, 0.54);
-  font-size: 12px;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
 }
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(130px, 1fr)) auto;
+  grid-template-columns: minmax(0, 1.7fr) repeat(3, minmax(130px, 1fr)) auto;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .toolbar input,
@@ -166,20 +201,47 @@
 .form-card textarea,
 .form-actions button,
 .row-actions button,
-.list-row__right button {
+.list-row__right button,
+.modal-actions button,
+.modal-card input {
   border: 1px solid var(--border-subtle);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.8);
-  padding: 8px 10px;
-  font-size: 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 9px 11px;
+  font-size: 0.78rem;
+  font-family: var(--font-sans);
+  transition: all 0.18s ease;
+}
+
+.toolbar input::placeholder,
+.form-card textarea::placeholder,
+.modal-card input::placeholder {
+  color: var(--text-muted);
+}
+
+.toolbar select option,
+.form-card select option {
+  background: var(--bg-card);
+  color: var(--text-primary);
 }
 
 .toolbar button,
 .row-actions button,
 .form-actions button,
-.list-row__right button {
+.list-row__right button,
+.modal-actions button {
   cursor: pointer;
+  font-weight: 600;
+}
+
+.toolbar button:hover,
+.row-actions button:hover,
+.form-actions button:hover,
+.list-row__right button:hover,
+.modal-actions button:hover {
+  border-color: var(--border-hover);
+  background: color-mix(in srgb, var(--bg-tertiary) 84%, var(--color-primary) 16%);
 }
 
 .toolbar button:disabled,
@@ -191,28 +253,57 @@
 
 .table-wrap {
   overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
 }
 
-table {
+.question-bank-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 12px;
 }
 
-th,
-td {
+.question-bank-table th,
+.question-bank-table td {
   border-bottom: 1px solid var(--border-subtle);
-  padding: 8px;
-  font-size: 12px;
+  padding: 12px 16px;
+  font-size: 0.8rem;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
-th {
-  color: rgba(255, 255, 255, 0.54);
+.question-bank-table thead tr {
+  background: color-mix(in srgb, var(--bg-tertiary) 82%, var(--color-primary) 18%);
+}
+
+.question-bank-table th {
+  color: var(--text-secondary);
   text-transform: uppercase;
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.question-bank-table td {
+  color: var(--text-primary);
+}
+
+.question-bank-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--bg-card) 95%, var(--bg-tertiary) 5%);
+}
+
+.question-bank-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-tertiary) 92%);
+}
+
+.question-cell {
+  max-width: 520px;
+  min-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
 }
 
 .row-actions {
@@ -220,10 +311,15 @@ th {
   gap: 6px;
 }
 
+.row-actions button {
+  padding: 7px 11px;
+  border-radius: var(--radius-sm);
+}
+
 .row-actions .danger {
   border-color: rgba(239, 68, 68, 0.3);
-  background: rgba(239, 68, 68, 0.1);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
 }
 
 .form-card {
@@ -233,12 +329,14 @@ th {
 
 .form-card h3 {
   margin: 0 0 10px;
+  font-size: 0.92rem;
+  color: var(--text-primary);
 }
 
 .form-error {
   margin: 0 0 10px;
-  color: #fecaca;
-  font-size: 12px;
+  color: #ef4444;
+  font-size: 0.76rem;
 }
 
 .form-grid {
@@ -252,8 +350,11 @@ th {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 .form-card textarea {
@@ -273,8 +374,9 @@ th {
 
 .list-row {
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  padding: 11px;
   display: flex;
   justify-content: space-between;
   gap: 10px;
@@ -282,13 +384,14 @@ th {
 
 .list-row h4 {
   margin: 0 0 6px;
-  font-size: 14px;
+  font-size: 0.86rem;
+  color: var(--text-primary);
 }
 
 .list-row p {
   margin: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
 .list-row__right {
@@ -304,51 +407,54 @@ th {
   border-radius: var(--radius-full);
   padding: 5px 8px;
   border: 1px solid var(--border-subtle);
-  font-size: 11px;
+  font-size: 0.68rem;
+  font-weight: 600;
 }
 
 .score-pill {
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-tertiary) 12%);
+  color: var(--text-primary);
 }
 
 .score-pill--secondary {
-  color: #93c5fd;
+  color: #3b82f6;
 }
 
 .status-completed {
   border-color: rgba(34, 197, 94, 0.28);
   background: rgba(34, 197, 94, 0.12);
-  color: #86efac;
+  color: #22c55e;
 }
 
 .status-progress {
   border-color: rgba(59, 130, 246, 0.3);
   background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
+  color: #3b82f6;
 }
 
 .status-paused {
-  border-color: rgba(250, 204, 21, 0.3);
-  background: rgba(250, 204, 21, 0.12);
-  color: #fef08a;
+  border-color: rgba(234, 179, 8, 0.34);
+  background: rgba(234, 179, 8, 0.14);
+  color: #ca8a04;
 }
 
 .status-evaluating {
-  border-color: rgba(129, 140, 248, 0.3);
-  background: rgba(129, 140, 248, 0.12);
-  color: #c7d2fe;
+  border-color: rgba(129, 140, 248, 0.32);
+  background: rgba(129, 140, 248, 0.14);
+  color: #6366f1;
 }
 
 .status-abandoned {
   border-color: rgba(239, 68, 68, 0.32);
   background: rgba(239, 68, 68, 0.1);
-  color: #fca5a5;
+  color: #ef4444;
 }
 
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(var(--color-bg-rgb), 0.46);
+  backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -358,29 +464,25 @@ th {
 .modal-card {
   width: min(430px, 100%);
   border: 1px solid var(--border-subtle);
-  background: #111827;
-  border-radius: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
   padding: 14px;
+  box-shadow: 0 20px 56px rgba(var(--color-bg-rgb), 0.25);
 }
 
 .modal-card h3 {
   margin: 0 0 6px;
+  color: var(--text-primary);
 }
 
 .modal-card p {
   margin: 0 0 10px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76rem;
+  color: var(--text-secondary);
 }
 
 .modal-card input {
   width: 100%;
-  border: 1px solid var(--border-subtle);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.04);
-  color: #fff;
-  padding: 9px 10px;
-  font-size: 12px;
 }
 
 .modal-actions {
@@ -388,14 +490,6 @@ th {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 10px;
-}
-
-.modal-actions button {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-  padding: 7px 11px;
 }
 
 @media (max-width: 1180px) {
@@ -416,6 +510,15 @@ th {
 @media (max-width: 780px) {
   :host {
     padding: 18px;
+  }
+
+  .admin-interview__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-interview__header button {
+    align-self: flex-start;
   }
 
   .stats-grid {

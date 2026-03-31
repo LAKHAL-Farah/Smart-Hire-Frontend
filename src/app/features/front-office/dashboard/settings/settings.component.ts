@@ -2,8 +2,9 @@ import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { ThemeMode, ThemePalette, ThemeService } from '../../../../shared/services/theme.service';
 
-type SettingsCategory = 'account' | 'security' | 'notifications' | 'subscription' | 'connected' | 'privacy';
+type SettingsCategory = 'appearance' | 'account' | 'security' | 'notifications' | 'subscription' | 'connected' | 'privacy';
 
 interface NotificationSetting {
   name: string;
@@ -28,8 +29,12 @@ interface ConnectedAccount {
 })
 export class SettingsComponent {
   activeCategory = signal<SettingsCategory>('account');
+  themePalette = signal<ThemePalette>('original');
+  themeMode = signal<ThemeMode>('dark');
+  readonly themePalettes: ThemePalette[];
 
   categories: { id: SettingsCategory; label: string }[] = [
+    { id: 'appearance', label: 'Appearance & Theme' },
     { id: 'account', label: 'Account' },
     { id: 'security', label: 'Security' },
     { id: 'notifications', label: 'Notifications' },
@@ -109,4 +114,24 @@ export class SettingsComponent {
   profilePublic = true;
   showScores = true;
   showActivity = false;
+
+  constructor(private readonly themeService: ThemeService) {
+    this.themePalette.set(this.themeService.palette);
+    this.themeMode.set(this.themeService.mode);
+    this.themePalettes = this.themeService.palettes;
+  }
+
+  selectThemePalette(palette: ThemePalette): void {
+    this.themeService.setTheme(palette);
+    this.themePalette.set(palette);
+  }
+
+  selectThemeMode(mode: ThemeMode): void {
+    this.themeService.setMode(mode);
+    this.themeMode.set(mode);
+  }
+
+  formatPaletteName(palette: ThemePalette): string {
+    return palette.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+  }
 }

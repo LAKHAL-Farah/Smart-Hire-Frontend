@@ -2,6 +2,7 @@ import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { ThemeMode, ThemePalette, ThemeService } from '../../../../shared/services/theme.service';
 
 /* ══════════ INTERFACES ══════════ */
 
@@ -52,6 +53,7 @@ export class SettingsComponent implements OnDestroy {
 
   /* ══════════ LEFT NAV CATEGORIES ══════════ */
   categories: SettingsCategory[] = [
+    { id: 'appearance',     label: 'Appearance & Theme',         icon: 'palette',           group: 1 },
     { id: 'general',        label: 'General',                    icon: 'settings',          group: 1 },
     { id: 'branding',       label: 'Branding',                   icon: 'image',             group: 1 },
     { id: 'ai',             label: 'AI Configuration',           icon: 'brain-circuit',     group: 2 },
@@ -65,6 +67,9 @@ export class SettingsComponent implements OnDestroy {
   ];
 
   activeCategory = 'general';
+  themePalette: ThemePalette;
+  themeMode: ThemeMode;
+  readonly themePalettes: ThemePalette[];
 
   /* ══════════ GENERAL — PLATFORM IDENTITY ══════════ */
   identity: PlatformIdentity = {
@@ -144,7 +149,10 @@ export class SettingsComponent implements OnDestroy {
   private toastTimeout: any;
 
   /* ══════════ LIFECYCLE ══════════ */
-  constructor() {
+  constructor(private readonly themeService: ThemeService) {
+    this.themePalette = this.themeService.palette;
+    this.themeMode = this.themeService.mode;
+    this.themePalettes = this.themeService.palettes;
     this.snapshotAll();
   }
 
@@ -217,6 +225,20 @@ export class SettingsComponent implements OnDestroy {
   /* ══════════ CATEGORY NAV ══════════ */
   selectCategory(id: string): void {
     this.activeCategory = id;
+  }
+
+  selectThemePalette(palette: ThemePalette): void {
+    this.themeService.setTheme(palette);
+    this.themePalette = palette;
+  }
+
+  selectThemeMode(mode: ThemeMode): void {
+    this.themeService.setMode(mode);
+    this.themeMode = mode;
+  }
+
+  formatPaletteName(palette: ThemePalette): string {
+    return palette.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
   }
 
   shouldShowDivider(index: number): boolean {

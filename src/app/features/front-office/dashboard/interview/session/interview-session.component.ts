@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom, Subscription } from 'rxjs';
@@ -14,6 +14,7 @@ import { CloudInterviewComponent } from '../components/cloud-interview/cloud-int
 import { CodingInterviewComponent } from '../components/coding-interview/coding-interview.component';
 import { VerbalInterviewComponent } from '../components/verbal-interview/verbal-interview.component';
 import { ComingSoonComponent } from '../components/coming-soon/coming-soon.component';
+import { MlPipelineComponent } from '../../../../../interview/ml-pipeline/ml-pipeline.component';
 import { AnswerService } from '../services/answer.service';
 import { StreakService } from '../services/streak.service';
 import {
@@ -42,6 +43,7 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
     CodingInterviewComponent,
     VerbalInterviewComponent,
     ComingSoonComponent,
+    MlPipelineComponent,
   ],
   templateUrl: './interview-session.component.html',
   styleUrl: './interview-session.component.scss'
@@ -78,8 +80,9 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly submissionMode = signal<'text' | 'audio'>('text');
   readonly transcribingMessage = signal('');
   readonly isWsConnected = signal(false);
-  readonly activeView = signal<'verbal' | 'coding' | 'cloud-canvas' | 'coming-soon-ai'>('verbal');
+  readonly activeView = signal<'verbal' | 'coding' | 'cloud-canvas' | 'ai-ml' | 'coming-soon-ai'>('verbal');
   readonly questionMetadata = signal<any>(null);
+  readonly mlFollowUpText = signal<string | null>(null);
   readonly audioBlocked = signal(false);
   readonly audioTranscriptDebug = signal<string | null>(null);
   readonly audioEvaluationDebug = signal<AnswerEvaluationDto | null>(null);
@@ -176,6 +179,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly timerRadius = TIMER_RADIUS;
   readonly timerCircumference = TIMER_CIRCUMFERENCE;
 
+  @ViewChild('mlPipeline') mlPipelineComponent?: MlPipelineComponent;
+
   ngOnInit(): void {
     const rawId = this.route.snapshot.paramMap.get('id');
     const id = Number(rawId);
@@ -210,6 +215,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     this.currentQuestion.set(question);
     this.questionMetadata.set(null);
     this.activeView.set('verbal');
+    this.mlFollowUpText.set(null);
     this.audioBlocked.set(false);
     this.ttsService.stop();
 
@@ -238,7 +244,11 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         this.activeView.set('verbal');
       }
     } else if (role === 'AI' || role === 'AI_ENGINEER') {
-      this.activeView.set('coming-soon-ai');
+      if (type === 'TECHNICAL' || type === 'SITUATIONAL') {
+        this.activeView.set(this.isMlPipelineQuestion(question) ? 'ai-ml' : 'verbal');
+      } else {
+        this.activeView.set('verbal');
+      }
     } else {
       this.activeView.set('verbal');
     }
@@ -252,9 +262,19 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
   }
 
+  private isMlPipelineQuestion(question: InterviewQuestionDto): boolean {
+    const text = String(question.questionText ?? '').toLowerCase();
+    return text.includes('pipeline');
+  }
+
   onAnswerSubmitted(answer: SessionAnswerDto | null): void {
     if (!answer?.id) {
       return;
+    }
+
+    if (this.activeView() === 'ai-ml') {
+      this.lastAnswerId.set(answer.id);
+      this.mlPipelineComponent?.onAnswerSubmitted(answer.id);
     }
 
     if (this.activeView() === 'cloud-canvas') {
@@ -424,6 +444,15 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     this.followUpText.set('');
     this.followUpState.set(null);
     await this.advanceSessionOrComplete();
+  }
+
+  async syncMlWithSession(): Promise<void> {
+    this.loadError.set(null);
+    try {
+      await this.advanceSessionOrComplete();
+    } catch {
+      this.loadError.set('Could not sync to the latest question. Please refresh the session.');
+    }
   }
 
   toggleHint(): void {
@@ -758,6 +787,21 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     if (event.eventType === 'ERROR') {
       const message = event.message || 'Live evaluation failed. Please retry.';
       this.rejectPendingEvaluations(message);
+      return;
+    }
+
+    if (event.eventType === 'FOLLOW_UP' || event.eventType === 'FOLLOW_UP_READY') {
+      const payload = (event.payload ?? {}) as Record<string, unknown>;
+      const candidate =
+        (typeof payload['followUpGenerated'] === 'string' ? payload['followUpGenerated'] : null)
+        ?? (typeof payload['followUp'] === 'string' ? payload['followUp'] : null)
+        ?? (typeof payload['question'] === 'string' ? payload['question'] : null)
+        ?? event.message
+        ?? null;
+
+      if (candidate && candidate.trim()) {
+        this.mlFollowUpText.set(candidate.trim());
+      }
     }
   }
 

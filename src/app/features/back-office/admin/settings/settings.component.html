@@ -35,6 +35,35 @@
     <div class="settings-content">
 
       <!-- ━━━━━━━━━━ GENERAL ━━━━━━━━━━ -->
+      <div *ngIf="activeCategory === 'appearance'" class="panel">
+        <section class="section">
+          <h3 class="section__heading">APPEARANCE &amp; THEME</h3>
+
+          <div class="appearance-grid">
+            <div class="appearance-block">
+              <label class="form-label">Theme Mode</label>
+              <div class="mode-switches">
+                <button class="mode-btn" [class.mode-btn--active]="themeMode === 'light'" (click)="selectThemeMode('light')">Light</button>
+                <button class="mode-btn" [class.mode-btn--active]="themeMode === 'dark'" (click)="selectThemeMode('dark')">Dark</button>
+              </div>
+            </div>
+
+            <div class="appearance-block appearance-block--full">
+              <label class="form-label">Palette</label>
+              <div class="palette-grid">
+                <button *ngFor="let palette of themePalettes"
+                        class="palette-btn"
+                        [class.palette-btn--active]="themePalette === palette"
+                        (click)="selectThemePalette(palette)">
+                  {{ formatPaletteName(palette) }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ━━━━━━━━━━ GENERAL ━━━━━━━━━━ -->
       <div *ngIf="activeCategory === 'general'" class="panel">
 
         <!-- Platform Identity -->

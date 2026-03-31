@@ -35,7 +35,7 @@
   }
 
   @if (isLoaded() && currentQuestion()) {
-    <ng-container *ngIf="activeView() === 'cloud-canvas'; else defaultInterviewView">
+    @if (activeView() === 'cloud-canvas') {
       <div class="room-body room-body--canvas">
         <main class="main-column main-column--canvas">
           <section class="answer-section answer-section--canvas">
@@ -48,9 +48,24 @@
           </section>
         </main>
       </div>
-    </ng-container>
-
-    <ng-template #defaultInterviewView>
+    } @else if (activeView() === 'ai-ml') {
+      <div class="room-body room-body--canvas">
+        <main class="main-column main-column--canvas">
+          <section class="answer-section answer-section--canvas">
+            <app-ml-pipeline
+              #mlPipeline
+              [sessionId]="session()?.id || 0"
+              [questionId]="currentQuestion()!.id"
+              [answerId]="lastAnswerId()"
+              [questionText]="currentQuestion()!.questionText"
+              [followUpText]="mlFollowUpText()"
+              (answerSubmitted)="onAnswerSubmitted($event)"
+              (resyncRequested)="syncMlWithSession()"
+            ></app-ml-pipeline>
+          </section>
+        </main>
+      </div>
+    } @else {
       <div class="room-body" [class.room-body--coding]="activeView() === 'coding'">
         <main class="main-column" [class.main-column--coding]="activeView() === 'coding'">
           <section class="avatar-panel" [class.avatar-panel--coding]="activeView() === 'coding'">
@@ -147,7 +162,7 @@
           </aside>
         }
       </div>
-    </ng-template>
+    }
   }
 
   @if (feedbackOpen() && isPractice() && feedbackEvaluation()) {

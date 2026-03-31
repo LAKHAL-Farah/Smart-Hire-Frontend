@@ -210,12 +210,14 @@ export interface SubmitAnswerRequest {
   sessionId: number;
   questionId: number;
   answerText: string;
+  codeAnswer?: string | null;
 }
 
 export interface RetryAnswerRequest {
   sessionId: number;
   questionId: number;
   answerText: string;
+  codeAnswer?: string | null;
 }
 
 export interface SubmitFollowUpRequest {

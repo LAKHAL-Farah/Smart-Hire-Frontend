@@ -147,7 +147,7 @@
       <span class="quick-difficulty">{{ question?.difficulty }}</span>
     </div>
 
-    <div class="editor-host">
+    <div class="editor-host" data-testid="code-editor">
       <ngx-monaco-editor
         [options]="editorOptions"
         [(ngModel)]="editorCode"

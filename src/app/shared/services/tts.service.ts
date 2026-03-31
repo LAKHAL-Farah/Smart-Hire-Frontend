@@ -10,47 +10,58 @@ export class TtsService {
   private currentAudio: HTMLAudioElement | null = null;
   private currentAudioDeleteUrl: string | null = null;
 
+  private cleanupAudio(deleteAsset: boolean): void {
+    const deleteUrl = this.currentAudioDeleteUrl;
+
+    if (deleteAsset && deleteUrl) {
+      this.http.delete(deleteUrl).subscribe({
+        error: () => {
+          // Cleanup failure should not block UX.
+        },
+      });
+    }
+
+    if (this.currentAudio) {
+      this.currentAudio.onended = null;
+      this.currentAudio.onerror = null;
+      this.currentAudio.pause();
+      this.currentAudio.src = '';
+      this.currentAudio = null;
+    }
+
+    this.currentAudioDeleteUrl = null;
+  }
+
   playFromUrl(audioUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.stop();
+      this.cleanupAudio(false);
 
       const absoluteAudioUrl = this.interviewApi.resolveBackendAssetUrl(audioUrl);
       this.currentAudioDeleteUrl = absoluteAudioUrl;
       this.currentAudio = new Audio(absoluteAudioUrl);
       this.currentAudio.volume = 1.0;
+      this.currentAudio.preload = 'auto';
+      this.currentAudio.load();
 
       this.currentAudio.onended = () => {
-        const deleteUrl = this.currentAudioDeleteUrl;
-        if (deleteUrl) {
-          this.http.delete(deleteUrl).subscribe({
-            error: () => {
-              // Cleanup failure should not block UX.
-            },
-          });
-        }
-        this.currentAudioDeleteUrl = null;
+        this.cleanupAudio(true);
         resolve();
       };
 
       this.currentAudio.onerror = () => {
-        this.currentAudioDeleteUrl = null;
+        this.cleanupAudio(true);
         reject(new Error('Audio playback failed'));
       };
 
       this.currentAudio.play().catch((err) => {
-        this.currentAudioDeleteUrl = null;
+        this.cleanupAudio(true);
         reject(err);
       });
     });
   }
 
   stop(): void {
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio.src = '';
-      this.currentAudio = null;
-      this.currentAudioDeleteUrl = null;
-    }
+    this.cleanupAudio(true);
   }
 
   get isPlaying(): boolean {

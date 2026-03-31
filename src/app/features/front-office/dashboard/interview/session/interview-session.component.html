@@ -35,108 +35,119 @@
   }
 
   @if (isLoaded() && currentQuestion()) {
-    <div class="room-body" [class.room-body--coding]="activeView() === 'coding'">
-      <main class="main-column" [class.main-column--coding]="activeView() === 'coding'">
-        <section class="avatar-panel" [class.avatar-panel--coding]="activeView() === 'coding'">
-          <div class="avatar-panel__identity">
-            <div class="avatar-ring"></div>
-            <div class="avatar-core">🤖</div>
-            <p class="avatar-title">AI Interviewer</p>
-            <p class="avatar-status">{{ avatarStatus() }}</p>
-          </div>
+    <ng-container *ngIf="activeView() === 'cloud-canvas'; else defaultInterviewView">
+      <div class="room-body room-body--canvas">
+        <main class="main-column main-column--canvas">
+          <section class="answer-section answer-section--canvas">
+            <app-cloud-interview
+              [question]="currentQuestion()"
+              [metadata]="questionMetadata()"
+              [sessionId]="session()?.id || 0"
+              (answerSubmitted)="onAnswerSubmitted($event)"
+            ></app-cloud-interview>
+          </section>
+        </main>
+      </div>
+    </ng-container>
 
-          @if (activeView() === 'coding') {
-            <aside class="timer-inline" [class]="getTimerToneClass()">
-              @if (isTest()) {
-                <svg class="timer-ring" viewBox="0 0 140 140" aria-hidden="true">
-                  <circle class="ring-bg" cx="70" cy="70" [attr.r]="timerRadius"></circle>
-                  <circle
-                    class="ring-progress"
-                    cx="70"
-                    cy="70"
-                    [attr.r]="timerRadius"
-                    [attr.stroke-dasharray]="timerCircumference"
-                    [attr.stroke-dashoffset]="timerRingOffset()"
-                  ></circle>
-                </svg>
-              }
+    <ng-template #defaultInterviewView>
+      <div class="room-body" [class.room-body--coding]="activeView() === 'coding'">
+        <main class="main-column" [class.main-column--coding]="activeView() === 'coding'">
+          <section class="avatar-panel" [class.avatar-panel--coding]="activeView() === 'coding'">
+            <div class="avatar-panel__identity">
+              <div class="avatar-ring"></div>
+              <div class="avatar-core">🤖</div>
+              <p class="avatar-title">AI Interviewer</p>
+              <p class="avatar-status">{{ avatarStatus() }}</p>
+            </div>
 
-              <span class="timer-clock">{{ timerDisplay() }}</span>
-              <span class="timer-label">@if (isTest()) { Time Left } @else { Elapsed }</span>
-            </aside>
-          }
-        </section>
+            @if (activeView() === 'coding') {
+              <aside class="timer-inline" [class]="getTimerToneClass()">
+                @if (isTest()) {
+                  <svg class="timer-ring" viewBox="0 0 140 140" aria-hidden="true">
+                    <circle class="ring-bg" cx="70" cy="70" [attr.r]="timerRadius"></circle>
+                    <circle
+                      class="ring-progress"
+                      cx="70"
+                      cy="70"
+                      [attr.r]="timerRadius"
+                      [attr.stroke-dasharray]="timerCircumference"
+                      [attr.stroke-dashoffset]="timerRingOffset()"
+                    ></circle>
+                  </svg>
+                }
 
-        <article class="question-card" [class.question-card--coding]="activeView() === 'coding'">
-          <div class="question-card__meta">
-            <span class="type-pill" [class]="getPhaseClass(currentQuestion()!.type)">{{ currentQuestion()!.type }}</span>
-            <span class="difficulty-pill" [class]="getDifficultyClass(currentQuestion()!.difficulty)">{{ currentQuestion()!.difficulty }}</span>
-          </div>
+                <span class="timer-clock">{{ timerDisplay() }}</span>
+                <span class="timer-label">@if (isTest()) { Time Left } @else { Elapsed }</span>
+              </aside>
+            }
+          </section>
 
-          <h2 class="question-text">{{ currentQuestion()!.questionText }}</h2>
-          <button
-            class="question-audio-btn"
-            type="button"
-            [disabled]="!currentQuestion()!.ttsAudioUrl"
-            (click)="playCurrentQuestionAudio()"
-          >
-            Replay audio
-          </button>
-          <p class="question-index">Question {{ currentIndex() + 1 }} of {{ totalQuestions() }}</p>
-        </article>
+          <article class="question-card" [class.question-card--coding]="activeView() === 'coding'">
+            <div class="question-card__meta">
+              <span class="type-pill" [class]="getPhaseClass(currentQuestion()!.type)">{{ currentQuestion()!.type }}</span>
+              <span class="difficulty-pill" [class]="getDifficultyClass(currentQuestion()!.difficulty)">{{ currentQuestion()!.difficulty }}</span>
+            </div>
 
-        <section class="answer-section" [class.answer-section--coding]="activeView() === 'coding'">
-          <app-verbal-interview
-            *ngIf="activeView() === 'verbal'"
-            [question]="currentQuestion()"
-            [sessionId]="session()?.id || 0"
-            [mode]="session()?.mode || 'PRACTICE'"
-            (answerSubmitted)="onAnswerSubmitted($event)"
-          ></app-verbal-interview>
+            <h2 class="question-text">{{ currentQuestion()!.questionText }}</h2>
+            <button
+              class="question-audio-btn"
+              type="button"
+              [disabled]="!currentQuestion()!.ttsAudioUrl"
+              (click)="playCurrentQuestionAudio()"
+            >
+              Replay audio
+            </button>
+            <p class="question-index">Question {{ currentIndex() + 1 }} of {{ totalQuestions() }}</p>
+          </article>
 
-          <app-coding-interview
-            *ngIf="activeView() === 'coding'"
-            [question]="currentQuestion()"
-            [metadata]="questionMetadata()"
-            [sessionId]="session()?.id || 0"
-            (answerSubmitted)="onAnswerSubmitted($event)"
-          ></app-coding-interview>
+          <section class="answer-section" [class.answer-section--coding]="activeView() === 'coding'">
+            <app-verbal-interview
+              *ngIf="activeView() === 'verbal'"
+              [question]="currentQuestion()"
+              [sessionId]="session()?.id || 0"
+              [mode]="session()?.mode || 'PRACTICE'"
+              (answerSubmitted)="onAnswerSubmitted($event)"
+            ></app-verbal-interview>
 
-          <app-coming-soon
-            *ngIf="activeView() === 'coming-soon-cloud'"
-            [role]="'Cloud Engineer'"
-            [feature]="'Infrastructure Builder & System Design'"
-          ></app-coming-soon>
+            <app-coding-interview
+              *ngIf="activeView() === 'coding'"
+              [question]="currentQuestion()"
+              [metadata]="questionMetadata()"
+              [sessionId]="session()?.id || 0"
+              (answerSubmitted)="onAnswerSubmitted($event)"
+            ></app-coding-interview>
 
-          <app-coming-soon
-            *ngIf="activeView() === 'coming-soon-ai'"
-            [role]="'AI Engineer'"
-            [feature]="'ML Pipeline Designer & Scenario Evaluation'"
-          ></app-coming-soon>
-        </section>
-      </main>
+            <app-coming-soon
+              *ngIf="activeView() === 'coming-soon-ai'"
+              [role]="'AI Engineer'"
+              [feature]="'ML Pipeline Designer & Scenario Evaluation'"
+            ></app-coming-soon>
+          </section>
+        </main>
 
-      @if (activeView() !== 'coding') {
-        <aside class="timer-section" [class]="getTimerToneClass()">
-          @if (isTest()) {
-            <svg class="timer-ring" viewBox="0 0 140 140" aria-hidden="true">
-              <circle class="ring-bg" cx="70" cy="70" [attr.r]="timerRadius"></circle>
-              <circle
-                class="ring-progress"
-                cx="70"
-                cy="70"
-                [attr.r]="timerRadius"
-                [attr.stroke-dasharray]="timerCircumference"
-                [attr.stroke-dashoffset]="timerRingOffset()"
-              ></circle>
-            </svg>
-          }
+        @if (activeView() !== 'coding') {
+          <aside class="timer-section" [class]="getTimerToneClass()">
+            @if (isTest()) {
+              <svg class="timer-ring" viewBox="0 0 140 140" aria-hidden="true">
+                <circle class="ring-bg" cx="70" cy="70" [attr.r]="timerRadius"></circle>
+                <circle
+                  class="ring-progress"
+                  cx="70"
+                  cy="70"
+                  [attr.r]="timerRadius"
+                  [attr.stroke-dasharray]="timerCircumference"
+                  [attr.stroke-dashoffset]="timerRingOffset()"
+                ></circle>
+              </svg>
+            }
 
-          <span class="timer-clock">{{ timerDisplay() }}</span>
-          <span class="timer-label">@if (isTest()) { Time Left } @else { Elapsed }</span>
-        </aside>
-      }
-    </div>
+            <span class="timer-clock">{{ timerDisplay() }}</span>
+            <span class="timer-label">@if (isTest()) { Time Left } @else { Elapsed }</span>
+          </aside>
+        }
+      </div>
+    </ng-template>
   }
 
   @if (feedbackOpen() && isPractice() && feedbackEvaluation()) {

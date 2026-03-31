@@ -182,11 +182,25 @@
   height: calc(100vh - 94px);
 }
 
+.room-body--canvas {
+  padding: 0;
+  gap: 0;
+  align-items: stretch;
+  height: calc(100vh - 94px);
+  overflow: hidden;
+}
+
 .main-column {
   width: min(840px, calc(100vw - 350px));
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.main-column--canvas {
+  width: 100%;
+  max-width: none;
+  height: 100%;
 }
 
 .main-column--coding {
@@ -342,6 +356,11 @@
 
 .answer-section {
   width: min(640px, 100%);
+}
+
+.answer-section--canvas {
+  width: 100%;
+  height: 100%;
 }
 
 .answer-section--coding {
@@ -1010,6 +1029,12 @@
     flex-direction: column;
     align-items: center;
     padding-bottom: 100px;
+  }
+
+  .room-body--canvas {
+    flex-direction: row;
+    align-items: stretch;
+    padding: 0;
   }
 
   .main-column {

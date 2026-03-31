@@ -10,6 +10,7 @@ import { SessionEvent, WebSocketService } from '../../../../../shared/services/w
 import { InterviewApiService } from '../interview-api.service';
 import { isCurrentInterviewUser, resolveCurrentUserId } from '../interview-user.util';
 import { BookmarkButtonComponent } from '../components/bookmark-button/bookmark-button.component';
+import { CloudInterviewComponent } from '../components/cloud-interview/cloud-interview.component';
 import { CodingInterviewComponent } from '../components/coding-interview/coding-interview.component';
 import { VerbalInterviewComponent } from '../components/verbal-interview/verbal-interview.component';
 import { ComingSoonComponent } from '../components/coming-soon/coming-soon.component';
@@ -37,6 +38,7 @@ const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
     FormsModule,
     LUCIDE_ICONS,
     BookmarkButtonComponent,
+    CloudInterviewComponent,
     CodingInterviewComponent,
     VerbalInterviewComponent,
     ComingSoonComponent,
@@ -76,7 +78,7 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   readonly submissionMode = signal<'text' | 'audio'>('text');
   readonly transcribingMessage = signal('');
   readonly isWsConnected = signal(false);
-  readonly activeView = signal<'verbal' | 'coding' | 'coming-soon-cloud' | 'coming-soon-ai'>('verbal');
+  readonly activeView = signal<'verbal' | 'coding' | 'cloud-canvas' | 'coming-soon-ai'>('verbal');
   readonly questionMetadata = signal<any>(null);
   readonly audioBlocked = signal(false);
   readonly audioTranscriptDebug = signal<string | null>(null);
@@ -223,15 +225,19 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
       }
     }
 
-    const questionRoleType = String(question.roleType ?? '').toUpperCase();
-    const sessionRoleType = String(this.session()?.roleType ?? '').toUpperCase();
-    const effectiveRoleType = !questionRoleType || questionRoleType === 'ALL' ? sessionRoleType : questionRoleType;
+    const role = String(question.roleType ?? '').toUpperCase();
+    const type = String(question.type ?? '').toUpperCase();
+    const mode = String(this.questionMetadata()?.mode ?? '').toLowerCase();
 
-    if (question.type === 'CODING' && (effectiveRoleType === 'SE' || effectiveRoleType === 'SOFTWARE_ENGINEER')) {
+    if (type === 'CODING' && (role === 'SE' || role === 'SOFTWARE_ENGINEER')) {
       this.activeView.set('coding');
-    } else if (effectiveRoleType === 'CLOUD' || effectiveRoleType === 'CLOUD_ENGINEER') {
-      this.activeView.set('coming-soon-cloud');
-    } else if (effectiveRoleType === 'AI' || effectiveRoleType === 'AI_ENGINEER') {
+    } else if (role === 'CLOUD' || role === 'CLOUD_ENGINEER') {
+      if (mode === 'canvas') {
+        this.activeView.set('cloud-canvas');
+      } else {
+        this.activeView.set('verbal');
+      }
+    } else if (role === 'AI' || role === 'AI_ENGINEER') {
       this.activeView.set('coming-soon-ai');
     } else {
       this.activeView.set('verbal');
@@ -247,8 +253,39 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   }
 
   onAnswerSubmitted(answer: SessionAnswerDto | null): void {
-    if (answer?.id) {
-      this.startEvaluationPolling(answer.id);
+    if (!answer?.id) {
+      return;
+    }
+
+    if (this.activeView() === 'cloud-canvas') {
+      void this.advanceCloudCanvasOrComplete();
+      return;
+    }
+
+    this.startEvaluationPolling(answer.id);
+  }
+
+  private async advanceCloudCanvasOrComplete(): Promise<void> {
+    try {
+      const nextQuestion = await firstValueFrom(this.api.getNextSessionQuestion(this.sessionId));
+      if (!nextQuestion) {
+        await this.completeAndGenerateReport();
+        return;
+      }
+
+      const [session, questionOrders] = await Promise.all([
+        firstValueFrom(this.api.getSessionById(this.sessionId)),
+        firstValueFrom(this.api.getSessionQuestionOrder(this.sessionId)),
+      ]);
+
+      this.session.set(session);
+      this.questionOrders.set(questionOrders);
+      this.currentIndex.set(this.resolveCurrentIndex(session, questionOrders, nextQuestion));
+      this.answerText.set('');
+      this.configureQuestionTimer();
+      this.loadQuestion(nextQuestion);
+    } catch {
+      this.loadError.set('Could not move to the next question.');
     }
   }
 
@@ -646,7 +683,18 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         await this.advanceSessionOrComplete();
       }
     } catch {
-      this.loadError.set('Unable to evaluate this answer right now.');
+      // Recovery path: websocket events can be missed or arrive out-of-order.
+      try {
+        const recovered = await this.pollEvaluation(answerId);
+        if (this.isPractice()) {
+          this.feedbackEvaluation.set(recovered);
+          this.openFeedbackDrawer();
+        } else {
+          await this.advanceSessionOrComplete();
+        }
+      } catch {
+        this.loadError.set('Unable to evaluate this answer right now.');
+      }
     } finally {
       this.isSubmitting.set(false);
     }

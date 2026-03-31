@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpParams, HttpResponse } from '@angular/common/http';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import {
   AddBookmarkRequest,
   AnswerEvaluationDto,
@@ -80,6 +81,21 @@ export class InterviewApiService {
 
   getCurrentSessionQuestion(sessionId: number): Observable<InterviewQuestionDto> {
     return this.http.get<InterviewQuestionDto>(`${this.baseUrl}/sessions/${sessionId}/questions/current`);
+  }
+
+  getNextSessionQuestion(sessionId: number): Observable<InterviewQuestionDto | null> {
+    return this.http
+      .get<InterviewQuestionDto>(`${this.baseUrl}/sessions/${sessionId}/questions/next`, { observe: 'response' })
+      .pipe(
+        map((response: HttpResponse<InterviewQuestionDto>) => response.body ?? null),
+        catchError((error: HttpErrorResponse) => {
+          if (error.status === 204 || error.status === 404) {
+            return of(null);
+          }
+
+          return throwError(() => error);
+        })
+      );
   }
 
   submitAnswer(payload: SubmitAnswerRequest): Observable<SessionAnswerDto> {

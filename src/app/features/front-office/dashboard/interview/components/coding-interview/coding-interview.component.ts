@@ -20,6 +20,7 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
   private readonly http = inject(HttpClient);
   private readonly interviewApi = inject(InterviewApiService);
   private readonly apiBase = this.resolveBaseUrl();
+  private readonly apiRoot = this.resolveApiRoot(this.apiBase);
 
   @Input() question: InterviewQuestionDto | null = null;
   @Input() metadata: any;
@@ -207,7 +208,7 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
     const prompt = 'Great. Now please explain your approach. Walk me through your solution, the data structure you chose, and the time and space complexity of your algorithm.';
 
     this.http
-      .post(`${this.apiBase}/audio/tts/speak`, { text: prompt })
+      .post(`${this.apiRoot}/audio/tts/speak`, { text: prompt })
       .subscribe({
         next: (response: any) => {
           if (!response?.audioUrl) {
@@ -312,6 +313,14 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
     }
 
     return '/interview-service/api/v1';
+  }
+
+  private resolveApiRoot(apiBase: string): string {
+    if (!apiBase) {
+      return '';
+    }
+
+    return apiBase.replace(/\/api\/v1\/?$/, '');
   }
 
   private resetUiForNextQuestion(): void {

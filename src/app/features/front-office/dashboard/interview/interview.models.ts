@@ -201,6 +201,7 @@ export interface StartSessionRequest {
   userId: number;
   careerPathId: number;
   role: RoleType;
+  roleType?: RoleType;
   mode: InterviewMode;
   type: InterviewType;
   questionCount: number;

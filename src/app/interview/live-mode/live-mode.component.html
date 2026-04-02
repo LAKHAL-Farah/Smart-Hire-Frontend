@@ -1,0 +1,49 @@
+<div class="live-screen">
+  <app-live-top-bar
+    [sessionTimerSeconds]="sessionTimerSeconds"
+    [currentQuestionIndex]="currentQuestionIndex"
+    [totalQuestions]="totalQuestions"
+    [liveSubMode]="liveSubMode"
+    [companyName]="companyName"
+  ></app-live-top-bar>
+
+  <div class="call-area">
+    <div class="ai-tile-wrapper" [class.speaking]="aiSpeaking" data-testid="ai-tile">
+      <app-participant-tile [name]="'Alex · ' + companyName" [isAI]="true" [isSpeaking]="aiSpeaking" [isLarge]="true"></app-participant-tile>
+      <app-question-caption [questionText]="currentQuestionText"></app-question-caption>
+    </div>
+
+    <div class="candidate-tile-wrapper" [class.speaking]="candidateSpeaking" data-testid="candidate-tile">
+      <app-participant-tile
+        [name]="'You'"
+        [isAI]="false"
+        [isSpeaking]="candidateSpeaking"
+        [videoStream]="videoStream"
+        [micLevel]="micLevel"
+        [isLarge]="false"
+      ></app-participant-tile>
+
+      <div class="muted-badge" *ngIf="!micEnabled" data-testid="muted-badge">
+        <mat-icon>mic_off</mat-icon>
+        Muted
+      </div>
+    </div>
+  </div>
+
+  <app-feedback-overlay
+    *ngIf="showFeedbackOverlay"
+    [feedbackText]="feedbackPayload?.feedbackText || ''"
+    [score]="feedbackPayload?.score || 0"
+    [aiFeedback]="feedbackPayload?.aiFeedback || ''"
+    (retryClicked)="onRetry()"
+    (continueClicked)="onContinue()"
+  ></app-feedback-overlay>
+
+  <app-live-controls
+    [micEnabled]="micEnabled"
+    [cameraEnabled]="cameraEnabled"
+    (micToggled)="onMicToggle($event)"
+    (cameraToggled)="onCameraToggle($event)"
+    (leaveClicked)="onLeave()"
+  ></app-live-controls>
+</div>

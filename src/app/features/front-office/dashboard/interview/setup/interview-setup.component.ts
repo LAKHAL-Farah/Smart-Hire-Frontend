@@ -132,6 +132,7 @@ export class InterviewSetupComponent implements OnInit {
         userId: this.userId!,
         careerPathId: 1,
         role,
+        roleType: role,
         mode,
         type,
         questionCount: this.questionCount(),
@@ -149,9 +150,7 @@ export class InterviewSetupComponent implements OnInit {
         },
         error: (error: HttpErrorResponse) => {
           this.isStarting.set(false);
-          const backendMessage =
-            (error.error && typeof error.error === 'object' && (error.error.message || error.error.detail)) ||
-            null;
+          const backendMessage = this.extractBackendErrorMessage(error);
           this.errorMessage.set(
             backendMessage
               ? `Unable to start interview session: ${backendMessage}`
@@ -249,6 +248,32 @@ export class InterviewSetupComponent implements OnInit {
     const value = (raw ?? '').trim().toUpperCase();
     if (value === 'TECHNICAL' || value === 'BEHAVIORAL' || value === 'MIXED') {
       return value;
+    }
+
+    return null;
+  }
+
+  private extractBackendErrorMessage(error: HttpErrorResponse): string | null {
+    const payload = error.error;
+
+    if (!payload) {
+      return null;
+    }
+
+    if (typeof payload === 'string') {
+      return payload.trim() || null;
+    }
+
+    if (typeof payload === 'object') {
+      const message = (payload as { message?: unknown; detail?: unknown }).message;
+      if (typeof message === 'string' && message.trim()) {
+        return message.trim();
+      }
+
+      const detail = (payload as { detail?: unknown }).detail;
+      if (typeof detail === 'string' && detail.trim()) {
+        return detail.trim();
+      }
     }
 
     return null;

@@ -52,7 +52,39 @@ export class InterviewApiService {
   }
 
   startSession(payload: StartSessionRequest): Observable<InterviewSessionDto> {
-    return this.http.post<InterviewSessionDto>(`${this.baseUrl}/sessions/start`, payload);
+    const body = {
+      ...payload,
+      roleType: payload.role,
+    };
+
+    return this.http.post<InterviewSessionDto>(`${this.baseUrl}/sessions/start`, body).pipe(
+      catchError((error: HttpErrorResponse) => {
+        const shouldRetryWithQueryParams =
+          error.status === 0 ||
+          error.status === 400 ||
+          error.status === 404 ||
+          error.status === 405 ||
+          error.status === 415 ||
+          error.status === 422 ||
+          error.status >= 500;
+
+        if (!shouldRetryWithQueryParams) {
+          return throwError(() => error);
+        }
+
+        const params = new HttpParams()
+          .set('userId', String(payload.userId))
+          .set('careerPathId', String(payload.careerPathId))
+          .set('role', payload.role)
+          .set('mode', payload.mode)
+          .set('type', payload.type)
+          .set('questionCount', String(payload.questionCount));
+
+        return this.http.post<InterviewSessionDto>(`${this.baseUrl}/sessions/start`, null, { params }).pipe(
+          catchError(() => throwError(() => error))
+        );
+      })
+    );
   }
 
   getSessionById(sessionId: number): Observable<InterviewSessionDto> {

@@ -1,0 +1,54 @@
+<div class="live-start-page">
+  <div class="live-start-shell">
+    <header class="live-start-header">
+      <h1>Join Live Interview</h1>
+      <p>
+        This is a behavioral interview. Speak naturally. The AI will listen and respond like a real interviewer.
+      </p>
+    </header>
+
+    <section class="preview-card">
+      <div class="preview-video-wrap">
+        <video #previewVideo autoplay playsinline muted class="preview-video"></video>
+      </div>
+      <div class="permission-state" [class.ok]="permissionsGranted" [class.bad]="!permissionsGranted" data-testid="permissions-badge">
+        <mat-icon>{{ permissionsGranted ? 'check_circle' : 'warning' }}</mat-icon>
+        {{ permissionsGranted ? 'Camera and microphone ready' : 'Permissions required' }}
+      </div>
+    </section>
+
+    <section class="config-card">
+      <div class="field">
+        <label>Question Count: {{ questionCount }}</label>
+        <input data-testid="question-count-slider" type="range" min="3" max="15" step="1" [value]="questionCount" (input)="onQuestionCountInput($event)" />
+        <div class="range-meta"><span>3</span><span>15</span></div>
+      </div>
+
+      <div class="field">
+        <label>Mode</label>
+        <div class="mode-switch" data-testid="mode-toggle">
+          <button data-testid="mode-practice" type="button" [class.active]="liveSubMode === 'PRACTICE_LIVE'" (click)="setSubMode('PRACTICE_LIVE')">Practice</button>
+          <button data-testid="mode-test" type="button" [class.active]="liveSubMode === 'TEST_LIVE'" (click)="setSubMode('TEST_LIVE')">Test</button>
+        </div>
+        <p class="mode-hint" *ngIf="liveSubMode === 'PRACTICE_LIVE'">Practice gives adaptive feedback and lets you retry low-score answers.</p>
+        <p class="mode-hint" *ngIf="liveSubMode === 'TEST_LIVE'">Test runs straight through with no interruptions, like a real interview loop.</p>
+      </div>
+
+      <div class="field">
+        <label>Company Name (optional)</label>
+        <input data-testid="company-input" type="text" [(ngModel)]="companyName" placeholder="Tech Company" />
+      </div>
+
+      <div class="field">
+        <label>Target Role (optional)</label>
+        <input type="text" [(ngModel)]="targetRole" placeholder="Backend Engineer Intern" />
+      </div>
+
+      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <button class="join-btn" data-testid="join-btn" type="button" [disabled]="!permissionsGranted || isLoading" (click)="onStart()">
+        {{ isLoading ? 'Joining...' : 'Join Interview' }}
+      </button>
+    </section>
+  </div>
+</div>

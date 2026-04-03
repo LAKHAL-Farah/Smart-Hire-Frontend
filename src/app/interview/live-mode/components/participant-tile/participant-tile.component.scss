@@ -20,21 +20,21 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .avatar-ring {
   position: absolute;
-  width: 160px;
-  height: 160px;
+  width: 170px;
+  height: 170px;
   border-radius: 50%;
   border: 3px solid transparent;
-  transition: border-color 0.3s;
+  transition: all 0.3s;
 }
 
 .avatar-ring.pulse {
   border-color: #00e676;
-  animation: avatarPulse 1.2s ease-in-out infinite;
+  animation: avatarPulse 1.4s ease-in-out infinite;
 }
 
 @keyframes avatarPulse {
@@ -51,18 +51,20 @@
 }
 
 .avatar-face {
-  width: 140px;
-  height: 140px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   background: linear-gradient(135deg, #3a1c71, #d76d77, #ffaf7b);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 40px;
-  font-weight: 700;
+}
+
+.avatar-initials {
+  font-size: 42px;
+  font-weight: 800;
   color: #fff;
-  letter-spacing: 2px;
-  user-select: none;
+  letter-spacing: 3px;
 }
 
 .sound-bars {
@@ -124,15 +126,12 @@
   color: #666;
 }
 
-.silhouette-icon {
-  font-size: 64px;
-  color: #444;
-  width: 64px;
-  height: 64px;
+.no-camera mat-icon {
+  font-size: 56px;
+  color: #333;
 }
 
-.no-cam-label {
-  font-size: 13px;
+.no-camera span {
   color: #555;
 }
 

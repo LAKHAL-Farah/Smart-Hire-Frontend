@@ -8,12 +8,17 @@
   ></app-live-top-bar>
 
   <div class="call-area">
-    <div class="ai-tile-wrapper" [class.speaking]="aiSpeaking" data-testid="ai-tile">
-      <app-participant-tile [name]="'Alex · ' + companyName" [isAI]="true" [isSpeaking]="aiSpeaking" [isLarge]="true"></app-participant-tile>
+    <div class="ai-tile-wrapper" data-testid="ai-tile">
+      <app-participant-tile
+        [name]="'Alex · ' + companyName"
+        [isAI]="true"
+        [isSpeaking]="aiSpeaking"
+        [isLarge]="true"
+      ></app-participant-tile>
       <app-question-caption [questionText]="currentQuestionText"></app-question-caption>
     </div>
 
-    <div class="candidate-tile-wrapper" [class.speaking]="candidateSpeaking" data-testid="candidate-tile">
+    <div class="candidate-tile-wrapper" [class.camera-off]="!cameraEnabled" data-testid="candidate-tile">
       <app-participant-tile
         [name]="'You'"
         [isAI]="false"
@@ -24,20 +29,10 @@
       ></app-participant-tile>
 
       <div class="muted-badge" *ngIf="!micEnabled" data-testid="muted-badge">
-        <mat-icon>mic_off</mat-icon>
-        Muted
+        <mat-icon>mic_off</mat-icon>Muted
       </div>
     </div>
   </div>
-
-  <app-feedback-overlay
-    *ngIf="showFeedbackOverlay"
-    [feedbackText]="feedbackPayload?.feedbackText || ''"
-    [score]="feedbackPayload?.score || 0"
-    [aiFeedback]="feedbackPayload?.aiFeedback || ''"
-    (retryClicked)="onRetry()"
-    (continueClicked)="onContinue()"
-  ></app-feedback-overlay>
 
   <app-live-controls
     [micEnabled]="micEnabled"
@@ -47,18 +42,47 @@
     (leaveClicked)="onLeave()"
   ></app-live-controls>
 
-  <aside class="debug-panel" *ngIf="debugEnabled" data-testid="live-debug-panel">
-    <div class="debug-title">Live Debug</div>
-    <div class="debug-kv">Session: {{ sessionId }}</div>
-    <div class="debug-kv">WS: {{ wsStatus }}</div>
-    <div class="debug-kv">Greeting URL: {{ lastGreetingUrl || '(empty)' }}</div>
-    <div class="debug-kv">Resolved URL: {{ lastResolvedGreetingUrl || '(empty)' }}</div>
-    <div class="debug-kv">Audio Error: {{ lastAudioError || '(none)' }}</div>
+  <button
+    type="button"
+    class="tap-audio-btn"
+    *ngIf="needsTapToPlay"
+    (click)="onTapToPlayGreeting()"
+  >
+    Tap to start greeting audio
+  </button>
 
-    <div class="debug-log">
-      <div class="debug-line" *ngFor="let row of debugRows">
-        [{{ row.at }}] {{ row.message }}
-      </div>
+  <div class="debug-toast" *ngIf="isDebugMode" data-testid="debug-toast">
+    <div class="debug-title">DEBUG</div>
+    <div class="debug-row">
+      <span class="lbl">Session</span>
+      <span class="val">{{ sessionId }}</span>
     </div>
-  </aside>
+    <div class="debug-row">
+      <span class="lbl">Turn</span>
+      <span class="val turn" [attr.data-turn]="currentTurn">{{ currentTurn }}</span>
+    </div>
+    <div class="debug-row">
+      <span class="lbl">Audio</span>
+      <span class="val audio">{{ debugAudioState }}</span>
+    </div>
+    <div class="debug-row">
+      <span class="lbl">Background</span>
+      <span class="val bg">{{ debugBgTask }}</span>
+    </div>
+    <div class="debug-row">
+      <span class="lbl">Greeting</span>
+      <span class="val url">
+        {{ (debugGreetingUrl | slice:0:34) }}{{ debugGreetingUrl.length > 34 ? '...' : '' }}
+      </span>
+    </div>
+    <div class="debug-row">
+      <span class="lbl">Transcript</span>
+      <span class="val transcript">
+        {{ (debugLastTranscript | slice:0:40) }}{{ debugLastTranscript.length > 40 ? '...' : '' }}
+      </span>
+    </div>
+    <div class="debug-dots" *ngIf="debugBgTask !== 'nothing'">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
 </div>

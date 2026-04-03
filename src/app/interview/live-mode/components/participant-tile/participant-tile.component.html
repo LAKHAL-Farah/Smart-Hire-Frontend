@@ -1,9 +1,9 @@
 <div
   class="tile-wrapper"
-  [class.large]="isLarge"
   [class.speaking]="isSpeaking"
   [class.ai-tile]="isAI"
   [class.candidate-tile]="!isAI"
+  data-testid="tile-wrapper"
 >
   <ng-container *ngIf="isAI">
     <div class="avatar-container">
@@ -18,18 +18,26 @@
   </ng-container>
 
   <ng-container *ngIf="!isAI">
-    <video *ngIf="videoStream" [srcObject]="videoStream" autoplay playsinline muted class="webcam-video"></video>
-    <div *ngIf="!videoStream" class="no-camera">
-      <mat-icon class="silhouette-icon">person</mat-icon>
-      <span class="no-cam-label">Camera off</span>
+    <video
+      *ngIf="videoStream"
+      [srcObject]="videoStream"
+      autoplay
+      playsinline
+      muted
+      class="webcam-video"
+      data-testid="webcam-video"
+    ></video>
+    <div *ngIf="!videoStream" class="no-camera" data-testid="no-camera">
+      <mat-icon>person</mat-icon>
+      <span>Camera off</span>
     </div>
 
-    <div class="mic-level-bar">
+    <div class="mic-level-bar" data-testid="mic-level-bar">
       <div class="mic-level-fill" [style.width.%]="micLevel * 100"></div>
     </div>
   </ng-container>
 
-  <div class="name-badge">
+  <div class="name-badge" data-testid="name-badge">
     <span *ngIf="isSpeaking && isAI" class="speaking-dot"></span>
     {{ name }}
   </div>

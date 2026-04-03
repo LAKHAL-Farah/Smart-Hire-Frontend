@@ -60,11 +60,64 @@
   font-size: 14px;
 }
 
+.debug-panel {
+  position: absolute;
+  left: 12px;
+  bottom: 92px;
+  width: min(520px, calc(100vw - 24px));
+  max-height: 42vh;
+  overflow: hidden;
+  border: 1px solid rgba(245, 245, 245, 0.2);
+  border-radius: 10px;
+  background: rgba(7, 11, 23, 0.9);
+  color: #d4dde9;
+  z-index: 20;
+  backdrop-filter: blur(4px);
+}
+
+.debug-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8fb3ff;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(245, 245, 245, 0.12);
+}
+
+.debug-kv {
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 3px 10px;
+  word-break: break-all;
+}
+
+.debug-log {
+  margin-top: 4px;
+  padding: 8px 10px 10px;
+  max-height: 24vh;
+  overflow: auto;
+  border-top: 1px solid rgba(245, 245, 245, 0.12);
+}
+
+.debug-line {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #acc7f7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 900px) {
   .candidate-tile-wrapper {
     width: 160px;
     height: 104px;
     bottom: 12px;
     right: 12px;
+  }
+
+  .debug-panel {
+    bottom: 76px;
+    max-height: 36vh;
   }
 }

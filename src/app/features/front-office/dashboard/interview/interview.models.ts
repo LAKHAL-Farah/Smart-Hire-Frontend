@@ -1,10 +1,41 @@
-export type InterviewMode = 'PRACTICE' | 'TEST';
+export type InterviewMode = 'PRACTICE' | 'TEST' | 'LIVE';
 export type InterviewType = 'TECHNICAL' | 'BEHAVIORAL' | 'MIXED';
 export type RoleType = 'SE' | 'CLOUD' | 'AI' | 'ALL';
+export type LiveSubMode = 'PRACTICE_LIVE' | 'TEST_LIVE';
 export type SessionStatus = 'IN_PROGRESS' | 'PAUSED' | 'EVALUATING' | 'COMPLETED' | 'ABANDONED';
 export type QuestionType = 'BEHAVIORAL' | 'TECHNICAL' | 'SITUATIONAL' | 'CODING';
 export type DifficultyLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT';
 export type CodeLanguage = 'PYTHON' | 'JAVA' | 'JAVASCRIPT' | 'CPP';
+
+export interface StartLiveSessionRequest {
+  userId: number;
+  careerPathId: number;
+  liveSubMode: LiveSubMode;
+  questionCount: number;
+  companyName?: string;
+  targetRole?: string;
+}
+
+export interface StartLiveSessionResponse {
+  sessionId: number;
+  greetingAudioUrl: string;
+  firstQuestionText: string;
+  firstQuestionId: number;
+  totalQuestions: number;
+  liveSubMode: LiveSubMode;
+  status: SessionStatus | string;
+}
+
+export interface LiveBootstrapResponse {
+  sessionId: number;
+  greetingAudioUrl: string;
+  firstQuestionText: string;
+  firstQuestionId: number;
+  totalQuestions: number;
+  currentQuestionIndex: number;
+  liveSubMode: LiveSubMode;
+  status: SessionStatus | string;
+}
 
 export interface InterviewStreakDto {
   id: number;
@@ -183,6 +214,7 @@ export interface InterviewSessionDto {
   careerPathId: number;
   roleType: RoleType;
   mode: InterviewMode;
+  liveSubMode?: LiveSubMode | null;
   type: InterviewType;
   status: SessionStatus;
   totalScore: number | null;

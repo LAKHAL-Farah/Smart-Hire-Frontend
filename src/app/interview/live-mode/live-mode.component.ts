@@ -26,6 +26,11 @@ interface LiveEventEnvelope {
   payload: any;
 }
 
+interface DebugRow {
+  at: string;
+  message: string;
+}
+
 @Component({
   selector: 'app-live-mode',
   standalone: true,
@@ -51,6 +56,7 @@ export class LiveModeComponent implements OnInit, OnDestroy {
   sessionTimerSeconds = 0;
   companyName = 'Tech Company';
   candidateName = 'Candidate';
+  targetRole = 'Candidate';
 
   meetingStatus: 'LISTENING' | 'GENERATING' | 'TALKING' = 'GENERATING';
   meetingStatusLabel = 'Generating a response';
@@ -75,11 +81,21 @@ export class LiveModeComponent implements OnInit, OnDestroy {
   private animFrameId: number | null = null;
   private sessionTimerInterval: ReturnType<typeof setInterval> | null = null;
   private bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private bootstrapFallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private mainAudio: HTMLAudioElement | null = null;
   private fillerAudio: HTMLAudioElement | null = null;
   private isListening = false;
   private hasReceivedSessionReady = false;
   private readonly destroy$ = new Subject<void>();
+
+  debugEnabled = true;
+  wsStatus: 'IDLE' | 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'ERROR' = 'IDLE';
+  lastGreetingUrl = '';
+  lastResolvedGreetingUrl = '';
+  lastAudioError = '';
+  debugRows: DebugRow[] = [];
+  private preloadedGreetingUrl = '';
+  private preloadedResolvedGreetingUrl = '';
 
   constructor(
     private readonly route: ActivatedRoute,
@@ -92,10 +108,40 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     this.liveSubMode = (this.route.snapshot.queryParamMap.get('subMode') as LiveSubMode) || 'TEST_LIVE';
     this.companyName = this.route.snapshot.queryParamMap.get('company') || 'Tech Company';
     this.candidateName = this.route.snapshot.queryParamMap.get('candidateName') || 'Candidate';
+    this.targetRole = this.route.snapshot.queryParamMap.get('targetRole') || 'Candidate';
+    this.debugEnabled = this.route.snapshot.queryParamMap.get('debug') !== '0';
+    this.preloadedGreetingUrl = this.route.snapshot.queryParamMap.get('preparedGreetingUrl') || '';
+    this.preloadedResolvedGreetingUrl = this.route.snapshot.queryParamMap.get('preparedResolvedGreetingUrl') || '';
+
+    if (this.preloadedGreetingUrl) {
+      this.lastGreetingUrl = this.preloadedGreetingUrl;
+      this.lastResolvedGreetingUrl = this.preloadedResolvedGreetingUrl || this.resolveBackendAssetUrl(this.preloadedGreetingUrl);
+      this.addDebug('Preloaded greeting received', {
+        greetingAudioUrl: this.lastGreetingUrl,
+        resolvedGreetingAudioUrl: this.lastResolvedGreetingUrl,
+      });
+    }
+
+    this.addDebug('Init', {
+      sessionId: this.sessionId,
+      subMode: this.liveSubMode,
+      companyName: this.companyName,
+      candidateName: this.candidateName,
+    });
 
     this.registerCypressHook();
-    this.connectWebSocket();
-    this.initMediaDevices();
+    try {
+      this.connectWebSocket();
+    } catch {
+      // WebSocket initialization should never block entering live view.
+    }
+
+    try {
+      this.initMediaDevices();
+    } catch {
+      // Media initialization is best effort.
+    }
+
     this.startSessionTimer();
   }
 
@@ -143,6 +189,11 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       clearTimeout(this.bootstrapRetryTimer);
       this.bootstrapRetryTimer = null;
     }
+
+    if (this.bootstrapFallbackTimer) {
+      clearTimeout(this.bootstrapFallbackTimer);
+      this.bootstrapFallbackTimer = null;
+    }
   }
 
   private connectWebSocket(): void {
@@ -150,17 +201,25 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.wsStatus = 'CONNECTING';
+    this.addDebug('WS connecting', { url: this.resolveSockJsUrl() });
+
     const socket = this.createSocketClient(this.resolveSockJsUrl());
     this.stompClient = Stomp.over(socket);
     this.stompClient.debug = () => {};
     this.stompClient.reconnectDelay = 5000;
     this.stompClient.onConnect = () => {
+      this.wsStatus = 'CONNECTED';
+      this.addDebug('WS connected');
+
       this.stompClient?.subscribe(`/topic/session/${this.sessionId}`, (msg: IMessage) => {
         try {
           const event = JSON.parse(msg.body) as LiveEventEnvelope;
+          this.addDebug('WS event', { type: event.eventType ?? event.type });
           this.handleWebSocketEvent(event);
         } catch {
           // Ignore malformed live events.
+          this.addDebug('WS malformed event');
         }
       });
 
@@ -174,9 +233,35 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       }
       this.bootstrapRetryTimer = setTimeout(() => {
         if (!this.hasReceivedSessionReady) {
+          this.addDebug('Bootstrap retry');
           this.publishBootstrapRequest();
         }
       }, 3500);
+
+      if (this.bootstrapFallbackTimer) {
+        clearTimeout(this.bootstrapFallbackTimer);
+      }
+      this.bootstrapFallbackTimer = setTimeout(() => {
+        if (!this.hasReceivedSessionReady) {
+          this.addDebug('Bootstrap REST fallback request');
+          this.requestBootstrapFallback();
+        }
+      }, 6000);
+    };
+
+    this.stompClient.onStompError = (frame) => {
+      this.wsStatus = 'ERROR';
+      this.addDebug('WS stomp error', frame?.headers ?? {});
+    };
+
+    this.stompClient.onWebSocketClose = () => {
+      this.wsStatus = 'DISCONNECTED';
+      this.addDebug('WS closed');
+    };
+
+    this.stompClient.onWebSocketError = () => {
+      this.wsStatus = 'ERROR';
+      this.addDebug('WS transport error');
     };
 
     this.stompClient.activate();
@@ -188,6 +273,7 @@ export class LiveModeComponent implements OnInit, OnDestroy {
 
   private publishBootstrapRequest(): void {
     const body = JSON.stringify({ candidateName: this.candidateName });
+    this.addDebug('Publish bootstrap', { destination: `/app/session/${this.sessionId}/bootstrap` });
     this.stompClient?.publish({ destination: `/app/session/${this.sessionId}/bootstrap`, body });
   }
 
@@ -197,6 +283,21 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     switch (type) {
       case 'LIVE_SESSION_READY': {
         const p = event.payload as LiveSessionReadyPayload;
+        const eventGreetingUrl = (p.greetingAudioUrl ?? '').trim();
+        const resolvedGreetingUrl = eventGreetingUrl || this.preloadedGreetingUrl;
+        this.lastGreetingUrl = resolvedGreetingUrl;
+        this.addDebug('LIVE_SESSION_READY', {
+          greetingAudioUrl: p.greetingAudioUrl,
+          effectiveGreetingAudioUrl: resolvedGreetingUrl,
+          firstQuestionId: p.firstQuestionId,
+          firstQuestionText: p.firstQuestionText,
+          currentQuestionIndex: p.currentQuestionIndex,
+          totalQuestions: p.totalQuestions,
+        });
+
+        if (!eventGreetingUrl && this.preloadedGreetingUrl) {
+          this.addDebug('LIVE_SESSION_READY missing greeting URL, using preloaded URL');
+        }
         const readyIndex = p.currentQuestionIndex ?? 0;
         if (
           this.hasReceivedSessionReady &&
@@ -211,13 +312,17 @@ export class LiveModeComponent implements OnInit, OnDestroy {
           clearTimeout(this.bootstrapRetryTimer);
           this.bootstrapRetryTimer = null;
         }
+        if (this.bootstrapFallbackTimer) {
+          clearTimeout(this.bootstrapFallbackTimer);
+          this.bootstrapFallbackTimer = null;
+        }
         this.stopListening();
         this.totalQuestions = p.totalQuestions;
         this.currentQuestionText = p.firstQuestionText;
         this.currentQuestionIndex = readyIndex;
         this.aiSpeaking = true;
         this.setMeetingStatus('TALKING');
-        this.playMainAudio(p.greetingAudioUrl, () => {
+        this.playMainAudio(resolvedGreetingUrl, () => {
           this.aiSpeaking = false;
           this.startListening();
         });
@@ -295,7 +400,12 @@ export class LiveModeComponent implements OnInit, OnDestroy {
 
   private playMainAudio(url: string, onEnded?: () => void): void {
     const resolvedUrl = this.resolveBackendAssetUrl(url);
+    this.lastGreetingUrl = url || this.lastGreetingUrl;
+    this.lastResolvedGreetingUrl = resolvedUrl || '';
+
     if (!resolvedUrl) {
+      this.lastAudioError = 'No audio URL received';
+      this.addDebug('Main audio skipped: empty URL');
       onEnded?.();
       return;
     }
@@ -313,13 +423,40 @@ export class LiveModeComponent implements OnInit, OnDestroy {
 
     this.mainAudio = new Audio(resolvedUrl);
     this.mainAudio.volume = 1;
-    this.mainAudio.play().catch(() => {
+    this.mainAudio.addEventListener('loadedmetadata', () => {
+      this.addDebug('Main audio metadata loaded', { duration: this.mainAudio?.duration });
+    });
+    this.mainAudio.addEventListener('canplay', () => {
+      this.addDebug('Main audio canplay');
+    });
+    this.mainAudio.addEventListener('error', () => {
+      const mediaError = this.mainAudio?.error;
+      this.lastAudioError = mediaError ? `MediaError code=${mediaError.code}` : 'Unknown media error';
+      this.addDebug('Main audio error', {
+        src: resolvedUrl,
+        errorCode: mediaError?.code,
+        networkState: this.mainAudio?.networkState,
+        readyState: this.mainAudio?.readyState,
+      });
+    });
+    this.mainAudio.play().then(() => {
+      this.addDebug('Main audio play started', { src: resolvedUrl });
+    }).catch((err: unknown) => {
       this.aiSpeaking = false;
+      this.lastAudioError = String((err as any)?.message ?? err ?? 'Audio play failed');
+      this.addDebug('Main audio play rejected', { src: resolvedUrl, error: this.lastAudioError });
       onEnded?.();
     });
 
     if (onEnded) {
-      this.mainAudio.addEventListener('ended', onEnded, { once: true });
+      this.mainAudio.addEventListener(
+        'ended',
+        () => {
+          this.addDebug('Main audio ended');
+          onEnded();
+        },
+        { once: true }
+      );
     }
   }
 
@@ -398,6 +535,12 @@ export class LiveModeComponent implements OnInit, OnDestroy {
   }
 
   private initMediaDevices(): void {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      this.captureStream = null;
+      this.videoStream = null;
+      return;
+    }
+
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: true })
       .then((stream) => {
@@ -611,5 +754,54 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     }
 
     return value;
+  }
+
+  private requestBootstrapFallback(): void {
+    this.liveService
+      .getLiveBootstrap(this.sessionId, {
+        companyName: this.companyName,
+        targetRole: this.targetRole,
+        candidateName: this.candidateName,
+      })
+      .subscribe({
+        next: (payload) => {
+          this.addDebug('Bootstrap fallback received', {
+            greetingAudioUrl: payload.greetingAudioUrl,
+            firstQuestionId: payload.firstQuestionId,
+            totalQuestions: payload.totalQuestions,
+          });
+          this.handleWebSocketEvent({ eventType: 'LIVE_SESSION_READY', payload });
+        },
+        error: (error) => {
+          this.addDebug('Bootstrap fallback failed', {
+            status: error?.status,
+            message: error?.message,
+          });
+        },
+      });
+  }
+
+  private addDebug(message: string, details?: unknown): void {
+    if (!this.debugEnabled) {
+      return;
+    }
+
+    const suffix = details === undefined ? '' : ` ${this.stringifyDebug(details)}`;
+    this.debugRows.unshift({
+      at: new Date().toLocaleTimeString(),
+      message: `${message}${suffix}`,
+    });
+
+    if (this.debugRows.length > 60) {
+      this.debugRows.length = 60;
+    }
+  }
+
+  private stringifyDebug(value: unknown): string {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
   }
 }

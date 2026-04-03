@@ -9,11 +9,14 @@ import {
   InterviewReportDto,
   InterviewSessionDto,
   InterviewStreakDto,
+  LiveBootstrapResponse,
   QuestionBookmarkDto,
   RetryAnswerRequest,
   SessionAnswerDto,
   SessionQuestionOrderDto,
   StartSessionRequest,
+  StartLiveSessionRequest,
+  StartLiveSessionResponse,
   SubmitAnswerRequest,
   SubmitFollowUpRequest,
   UpsertQuestionRequest,
@@ -85,6 +88,30 @@ export class InterviewApiService {
         );
       })
     );
+  }
+
+  startLiveSession(payload: StartLiveSessionRequest): Observable<StartLiveSessionResponse> {
+    return this.http.post<StartLiveSessionResponse>(`${this.baseUrl}/sessions/start-live`, payload);
+  }
+
+  getLiveBootstrap(
+    sessionId: number,
+    params?: { companyName?: string; targetRole?: string; candidateName?: string }
+  ): Observable<LiveBootstrapResponse> {
+    let queryParams = new HttpParams();
+    if (params?.companyName) {
+      queryParams = queryParams.set('companyName', params.companyName);
+    }
+    if (params?.targetRole) {
+      queryParams = queryParams.set('targetRole', params.targetRole);
+    }
+    if (params?.candidateName) {
+      queryParams = queryParams.set('candidateName', params.candidateName);
+    }
+
+    return this.http.get<LiveBootstrapResponse>(`${this.baseUrl}/sessions/${sessionId}/live-bootstrap`, {
+      params: queryParams,
+    });
   }
 
   getSessionById(sessionId: number): Observable<InterviewSessionDto> {

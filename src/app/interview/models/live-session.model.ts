@@ -24,7 +24,21 @@ export interface LiveSessionReadyPayload {
   firstQuestionId: number;
   firstQuestionText: string;
   totalQuestions: number;
+  currentQuestionIndex?: number;
   liveSubMode: LiveSubMode;
+}
+
+export interface LiveStagePayload {
+  stage?:
+    | 'LISTENING'
+    | 'TALKING'
+    | 'TRANSCRIBING'
+    | 'EVALUATING'
+    | 'GENERATING_QUESTION'
+    | 'SYNTHESIZING_SPEECH'
+    | 'GENERATING_RESPONSE'
+    | string;
+  message?: string | null;
 }
 
 export interface LiveAISpeechPayload {

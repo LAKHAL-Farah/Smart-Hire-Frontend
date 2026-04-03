@@ -10,7 +10,7 @@ describe('InterviewSetupComponent', () => {
   let routerSpy: jasmine.SpyObj<Router>;
 
   beforeEach(async () => {
-    apiSpy = jasmine.createSpyObj<InterviewApiService>('InterviewApiService', ['startSession']);
+    apiSpy = jasmine.createSpyObj<InterviewApiService>('InterviewApiService', ['startSession', 'startLiveSession']);
     routerSpy = jasmine.createSpyObj<Router>('Router', ['navigateByUrl']);
 
     await TestBed.configureTestingModule({
@@ -59,4 +59,19 @@ describe('InterviewSetupComponent', () => {
 
     expect(component.errorMessage()).toContain('Backend failed to start session');
   });
+
+  it('should start live session when LIVE mode is selected', fakeAsync(() => {
+    apiSpy.startLiveSession.and.returnValue(of({ sessionId: 77 } as any));
+    routerSpy.navigateByUrl.and.returnValue(Promise.resolve(true));
+
+    component.setMode('LIVE');
+    component.setLiveSubMode('TEST_LIVE');
+    component.startInterview();
+    flushMicrotasks();
+
+    expect(apiSpy.startLiveSession).toHaveBeenCalled();
+    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/dashboard/interview/live/77?subMode=TEST_LIVE', {
+      replaceUrl: true,
+    });
+  }));
 });

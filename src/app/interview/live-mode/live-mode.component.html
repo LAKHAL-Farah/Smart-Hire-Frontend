@@ -46,4 +46,19 @@
     (cameraToggled)="onCameraToggle($event)"
     (leaveClicked)="onLeave()"
   ></app-live-controls>
+
+  <aside class="debug-panel" *ngIf="debugEnabled" data-testid="live-debug-panel">
+    <div class="debug-title">Live Debug</div>
+    <div class="debug-kv">Session: {{ sessionId }}</div>
+    <div class="debug-kv">WS: {{ wsStatus }}</div>
+    <div class="debug-kv">Greeting URL: {{ lastGreetingUrl || '(empty)' }}</div>
+    <div class="debug-kv">Resolved URL: {{ lastResolvedGreetingUrl || '(empty)' }}</div>
+    <div class="debug-kv">Audio Error: {{ lastAudioError || '(none)' }}</div>
+
+    <div class="debug-log">
+      <div class="debug-line" *ngFor="let row of debugRows">
+        [{{ row.at }}] {{ row.message }}
+      </div>
+    </div>
+  </aside>
 </div>

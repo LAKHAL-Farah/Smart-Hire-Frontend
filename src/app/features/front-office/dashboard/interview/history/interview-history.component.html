@@ -16,7 +16,7 @@
       <button type="button" [disabled]="loading()" (click)="loadHistory()">Refresh</button>
       <span class="user-loader__meta">{{ activeSessionLabel() }}</span>
       @if (activeSession() && (activeSession()!.status === 'IN_PROGRESS' || activeSession()!.status === 'PAUSED')) {
-        <button type="button" class="btn-resume" (click)="openSession(activeSession()!.id)">Resume Active</button>
+        <button type="button" class="btn-resume" (click)="openSession(activeSession()!)">Resume Active</button>
       }
     </div>
   </div>
@@ -71,6 +71,7 @@
           <option value="ALL">All modes</option>
           <option value="PRACTICE">Practice</option>
           <option value="TEST">Test</option>
+          <option value="LIVE">Live</option>
         </select>
         <select [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
           <option value="ALL">All statuses</option>
@@ -111,7 +112,7 @@
                 <span class="score">{{ getDisplayScore(session) }}</span>
                 <button type="button" [disabled]="!getReportId(session)" (click)="openReport(getReportId(session))">Report</button>
                 @if (session.status === 'IN_PROGRESS' || session.status === 'PAUSED') {
-                  <button type="button" class="btn-secondary" (click)="openSession(session.id)">Resume</button>
+                  <button type="button" class="btn-secondary" (click)="openSession(session)">Resume</button>
                 }
               </div>
             </article>

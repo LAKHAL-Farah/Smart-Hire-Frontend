@@ -417,6 +417,21 @@ export class AdminInterviewHubComponent implements OnInit {
   }
 
   openSession(sessionId: number): void {
+    const session = this.sessions().find((item) => item.id === sessionId) ?? null;
+    if (session?.mode === 'LIVE') {
+      const subMode = session.liveSubMode ?? 'TEST_LIVE';
+      this.router
+        .navigate(['/dashboard/interview/live', sessionId], {
+          queryParams: { subMode },
+        })
+        .catch(() => {
+          this.router.navigate(['/interview/live', sessionId], {
+            queryParams: { subMode },
+          });
+        });
+      return;
+    }
+
     this.router.navigate(['/dashboard/interview/session', sessionId]);
   }
 

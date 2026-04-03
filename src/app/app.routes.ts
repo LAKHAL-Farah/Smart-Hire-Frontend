@@ -31,6 +31,20 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'interview/live/:sessionId',
+    loadComponent: () =>
+      import('./interview/live-mode/live-mode.component').then(
+        (m) => m.LiveModeComponent
+      ),
+  },
+  {
+    path: 'dashboard/interview/live/:sessionId',
+    loadComponent: () =>
+      import('./interview/live-mode/live-mode.component').then(
+        (m) => m.LiveModeComponent
+      ),
+  },
+  {
     path: 'dashboard',
     loadComponent: () =>
       import('./features/front-office/dashboard/dashboard-layout.component').then(
@@ -148,6 +162,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/ml-screen/interview-ml-screen.component').then(
             (m) => m.InterviewMlScreenComponent
+          ),
+      },
+      {
+        path: 'interview/live/:sessionId',
+        loadComponent: () =>
+          import('./interview/live-mode/live-mode.component').then(
+            (m) => m.LiveModeComponent
           ),
       },
       {

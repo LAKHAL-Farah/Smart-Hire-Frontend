@@ -18,6 +18,7 @@ interface PastSessionRow {
   roleLabel: string;
   modeLabel: string;
   modeClass: 'mode-practice' | 'mode-test';
+  liveSubMode?: 'PRACTICE_LIVE' | 'TEST_LIVE' | null;
   scoreLabel: string;
   dateLabel: string;
   status: SessionStatus;
@@ -154,6 +155,7 @@ export class InterviewComponent implements OnInit {
         roleLabel: this.getRoleLabel(session),
         modeLabel: session.mode,
         modeClass: session.mode === 'PRACTICE' ? 'mode-practice' : 'mode-test',
+        liveSubMode: session.liveSubMode ?? null,
         scoreLabel: this.resolveSessionScore(session) === null ? '—' : this.resolveSessionScore(session)!.toFixed(1),
         dateLabel: this.formatShortDate(session.startedAt),
         status: session.status,
@@ -177,11 +179,12 @@ export class InterviewComponent implements OnInit {
       return;
     }
 
-    this.openSession(active.id);
+    this.openSession(active);
   }
 
   resumeSessionById(sessionId: number): void {
-    this.openSession(sessionId);
+    const session = this.sessions().find((item) => item.id === sessionId) ?? null;
+    this.openSession(session ?? sessionId);
   }
 
   openHistory(): void {
@@ -324,7 +327,28 @@ export class InterviewComponent implements OnInit {
     return typeof mappedReport === 'number' ? mappedReport : null;
   }
 
-  private openSession(sessionId: number): void {
+  private openSession(sessionOrId: InterviewSessionDto | number): void {
+    const session = typeof sessionOrId === 'number'
+      ? this.sessions().find((item) => item.id === sessionOrId) ?? null
+      : sessionOrId;
+
+    const sessionId = typeof sessionOrId === 'number' ? sessionOrId : sessionOrId.id;
+    const isLive = session?.mode === 'LIVE';
+    const liveSubMode = session?.liveSubMode ?? 'TEST_LIVE';
+
+    if (isLive) {
+      this.router
+        .navigate(['/dashboard/interview/live', sessionId], {
+          queryParams: { subMode: liveSubMode },
+        })
+        .catch(() => {
+          this.router.navigate(['/interview/live', sessionId], {
+            queryParams: { subMode: liveSubMode },
+          });
+        });
+      return;
+    }
+
     const target = `/dashboard/interview/session/${sessionId}`;
     this.router.navigateByUrl(target).catch(() => {
       globalThis.location.assign(target);

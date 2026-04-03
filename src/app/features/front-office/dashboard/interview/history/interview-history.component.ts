@@ -31,7 +31,7 @@ export class InterviewHistoryComponent implements OnInit {
 
   readonly search = signal('');
   readonly roleFilter = signal<'ALL' | 'SE' | 'CLOUD' | 'AI'>('ALL');
-  readonly modeFilter = signal<'ALL' | 'PRACTICE' | 'TEST'>('ALL');
+  readonly modeFilter = signal<'ALL' | 'PRACTICE' | 'TEST' | 'LIVE'>('ALL');
   readonly statusFilter = signal<'ALL' | SessionStatus>('ALL');
   readonly activeSessionLabel = computed(() => {
     const active = this.activeSession();
@@ -186,8 +186,22 @@ export class InterviewHistoryComponent implements OnInit {
     this.router.navigate(['/dashboard/interview/report', reportId]);
   }
 
-  openSession(sessionId: number): void {
-    const target = `/dashboard/interview/session/${sessionId}`;
+  openSession(session: InterviewSessionDto): void {
+    if (session.mode === 'LIVE') {
+      const subMode = session.liveSubMode ?? 'TEST_LIVE';
+      this.router
+        .navigate(['/dashboard/interview/live', session.id], {
+          queryParams: { subMode },
+        })
+        .catch(() => {
+          this.router.navigate(['/interview/live', session.id], {
+            queryParams: { subMode },
+          });
+        });
+      return;
+    }
+
+    const target = `/dashboard/interview/session/${session.id}`;
     this.router.navigateByUrl(target).catch(() => {
       globalThis.location.assign(target);
     });

@@ -41,6 +41,13 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    path: 'interview/report/:id',
+    loadComponent: () =>
+      import('./features/front-office/dashboard/interview/report/interview-report.component').then(
+        (m) => m.InterviewReportComponent
+      ),
+  },
+  {
     path: 'dashboard/interview/live/start',
     loadComponent: () =>
       import('./interview/live-start/live-start.component').then(

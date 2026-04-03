@@ -42,14 +42,17 @@
     (leaveClicked)="onLeave()"
   ></app-live-controls>
 
-  <button
-    type="button"
-    class="tap-audio-btn"
-    *ngIf="needsTapToPlay"
-    (click)="onTapToPlayGreeting()"
+  <div
+    class="autoplay-prompt"
+    *ngIf="showAutoplayPrompt"
+    (click)="onAutoplayResume()"
+    data-testid="autoplay-prompt"
   >
-    Tap to resume interview audio
-  </button>
+    <div class="autoplay-card">
+      <mat-icon>play_circle</mat-icon>
+      <span>Tap to hear the interviewer</span>
+    </div>
+  </div>
 
   <div class="debug-toast" *ngIf="isDebugMode" data-testid="debug-toast">
     <div class="debug-title">DEBUG</div>
@@ -93,4 +96,10 @@
       <span></span><span></span><span></span>
     </div>
   </div>
+
+  <!-- Main AI speech audio — one element, reused for every TTS phrase -->
+  <audio #mainAudioEl style="display:none" preload="auto"></audio>
+
+  <!-- Filler audio — separate element so fillers never interrupt main speech -->
+  <audio #fillerAudioEl style="display:none" preload="auto"></audio>
 </div>

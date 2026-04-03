@@ -59,24 +59,36 @@
   font-size: 14px;
 }
 
-.tap-audio-btn {
+.autoplay-prompt {
   position: fixed;
-  bottom: 86px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 120;
-  border: 1px solid rgba(108, 245, 177, 0.45);
-  border-radius: 999px;
-  background: rgba(8, 22, 18, 0.92);
-  color: #9af8cc;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 10px 16px;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 
-.tap-audio-btn:hover {
-  background: rgba(12, 30, 24, 0.95);
+.autoplay-card {
+  background: #1a1a2e;
+  border: 2px solid #7c4dff;
+  border-radius: 20px;
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: #fff;
+  font-size: 18px;
+  text-align: center;
+}
+
+.autoplay-card mat-icon {
+  font-size: 64px;
+  width: 64px;
+  height: 64px;
+  color: #00e676;
 }
 
 .debug-toast {
@@ -132,7 +144,7 @@
 }
 
 .val[data-turn='AI_SPEAKING'] {
-  color: #8b5cf6;
+  color: #7c4dff;
 }
 
 .val[data-turn='CANDIDATE_SPEAKING'] {
@@ -144,7 +156,7 @@
 }
 
 .val[data-turn='IDLE'] {
-  color: #6b7280;
+  color: #555555;
 }
 
 .val.audio {
@@ -235,12 +247,6 @@
     height: 108px;
     bottom: 12px;
     right: 12px;
-  }
-
-  .tap-audio-btn {
-    bottom: 78px;
-    width: calc(100vw - 28px);
-    max-width: 360px;
   }
 
   .debug-toast {

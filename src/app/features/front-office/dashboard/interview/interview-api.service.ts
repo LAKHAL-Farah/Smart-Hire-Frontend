@@ -35,8 +35,34 @@ export class InterviewApiService {
       return '';
     }
 
-    if (/^https?:\/\//i.test(value)) {
+    if (value.startsWith('/api/v1/')) {
       return value;
+    }
+
+    if (value.startsWith('/interview-service/api/v1/')) {
+      return value.replace('/interview-service/api/v1/', '/api/v1/');
+    }
+
+    if (/^https?:\/\//i.test(value)) {
+      try {
+        const parsed = new URL(value);
+        if (parsed.pathname.startsWith('/interview-service/api/v1/')) {
+          return parsed.pathname.replace('/interview-service/api/v1/', '/api/v1/');
+        }
+      } catch {
+        // Keep original URL when parsing fails.
+      }
+
+      return value;
+    }
+
+    const normalizedValue = value.startsWith('/') ? value : `/${value}`;
+    if (normalizedValue.startsWith('/api/v1/')) {
+      return normalizedValue;
+    }
+
+    if (normalizedValue.startsWith('/interview-service/api/v1/')) {
+      return normalizedValue.replace('/interview-service/api/v1/', '/api/v1/');
     }
 
     return `${this.backendOrigin}${value.startsWith('/') ? value : `/${value}`}`;

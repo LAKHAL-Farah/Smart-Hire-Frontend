@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { ActivatedRoute, Router } from '@angular/router';
 import SockJS from 'sockjs-client';
 import { LiveSubMode } from '../models/live-session.model';
+import { LiveSessionService } from '../services/live-session.service';
 import { LiveControlsComponent } from './components/live-controls/live-controls.component';
 import { LiveTopBarComponent } from './components/live-top-bar/live-top-bar.component';
 import { ParticipantTileComponent } from './components/participant-tile/participant-tile.component';
@@ -33,7 +34,10 @@ interface SessionEventEnvelope {
   templateUrl: './live-mode.component.html',
   styleUrl: './live-mode.component.scss',
 })
-export class LiveModeComponent implements OnInit, OnDestroy {
+export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('mainAudioEl') mainAudioElRef!: ElementRef<HTMLAudioElement>;
+  @ViewChild('fillerAudioEl') fillerAudioElRef!: ElementRef<HTMLAudioElement>;
+
   sessionId = 0;
   liveSubMode: LiveSubMode = 'TEST_LIVE';
   companyName = 'Tech Company';
@@ -60,16 +64,24 @@ export class LiveModeComponent implements OnInit, OnDestroy {
   debugGreetingUrl = '—';
   debugWsState: 'connecting' | 'connected' | 'disconnected' = 'disconnected';
   debugLastEvent = '—';
-  needsTapToPlay = false;
+  showAutoplayPrompt = false;
+
+  private blockedUrl: string | null = null;
+  private blockedCallback: (() => void) | null = null;
+  private preparedGreetingUrl: string | null = null;
+  private sessionReadyReceived = false;
+  private bootstrapRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private bootstrapAttempts = 0;
+  private httpBootstrapAttempted = false;
 
   private sessionTimerInterval: ReturnType<typeof setInterval> | null = null;
-  private greetingAudio: HTMLAudioElement | null = null;
   private stompClient: Client | null = null;
   private sessionSubscription: StompSubscription | null = null;
 
   constructor(
     private readonly route: ActivatedRoute,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly liveSessionService: LiveSessionService
   ) {}
 
   ngOnInit(): void {
@@ -86,11 +98,22 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     const debugParam = (this.route.snapshot.queryParamMap.get('debug') ?? '').trim().toLowerCase();
     this.isDebugMode = debugParam !== '0' && debugParam !== 'false' && debugParam !== 'no';
     this.debugLastTranscript = this.currentQuestionText || '—';
+    this.httpBootstrapAttempted = false;
+
+    const preparedResolved = this.route.snapshot.queryParamMap.get('preparedResolvedGreetingUrl') || '';
+    const preparedRelative = this.route.snapshot.queryParamMap.get('preparedGreetingUrl') || '';
+    const fallbackGreeting = this.route.snapshot.queryParamMap.get('greetingAudioUrl') || '';
+    const resolvedPrepared = preparedResolved || this.resolveBackendAssetUrl(preparedRelative || fallbackGreeting);
+    this.preparedGreetingUrl = resolvedPrepared || null;
 
     this.startSessionTimer();
-    this.initCamera();
-    this.initGreetingPlayback();
-    this.connectSessionSocket();
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => {
+      this.connectWebSocket();
+      this.initCamera();
+    }, 0);
   }
 
   ngOnDestroy(): void {
@@ -102,13 +125,22 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     this.videoStream?.getTracks().forEach((track) => track.stop());
     this.videoStream = null;
 
-    if (this.greetingAudio) {
-      this.greetingAudio.pause();
-      this.greetingAudio.src = '';
-      this.greetingAudio = null;
+    if (this.mainAudioElRef?.nativeElement) {
+      this.mainAudioElRef.nativeElement.pause();
+      this.mainAudioElRef.nativeElement.src = '';
     }
 
-    this.disconnectSessionSocket();
+    if (this.fillerAudioElRef?.nativeElement) {
+      this.fillerAudioElRef.nativeElement.pause();
+      this.fillerAudioElRef.nativeElement.src = '';
+    }
+
+    if (this.bootstrapRetryTimer) {
+      clearTimeout(this.bootstrapRetryTimer);
+      this.bootstrapRetryTimer = null;
+    }
+
+    this.disconnectWebSocket();
   }
 
   onMicToggle(enabled: boolean): void {
@@ -131,22 +163,15 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/dashboard']);
   }
 
-  onTapToPlayGreeting(): void {
-    if (!this.greetingAudio) {
-      return;
+  onAutoplayResume(): void {
+    this.showAutoplayPrompt = false;
+    if (this.blockedUrl && this.blockedCallback) {
+      const url = this.blockedUrl;
+      const cb = this.blockedCallback;
+      this.blockedUrl = null;
+      this.blockedCallback = null;
+      this.startPlayback(this.mainAudioElRef.nativeElement, url, cb);
     }
-
-    this.greetingAudio.play().then(() => {
-      this.needsTapToPlay = false;
-      this.debugBgTask = 'playing_greeting';
-      this.debugAudioState = 'playing';
-      this.currentTurn = 'AI_SPEAKING';
-      this.aiSpeaking = true;
-    }).catch((error: unknown) => {
-      this.debugBgTask = 'audio_blocked';
-      this.debugAudioState = 'blocked';
-      this.debugLastTranscript = `Tap to play failed: ${String((error as { message?: string })?.message ?? error)}`;
-    });
   }
 
   private startSessionTimer(): void {
@@ -167,23 +192,7 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       });
   }
 
-  private initGreetingPlayback(): void {
-    const preparedResolved = this.route.snapshot.queryParamMap.get('preparedResolvedGreetingUrl') || '';
-    const preparedRelative = this.route.snapshot.queryParamMap.get('preparedGreetingUrl') || '';
-    const fallbackGreeting = this.route.snapshot.queryParamMap.get('greetingAudioUrl') || '';
-
-    const audioUrl =
-      preparedResolved ||
-      this.resolveBackendAssetUrl(preparedRelative || fallbackGreeting);
-
-    if (!audioUrl) {
-      return;
-    }
-
-    this.playGreetingAudio(audioUrl);
-  }
-
-  private connectSessionSocket(): void {
+  private connectWebSocket(): void {
     if (!this.sessionId) {
       this.debugWsState = 'disconnected';
       return;
@@ -203,6 +212,23 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       this.debugWsState = 'connected';
       this.debugBgTask = 'ws_connected';
       this.subscribeToSessionTopic(client);
+      this.bootstrapAttempts = 0;
+      this.scheduleBootstrapRequest(client, 250);
+
+      // Fallback if backend does not push LIVE_SESSION_READY quickly.
+      setTimeout(() => {
+        if (!this.sessionReadyReceived && this.preparedGreetingUrl) {
+          console.warn('[LiveMode] LIVE_SESSION_READY not received yet. Using prepared greeting fallback.');
+          this.playGreetingFlow(this.preparedGreetingUrl);
+        }
+      }, 2500);
+
+      // If WS bootstrap path fails, force-fetch bootstrap over HTTP.
+      setTimeout(() => {
+        if (!this.sessionReadyReceived) {
+          this.requestHttpBootstrap();
+        }
+      }, 1800);
     };
 
     client.onStompError = (frame) => {
@@ -215,6 +241,10 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       this.debugWsState = 'disconnected';
       this.debugBgTask = 'ws_reconnecting';
       this.sessionSubscription = null;
+      if (this.bootstrapRetryTimer) {
+        clearTimeout(this.bootstrapRetryTimer);
+        this.bootstrapRetryTimer = null;
+      }
     };
 
     client.onWebSocketError = () => {
@@ -226,7 +256,7 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     this.stompClient.activate();
   }
 
-  private disconnectSessionSocket(): void {
+  private disconnectWebSocket(): void {
     if (this.sessionSubscription) {
       this.sessionSubscription.unsubscribe();
       this.sessionSubscription = null;
@@ -249,11 +279,11 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     }
 
     this.sessionSubscription = client.subscribe(topic, (message: IMessage) => {
-      this.handleSessionEvent(message);
+      this.handleWebSocketEvent(message);
     });
   }
 
-  private handleSessionEvent(message: IMessage): void {
+  private handleWebSocketEvent(message: IMessage): void {
     let envelope: SessionEventEnvelope;
 
     try {
@@ -266,6 +296,7 @@ export class LiveModeComponent implements OnInit, OnDestroy {
 
     const eventType = String(envelope.type || envelope.eventType || '').trim().toUpperCase();
     const payload = this.asRecord(envelope.payload);
+    console.log('[LiveMode] WS event:', eventType, payload);
 
     this.debugLastEvent = eventType || 'UNKNOWN';
 
@@ -283,7 +314,7 @@ export class LiveModeComponent implements OnInit, OnDestroy {
         break;
       }
       case 'REPORT_READY': {
-        void this.router.navigate(['/dashboard/interview/report', this.sessionId]);
+        void this.router.navigate(['/interview/report', this.sessionId]);
         break;
       }
       case 'ERROR': {
@@ -299,6 +330,12 @@ export class LiveModeComponent implements OnInit, OnDestroy {
   }
 
   private handleLiveSessionReady(payload: Record<string, unknown>): void {
+    this.sessionReadyReceived = true;
+    if (this.bootstrapRetryTimer) {
+      clearTimeout(this.bootstrapRetryTimer);
+      this.bootstrapRetryTimer = null;
+    }
+
     const firstQuestionText = this.readString(payload, 'firstQuestionText');
     const greetingAudioUrl = this.readString(payload, 'greetingAudioUrl');
     const companyName = this.readString(payload, 'companyName');
@@ -328,9 +365,100 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     }
 
     const resolvedUrl = this.resolveBackendAssetUrl(greetingAudioUrl || '');
-    if (resolvedUrl) {
-      this.playGreetingAudio(resolvedUrl);
+    if (!resolvedUrl) {
+      this.aiSpeaking = false;
+      this.currentTurn = 'CANDIDATE_SPEAKING';
+      this.debugBgTask = 'no_greeting_audio';
+      this.debugAudioState = 'missing';
+      return;
     }
+
+    this.playGreetingFlow(resolvedUrl);
+  }
+
+  private playGreetingFlow(audioUrl: string): void {
+    if (this.aiSpeaking && this.debugGreetingUrl === audioUrl) {
+      return;
+    }
+
+    this.currentTurn = 'AI_SPEAKING';
+    this.aiSpeaking = true;
+    this.debugBgTask = 'starting_greeting';
+    this.debugAudioState = 'starting';
+    this.debugGreetingUrl = audioUrl;
+
+    this.playMainAudio(audioUrl, () => {
+      this.currentTurn = 'CANDIDATE_SPEAKING';
+      this.aiSpeaking = false;
+      this.debugBgTask = 'nothing';
+      this.debugAudioState = 'ended';
+      console.log('[LiveMode] Greeting ended — ready for candidate');
+    });
+  }
+
+  private requestBootstrap(client: Client): void {
+    if (!this.sessionId || !client.connected) {
+      return;
+    }
+
+    try {
+      client.publish({
+        destination: `/app/session/${this.sessionId}/bootstrap`,
+        body: '',
+      });
+      this.debugBgTask = 'bootstrap_requested';
+      console.log('[LiveMode] Bootstrap requested for session', this.sessionId);
+    } catch (error) {
+      console.warn('[LiveMode] Failed to request bootstrap:', error);
+    }
+  }
+
+  private requestHttpBootstrap(): void {
+    if (!this.sessionId || this.sessionReadyReceived || this.httpBootstrapAttempted) {
+      return;
+    }
+
+    this.httpBootstrapAttempted = true;
+    this.debugBgTask = 'http_bootstrap_requested';
+    console.warn('[LiveMode] Falling back to HTTP live-bootstrap for session', this.sessionId);
+
+    this.liveSessionService
+      .getLiveBootstrap(this.sessionId, {
+        companyName: this.companyName,
+        targetRole: 'Candidate',
+        candidateName: 'Candidate',
+      })
+      .subscribe({
+        next: (payload) => {
+          this.handleLiveSessionReady(payload as unknown as Record<string, unknown>);
+        },
+        error: (error: unknown) => {
+          console.warn('[LiveMode] HTTP live-bootstrap failed:', error);
+          this.debugBgTask = 'http_bootstrap_failed';
+        },
+      });
+  }
+
+  private scheduleBootstrapRequest(client: Client, delayMs: number): void {
+    if (this.bootstrapRetryTimer) {
+      clearTimeout(this.bootstrapRetryTimer);
+      this.bootstrapRetryTimer = null;
+    }
+
+    this.bootstrapRetryTimer = setTimeout(() => {
+      if (this.sessionReadyReceived || !client.connected) {
+        return;
+      }
+
+      this.bootstrapAttempts += 1;
+      this.requestBootstrap(client);
+
+      // Retry a few times because SUBSCRIBE and initial PUBLISH can race.
+      if (!this.sessionReadyReceived && this.bootstrapAttempts < 4) {
+        this.debugBgTask = `bootstrap_retry_${this.bootstrapAttempts}`;
+        this.scheduleBootstrapRequest(client, 1200);
+      }
+    }, delayMs);
   }
 
   private handleLiveAiSpeech(payload: Record<string, unknown>): void {
@@ -358,8 +486,12 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     }
 
     if (!audioUrl) {
+      this.aiSpeaking = false;
       if (isClosing) {
-        void this.router.navigate(['/dashboard/interview/report', this.sessionId]);
+        this.currentTurn = 'IDLE';
+        void this.router.navigate(['/interview/report', this.sessionId]);
+      } else {
+        this.currentTurn = 'CANDIDATE_SPEAKING';
       }
       return;
     }
@@ -370,58 +502,19 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     this.debugAudioState = 'starting';
     this.debugGreetingUrl = audioUrl;
 
-    if (this.greetingAudio) {
-      this.greetingAudio.pause();
-      this.greetingAudio.src = '';
-      this.greetingAudio = null;
-    }
-
-    const audio = new Audio(audioUrl);
-    audio.preload = 'auto';
-    audio.volume = 1;
-
-    audio.addEventListener(
-      'ended',
-      () => {
-        this.aiSpeaking = false;
+    this.playMainAudio(audioUrl, () => {
+      this.aiSpeaking = false;
+      this.debugBgTask = 'nothing';
+      this.debugAudioState = 'ended';
+      if (isClosing) {
+        console.log('[LiveMode] Closing speech ended — navigating to report');
         this.currentTurn = 'IDLE';
-        this.debugBgTask = 'nothing';
-        this.debugAudioState = 'ended';
-        this.needsTapToPlay = false;
-
-        if (isClosing) {
-          void this.router.navigate(['/dashboard/interview/report', this.sessionId]);
-        }
-      },
-      { once: true }
-    );
-
-    audio.addEventListener(
-      'error',
-      () => {
-        this.aiSpeaking = false;
-        this.currentTurn = 'PROCESSING';
-        this.debugBgTask = 'ai_audio_error';
-        this.debugAudioState = 'error';
-      },
-      { once: true }
-    );
-
-    this.greetingAudio = audio;
-
-    audio
-      .play()
-      .then(() => {
-        this.debugBgTask = 'playing_ai_speech';
-        this.debugAudioState = 'playing';
-      })
-      .catch(() => {
-        this.needsTapToPlay = true;
-        this.debugBgTask = 'awaiting_tap';
-        this.debugAudioState = 'blocked';
-        this.currentTurn = 'PROCESSING';
-        this.aiSpeaking = false;
-      });
+        void this.router.navigate(['/interview/report', this.sessionId]);
+      } else {
+        this.currentTurn = 'CANDIDATE_SPEAKING';
+        console.log('[LiveMode] Next question audio ended — ready for candidate');
+      }
+    });
   }
 
   private handleFillerAudio(payload: Record<string, unknown>): void {
@@ -435,89 +528,94 @@ export class LiveModeComponent implements OnInit, OnDestroy {
     this.debugAudioState = 'playing';
     this.debugGreetingUrl = audioUrl;
 
-    const filler = new Audio(audioUrl);
-    filler.preload = 'auto';
-    filler.volume = 0.9;
-
-    filler.addEventListener(
-      'ended',
-      () => {
-        if (!this.aiSpeaking) {
-          this.currentTurn = 'IDLE';
-        }
-        this.debugBgTask = 'nothing';
-        this.debugAudioState = 'ended';
-      },
-      { once: true }
-    );
-
-    filler.addEventListener(
-      'error',
-      () => {
-        this.debugBgTask = 'filler_audio_error';
-        this.debugAudioState = 'error';
-      },
-      { once: true }
-    );
-
-    void filler.play().catch(() => {
-      this.debugBgTask = 'filler_blocked';
-      this.debugAudioState = 'blocked';
-    });
+    this.playFiller(audioUrl);
   }
 
-  private playGreetingAudio(audioUrl: string): void {
-    this.aiSpeaking = true;
-    this.currentTurn = 'AI_SPEAKING';
-    this.debugBgTask = 'starting_greeting';
-    this.debugAudioState = 'starting';
-    this.debugGreetingUrl = audioUrl;
+  private playMainAudio(url: string, onEnded: () => void): void {
+    const audio = this.mainAudioElRef.nativeElement;
 
-    if (this.greetingAudio) {
-      this.greetingAudio.pause();
-      this.greetingAudio.src = '';
-      this.greetingAudio = null;
-    }
+    console.log('[Audio] playMainAudio -> verifying URL:', url);
 
-    const audio = new Audio(audioUrl);
-    audio.preload = 'auto';
-    audio.volume = 1;
+    fetch(url, { method: 'HEAD' })
+      .then((res) => {
+        if (!res.ok) {
+          console.error('[Audio] URL returned', res.status, ':', url);
+          setTimeout(() => onEnded(), 300);
+          return;
+        }
+        console.log('[Audio] URL OK -', res.headers.get('content-type'), url);
+        this.startPlayback(audio, url, onEnded);
+      })
+      .catch((err: unknown) => {
+        console.error('[Audio] URL unreachable:', url, err);
+        setTimeout(() => onEnded(), 300);
+      });
+  }
 
-    audio.addEventListener(
-      'ended',
-      () => {
-        this.aiSpeaking = false;
-        this.currentTurn = 'IDLE';
-        this.debugBgTask = 'nothing';
-        this.debugAudioState = 'ended';
-        this.needsTapToPlay = false;
-      },
-      { once: true }
-    );
+  private startPlayback(audio: HTMLAudioElement, url: string, onEnded: () => void): void {
+    audio.onended = null;
+    audio.onerror = null;
+    audio.src = url;
+    audio.volume = 1.0;
 
-    audio.addEventListener(
-      'error',
-      () => {
-        this.aiSpeaking = false;
-        this.currentTurn = 'PROCESSING';
-        this.debugBgTask = 'audio_error';
-        this.debugAudioState = 'error';
-      },
-      { once: true }
-    );
-
-    this.greetingAudio = audio;
-
-    audio.play().then(() => {
-      this.debugBgTask = 'playing_greeting';
-      this.debugAudioState = 'playing';
-    }).catch(() => {
-      this.needsTapToPlay = true;
-      this.debugBgTask = 'awaiting_tap';
-      this.debugAudioState = 'blocked';
-      this.currentTurn = 'PROCESSING';
+    audio.onended = () => {
+      console.log('[Audio] Playback ended:', url);
       this.aiSpeaking = false;
-    });
+      setTimeout(() => onEnded(), 300);
+    };
+
+    audio.onerror = () => {
+      console.error('[Audio] Playback error:', audio.error?.code, audio.error?.message, 'URL:', url);
+      this.aiSpeaking = false;
+      setTimeout(() => onEnded(), 300);
+    };
+
+    audio.load();
+    audio
+      .play()
+      .then(() => {
+        console.log('[Audio] play() started successfully');
+        this.aiSpeaking = true;
+        this.debugBgTask = 'playing_audio';
+        this.debugAudioState = 'playing';
+      })
+      .catch((err: unknown) => {
+        const audioErr = err as DOMException;
+        console.error('[Audio] play() rejected:', audioErr.name, audioErr.message);
+        if (audioErr.name === 'NotAllowedError') {
+          this.handleAutoplayBlocked(url, onEnded);
+        } else {
+          this.aiSpeaking = false;
+          setTimeout(() => onEnded(), 300);
+        }
+      });
+  }
+
+  private playFiller(url: string): void {
+    const audio = this.fillerAudioElRef.nativeElement;
+    audio.src = url;
+    audio.volume = 0.8;
+    audio.onended = null;
+    audio.onerror = null;
+
+    audio.load();
+    audio
+      .play()
+      .then(() => console.log('[Filler] Playing:', url))
+      .catch((err: unknown) => {
+        const audioErr = err as DOMException;
+        console.warn('[Filler] play() failed (non-critical):', audioErr.message);
+      });
+  }
+
+  private handleAutoplayBlocked(url: string, onEnded: () => void): void {
+    console.warn('[Audio] Autoplay blocked - showing tap prompt');
+    this.blockedUrl = url;
+    this.blockedCallback = onEnded;
+    this.showAutoplayPrompt = true;
+    this.aiSpeaking = false;
+    this.debugBgTask = 'autoplay_blocked';
+    this.debugAudioState = 'blocked';
   }
 
   private resolveSockJsUrl(): string {
@@ -576,12 +674,24 @@ export class LiveModeComponent implements OnInit, OnDestroy {
       return '';
     }
 
-    if (/^https?:\/\//i.test(value)) {
+    if (value.startsWith('/api/v1/')) {
       return value;
     }
 
-    if (value.startsWith('/interview-service/') && globalThis.location?.protocol && globalThis.location?.hostname) {
-      return `${globalThis.location.protocol}//${globalThis.location.hostname}:8081${value}`;
+    if (value.startsWith('/interview-service/api/v1/')) {
+      return value.replace('/interview-service/api/v1/', '/api/v1/');
+    }
+
+    if (/^https?:\/\//i.test(value)) {
+      try {
+        const parsed = new URL(value);
+        if (parsed.pathname.startsWith('/interview-service/api/v1/')) {
+          return parsed.pathname.replace('/interview-service/api/v1/', '/api/v1/');
+        }
+      } catch {
+        // Keep original URL when parsing fails.
+      }
+      return value;
     }
 
     const configured = (globalThis.localStorage?.getItem('smarthire.interviewApiBaseUrl') ?? '').trim();

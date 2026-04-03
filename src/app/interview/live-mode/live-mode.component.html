@@ -48,11 +48,19 @@
     *ngIf="needsTapToPlay"
     (click)="onTapToPlayGreeting()"
   >
-    Tap to start greeting audio
+    Tap to resume interview audio
   </button>
 
   <div class="debug-toast" *ngIf="isDebugMode" data-testid="debug-toast">
     <div class="debug-title">DEBUG</div>
+    <div class="debug-row">
+      <span class="lbl">WS</span>
+      <span class="val ws" [attr.data-ws]="debugWsState">{{ debugWsState }}</span>
+    </div>
+    <div class="debug-row">
+      <span class="lbl">Event</span>
+      <span class="val event">{{ debugLastEvent }}</span>
+    </div>
     <div class="debug-row">
       <span class="lbl">Session</span>
       <span class="val">{{ sessionId }}</span>

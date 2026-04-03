@@ -152,6 +152,28 @@
   font-size: 11px;
 }
 
+.val.ws {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.val.ws[data-ws='connected'] {
+  color: #22c55e;
+}
+
+.val.ws[data-ws='connecting'] {
+  color: #fbbf24;
+}
+
+.val.ws[data-ws='disconnected'] {
+  color: #f87171;
+}
+
+.val.event {
+  color: #f5d0fe;
+  font-size: 11px;
+}
+
 .val.bg {
   color: #ffab40;
   font-size: 11px;

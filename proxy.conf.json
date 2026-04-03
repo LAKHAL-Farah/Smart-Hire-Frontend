@@ -15,7 +15,7 @@
     "ws": true,
     "logLevel": "debug",
     "pathRewrite": {
-      "^/ws-interview": "/interview-service/ws"
+      "^/ws-interview": "/interview-service/ws-interview"
     }
   }
 }

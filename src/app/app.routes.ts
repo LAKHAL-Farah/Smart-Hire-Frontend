@@ -1,4 +1,7 @@
 import { Routes } from '@angular/router';
+import { adminCanMatch } from './core/guards/admin.guard';
+import { onboardingCanMatch } from './core/guards/onboarding.guard';
+import { firstAssessmentGuard } from './core/guards/first-assessment.guard';
 
 export const routes: Routes = [
   /* ═══════ FRONT OFFICE ═══════ */
@@ -25,6 +28,7 @@ export const routes: Routes = [
   },
   {
     path: 'onboarding',
+    canMatch: [onboardingCanMatch],
     loadComponent: () =>
       import('./features/front-office/onboarding/onboarding.component').then(
         (m) => m.OnboardingComponent
@@ -39,6 +43,7 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/dashboard-home.component').then(
             (m) => m.DashboardHomeComponent
@@ -46,6 +51,7 @@ export const routes: Routes = [
       },
       {
         path: 'roadmap',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/roadmap/roadmap.component').then(
             (m) => m.RoadmapComponent
@@ -60,6 +66,7 @@ export const routes: Routes = [
       },
       {
         path: 'cv',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/cv-optimizer/cv-optimizer.component').then(
             (m) => m.CvOptimizerComponent
@@ -67,6 +74,7 @@ export const routes: Routes = [
       },
       {
         path: 'jobs',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/jobs/jobs.component').then(
             (m) => m.JobsComponent
@@ -74,6 +82,7 @@ export const routes: Routes = [
       },
       {
         path: 'profile',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/profile/profile.component').then(
             (m) => m.ProfileComponent
@@ -81,6 +90,7 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/settings/settings.component').then(
             (m) => m.SettingsComponent
@@ -88,6 +98,7 @@ export const routes: Routes = [
       },
       {
         path: 'interview',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(
             (m) => m.InterviewComponent
@@ -95,6 +106,7 @@ export const routes: Routes = [
       },
       {
         path: 'interview/session/:id',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/session/interview-session.component').then(
             (m) => m.InterviewSessionComponent
@@ -102,6 +114,7 @@ export const routes: Routes = [
       },
       {
         path: 'interview/report/:id',
+        canMatch: [firstAssessmentGuard],
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/report/interview-report.component').then(
             (m) => m.InterviewReportComponent
@@ -113,6 +126,7 @@ export const routes: Routes = [
   /* ═══════ BACK OFFICE ═══════ */
   {
     path: 'admin',
+    canMatch: [adminCanMatch],
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent

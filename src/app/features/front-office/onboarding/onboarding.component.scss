@@ -5,6 +5,34 @@
   background: var(--bg-primary);
 }
 
+.ob-after-career-hint {
+  max-width: 640px;
+  margin: 20px auto 0;
+  padding: 14px 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+.ob-save-error {
+  color: #f87171;
+  font-size: 13px;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.ob-local-demo-banner {
+  padding: 10px 24px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #fde68a;
+  background: rgba(180, 83, 9, 0.25);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+  text-align: center;
+}
+
 /* ═══════════════════ HEADER ═══════════════════ */
 .ob-header {
   position: sticky;

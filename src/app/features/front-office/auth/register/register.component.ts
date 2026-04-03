@@ -1,7 +1,10 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { environment } from '../../../../../environments/environment';
+import { ProfileApiService, ProfileApiResponse } from '../../profile/profile-api.service';
+import { setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
@@ -13,6 +16,9 @@ import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
   styleUrl: './register.component.scss'
 })
 export class RegisterComponent {
+  private readonly profileApi = inject(ProfileApiService);
+  private readonly router = inject(Router);
+
   fullName = '';
   email = '';
   password = '';
@@ -60,8 +66,67 @@ export class RegisterComponent {
     if (!this.fullName.trim() || !this.isEmailValid() || !this.password || !this.acceptTerms) return;
 
     this.isLoading.set(true);
-    // TODO: call auth service
-    setTimeout(() => this.isLoading.set(false), 2000);
+    const parts = this.fullName.trim().split(/\s+/);
+    const firstName = parts[0] || 'Candidate';
+    const lastName = parts.slice(1).join(' ') || '';
+
+    this.profileApi
+      .createUserWithProfile({
+        userRequest: {
+          email: this.email.trim(),
+          password: this.password,
+          roleName: this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate',
+        },
+        profileRequest: { firstName, lastName },
+      })
+      .subscribe({
+        next: (u) => {
+          this.isLoading.set(false);
+          setLocalDemoMode(false);
+          if (u?.id) {
+            setProfileUserUuid(String(u.id));
+          }
+          void this.router.navigate(['/onboarding']);
+        },
+        error: () => {
+          this.isLoading.set(false);
+          if (environment.localAuthFallback) {
+            this.startLocalDemoRegistration(firstName, lastName);
+            return;
+          }
+          alert(
+            'Registration failed. Is MS-User on port 8082? If the email already exists, try logging in instead.'
+          );
+        },
+      });
+  }
+
+  /**
+   * MS-User unavailable — keep going with a random user id and data in localStorage only.
+   * Sync to the real service when your teammate’s MS-User is running again.
+   */
+  private startLocalDemoRegistration(firstName: string, lastName: string): void {
+    const id = crypto.randomUUID();
+    setProfileUserUuid(id);
+    setLocalDemoMode(true);
+    localStorage.setItem(
+      'smarthire_local_user',
+      JSON.stringify({
+        email: this.email.trim(),
+        firstName,
+        lastName,
+        role: this.selectedRole(),
+      })
+    );
+    const profile: ProfileApiResponse = {
+      userId: id,
+      firstName,
+      lastName,
+      email: this.email.trim(),
+      headline: '',
+    };
+    localStorage.setItem('smarthire_local_profile', JSON.stringify(profile));
+    void this.router.navigate(['/onboarding']);
   }
 
   oauthSignup(provider: string): void {

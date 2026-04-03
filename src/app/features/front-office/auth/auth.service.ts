@@ -1,5 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import { setProfileUserUuid, setLocalDemoMode } from '../profile/profile-user-id';
 
 export interface User {
   id: string;
@@ -14,30 +18,43 @@ export interface User {
 export class AuthService {
   private currentUser = signal<User | null>(null);
 
-  constructor(private router: Router) {
+  constructor(
+    private router: Router,
+    private http: HttpClient
+  ) {
     // Check localStorage for existing session
     this.loadSession();
   }
 
   login(email: string, password: string): Promise<boolean> {
-    console.log('AuthService.login called with email:', email);
     return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('Creating user object...');
-        // Mock user - accept any email with password
+      setTimeout(async () => {
+        const role: User['role'] = email.toLowerCase().includes('admin@') ? 'admin' : 'user';
         const user: User = {
           id: '1',
-          email: email,
+          email,
           name: email.split('@')[0],
-          role: 'user'
+          role,
         };
-        console.log('User created:', user);
         this.currentUser.set(user);
         localStorage.setItem('user', JSON.stringify(user));
-        console.log('User saved, navigating to dashboard...');
-        this.router.navigate(['/dashboard']);
+
+        const base = environment.userApiUrl.replace(/\/$/, '');
+        try {
+          const res = await firstValueFrom(
+            this.http.get<{ id: string }>(`${base}/users/email/${encodeURIComponent(email)}`)
+          );
+          if (res?.id) {
+            setProfileUserUuid(String(res.id));
+            setLocalDemoMode(false);
+          }
+        } catch {
+          setProfileUserUuid(environment.devProfileUserUuid);
+        }
+
+        void this.router.navigate(['/dashboard']);
         resolve(true);
-      }, 1000);
+      }, 400);
     });
   }
 

@@ -7,8 +7,8 @@ import { Routes } from '@angular/router';
 export const ASSESSMENTS_ROUTES: Routes = [
   {
     path: '',
-    redirectTo: 'start',
-    pathMatch: 'full'
+    redirectTo: 'unified-start',
+    pathMatch: 'full',
   },
   {
     path: 'start',
@@ -18,10 +18,24 @@ export const ASSESSMENTS_ROUTES: Routes = [
       ),
   },
   {
+    path: 'unified-start',
+    loadComponent: () =>
+      import('./pages/unified-assessment-start/unified-assessment-start.component').then(
+        (m) => m.UnifiedAssessmentStartComponent
+      ),
+  },
+  {
+    path: 'unified/:sessionId',
+    loadComponent: () =>
+      import('./pages/unified-assessment-player/unified-assessment-player.component').then(
+        (m) => m.UnifiedAssessmentPlayerComponent
+      ),
+  },
+  {
     path: 'questions/:sessionId',
     loadComponent: () =>
-      import('./pages/assessment-host/assessment-host.component').then(
-        (m) => m.AssessmentHostComponent
+      import('./pages/assessment-coding/assessment-coding.component').then(
+        (m) => m.AssessmentCodingComponent
       ),
   },
   {

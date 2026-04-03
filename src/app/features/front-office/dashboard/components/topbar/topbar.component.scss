@@ -221,3 +221,12 @@
 }
 .dropdown__link:hover { background: rgba(255,255,255,0.03); color: var(--text-primary); }
 .dropdown__link--danger:hover { color: #f44336; }
+.dropdown__link--locked {
+  opacity: 0.85;
+  flex-wrap: wrap;
+}
+.dropdown__link .muted {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+}

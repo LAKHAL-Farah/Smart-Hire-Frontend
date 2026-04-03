@@ -1,0 +1,74 @@
+<section class="player">
+  @if (secondsLeft() !== null) {
+    <div class="timer" [class.warn]="(secondsLeft() ?? 0) < 120">
+      Time left: {{ secondsLeft() }}s
+    </div>
+  }
+
+  @if (error()) {
+    <div class="banner err">{{ error() }}</div>
+  }
+
+  @if (item(); as it) {
+    @switch (it.kind) {
+      @case ('CODING') {
+        @if (it.codingTask; as task) {
+          <h2>{{ task.title }}</h2>
+          <p class="desc">{{ task.description }}</p>
+          <div #editorHost class="editor"></div>
+          <button type="button" class="primary" (click)="submitCoding()" [disabled]="submitting()">
+            {{ submitting() ? 'Running…' : 'Submit code' }}
+          </button>
+        }
+      }
+      @case ('MCQ') {
+        @if (it.mcq; as m) {
+          <h3>{{ m.stem }}</h3>
+          <div class="opts">
+            @for (opt of m.options; track $index) {
+              <label class="opt">
+                <input
+                  type="radio"
+                  name="mcq"
+                  [checked]="selectedOption === $index"
+                  (change)="selectedOption = $index"
+                />
+                {{ opt }}
+              </label>
+            }
+          </div>
+          <button type="button" class="primary" (click)="submitMcq()" [disabled]="submitting()">Submit</button>
+        }
+      }
+      @case ('SHORT_TEXT') {
+        @if (it.shortText; as st) {
+          <h3>{{ st.stem }}</h3>
+          <textarea rows="6" name="short" [(ngModel)]="textAnswer"></textarea>
+          <button type="button" class="primary" (click)="submitShortOrWriting()" [disabled]="submitting()">Submit</button>
+        }
+      }
+    }
+  } @else if (done() && result()) {
+    <div class="results card">
+      <h2>Assessment complete</h2>
+      <p class="score">{{ result()!.score }} / 100</p>
+      <p class="level">Level: {{ result()!.level }}</p>
+      @if (result()!.breakdown) {
+        <ul class="breakdown">
+          @if (result()!.breakdown!.coding != null) {
+            <li>Coding: {{ result()!.breakdown!.coding }}</li>
+          }
+          @if (result()!.breakdown!.quiz != null) {
+            <li>Quiz: {{ result()!.breakdown!.quiz }}</li>
+          }
+        </ul>
+      }
+      <p class="fb">{{ result()!.feedback }}</p>
+      <button type="button" class="primary" (click)="goDashboard()">Back to dashboard</button>
+    </div>
+  } @else {
+    @if (loading()) {
+      <p>Loading…</p>
+    }
+  }
+</section>

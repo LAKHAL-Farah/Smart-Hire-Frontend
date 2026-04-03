@@ -29,20 +29,20 @@
         
         <div class="score-stats">
           <div class="stat">
-            <span class="stat__label">Questions Attempted</span>
-            <span class="stat__value">{{ res.questionsAttempted }}</span>
+            <span class="stat__label">Tasks completed</span>
+            <span class="stat__value">{{ res.tasksCompleted }} / {{ res.targetTaskCount }}</span>
           </div>
           <div class="stat">
-            <span class="stat__label">Correct Answers</span>
-            <span class="stat__value">{{ res.correctAnswers }}</span>
+            <span class="stat__label">Adaptive level (theta)</span>
+            <span class="stat__value">{{ res.finalTheta | number:'1.2-2' }}</span>
           </div>
           <div class="stat">
-            <span class="stat__label">Accuracy</span>
-            <span class="stat__value">{{ res.accuracyPercentage }}%</span>
+            <span class="stat__label">Status</span>
+            <span class="stat__value">{{ res.status }}</span>
           </div>
           <div class="stat">
-            <span class="stat__label">Time Spent</span>
-            <span class="stat__value">{{ (res.totalTimeTakenSeconds / 60) | number:'1.0-0' }}m</span>
+            <span class="stat__label">Overall</span>
+            <span class="stat__value">{{ res.overallScore }}%</span>
           </div>
         </div>
       </div>
@@ -54,7 +54,7 @@
     <h2 class="section-title">Skills Breakdown</h2>
     
     <div class="skills-grid">
-      @for (skillName of (res.skillBreakdown | keyvalue); track skillName.key) {
+      @for (skillName of (res.skills | keyvalue); track skillName.key) {
         <div class="skill-item">
           <div class="skill-header">
             <h3 class="skill-name">{{ skillName.key }}</h3>
@@ -95,11 +95,11 @@
         </div>
       }
       
-      @if (res.needsImprovement && res.needsImprovement.length > 0) {
+      @if (res.weaknesses && res.weaknesses.length > 0) {
         <div class="recommendation-group">
           <h3>Areas for Improvement</h3>
           <ul>
-            @for (area of res.needsImprovement; track area) {
+            @for (area of res.weaknesses; track area) {
               <li>{{ area }}</li>
             }
           </ul>
@@ -131,8 +131,8 @@
 @if (!isLoading() && !result()) {
   <div class="empty-container">
     <p>No results found. Please complete an assessment first.</p>
-    <button class="btn-primary" routerLink="/assessments/start">
-      Start New Assessment
+    <button class="btn-primary" routerLink="/dashboard/assessment/unified-start">
+      Start assessment
     </button>
   </div>
 }

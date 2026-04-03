@@ -1,3 +1,9 @@
+@if (localDemoBanner()) {
+  <div class="ob-local-demo-banner" role="status">
+    <strong>Local demo mode:</strong> MS-User is not connected. Preferences are stored in this browser only.
+  </div>
+}
+
 <!-- ────────────── HEADER ────────────── -->
 <header class="ob-header">
   <div class="ob-header__inner">
@@ -10,8 +16,8 @@
         <span class="ob-header__step-num">Step {{ currentStep() }}</span>
         <span class="ob-header__step-of"> of {{ totalSteps }}</span>
       </span>
-      @if (currentStep() <= 2) {
-        <a class="ob-header__skip" (click)="skip()">Skip for now &rarr;</a>
+      @if (currentStep() === 1) {
+        <a class="ob-header__skip" (click)="skip()">Skip &rarr;</a>
       }
     </div>
   </div>
@@ -21,7 +27,6 @@
 <div class="ob-stepper-wrap">
   <div class="ob-stepper">
     @for (s of stepMeta; track s.num; let i = $index; let last = $last) {
-      <!-- Node -->
       <div class="ob-stepper__node-group">
         <div
           class="ob-stepper__node"
@@ -41,7 +46,6 @@
         >{{ s.label }}</span>
       </div>
 
-      <!-- Connector -->
       @if (!last) {
         <div class="ob-stepper__line-wrap">
           <div
@@ -55,7 +59,7 @@
 </div>
 
 <!-- ────────────── CONTENT ────────────── -->
-<main class="ob-content" [class.ob-content--results]="currentStep() === 4">
+<main class="ob-content">
   @switch (currentStep()) {
     @case (1) {
       <app-step-situation
@@ -68,46 +72,44 @@
         [selected]="careerSelection()"
         (selectionChange)="careerSelection.set($event)"
       />
-    }
-    @case (3) {
-      <app-step-skill-check
-        [currentQuestion]="currentQuestion"
-        [selectedAnswer]="currentAnswer"
-        (answerSelected)="onAnswerSelected($event)"
-      />
-    }
-    @case (4) {
-      <app-step-results />
+      <p class="ob-after-career-hint">
+        Next you will start a <strong>coding + technical quiz</strong> assessment tailored to your target. Your profile and skills are built from that assessment — not from this short setup.
+      </p>
+      @if (saveError(); as err) {
+        <p class="ob-save-error">{{ err }}</p>
+      }
     }
   }
 </main>
 
 <!-- ────────────── FOOTER ────────────── -->
-@if (currentStep() < 4) {
-  <footer class="ob-footer">
-    <div class="ob-footer__inner">
-      <!-- Back -->
-      @if (currentStep() > 1) {
-        <button class="ob-footer__back" (click)="goBack()">
-          <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
-          Back
-        </button>
-      } @else {
-        <div></div>
-      }
-
-      <!-- Center hint -->
-      <span class="ob-footer__hint">Your progress is saved automatically</span>
-
-      <!-- Next -->
-      <button
-        class="ob-footer__next"
-        [disabled]="!canProceed()"
-        (click)="goNext()"
-      >
-        {{ nextLabel() }}
-        <lucide-icon name="arrow-right" [size]="16"></lucide-icon>
+<footer class="ob-footer">
+  <div class="ob-footer__inner">
+    @if (currentStep() > 1) {
+      <button class="ob-footer__back" type="button" (click)="goBack()">
+        <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+        Back
       </button>
-    </div>
-  </footer>
-}
+    } @else {
+      <div></div>
+    }
+
+    <span class="ob-footer__hint">Then: assessment → profile</span>
+
+    <button
+      class="ob-footer__next"
+      type="button"
+      [disabled]="!canProceed() || saving()"
+      (click)="goNext()"
+    >
+      @if (saving()) {
+        Saving…
+      } @else if (currentStep() === 2) {
+        Save &amp; start assessment
+      } @else {
+        Next
+      }
+      <lucide-icon name="arrow-right" [size]="16"></lucide-icon>
+    </button>
+  </div>
+</footer>

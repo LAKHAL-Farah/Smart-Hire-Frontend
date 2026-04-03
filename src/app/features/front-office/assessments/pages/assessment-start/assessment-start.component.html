@@ -1,53 +1,67 @@
+@if (errorMessage()) {
+  <div class="assessment-error-banner" role="alert">
+    <span class="assessment-error-banner__text">{{ errorMessage() }}</span>
+    <button type="button" class="assessment-error-banner__dismiss" (click)="dismissError()" aria-label="Dismiss">×</button>
+  </div>
+}
+
+@if (loading()) {
+  <p class="assessment-loading-hint" aria-live="polite">Starting session…</p>
+}
+
 <!-- ══════ HEADER ══════ -->
 <section class="page-header">
   <div class="header-content">
     <h1 class="page-title">Skill Assessment</h1>
-    <p class="page-subtitle">Choose a skill category to begin your adaptive assessment</p>
+    <p class="page-subtitle">Choose coding, quiz, or language — each track starts immediately</p>
   </div>
 </section>
 
-<!-- ══════ SKILL CATEGORIES ══════ -->
+<!-- ══════ ASSESSMENT TRACKS ══════ -->
 <section class="assessment-section">
-  <h2 class="section-title">Choose Your Skill</h2>
-  
+  <h2 class="section-title">Choose your assessment</h2>
+
   <div class="assessment-grid">
-    @for (skill of skillCategories; track skill.id) {
-      <div class="assessment-card" 
-        [class.assessment-card--selected]="selectedSkill() === skill.id"
-        (click)="selectSkill(skill.id)">
-        
-        <!-- Card header -->
+    @for (cat of assessmentCategories; track cat.id) {
+      <div
+        class="assessment-card"
+        [class.assessment-card--selected]="selectedTrack() === cat.id"
+        (click)="selectTrack(cat.id)"
+        (keydown.enter)="selectTrack(cat.id)"
+        tabindex="0"
+        role="group"
+        [attr.aria-label]="cat.title">
+
         <div class="assessment-card__header">
-          <span class="assessment-card__icon">{{ skill.icon }}</span>
-          <h3 class="assessment-card__title">{{ skill.title }}</h3>
+          <span class="assessment-card__icon">{{ cat.icon }}</span>
+          <h3 class="assessment-card__title">{{ cat.title }}</h3>
         </div>
 
-        <!-- Card content -->
-        <p class="assessment-card__description">{{ skill.description }}</p>
+        <p class="assessment-card__description">{{ cat.description }}</p>
 
-        <!-- Card details -->
         <div class="assessment-card__details">
           <div class="detail">
             <span class="detail__label">Duration</span>
-            <span class="detail__value">{{ skill.duration }}</span>
+            <span class="detail__value">{{ cat.duration }}</span>
           </div>
           <div class="detail">
-            <span class="detail__label">Questions</span>
-            <span class="detail__value">{{ skill.questions }}</span>
+            <span class="detail__label">Volume</span>
+            <span class="detail__value">{{ cat.tasks }}</span>
           </div>
           <div class="detail">
-            <span class="detail__label">Category</span>
-            <span class="detail__badge" [class]="'detail__badge--' + skill.color">
-              {{ skill.id }}
+            <span class="detail__label">Track</span>
+            <span class="detail__badge" [class]="'detail__badge--' + cat.color">
+              {{ cat.id }}
             </span>
           </div>
         </div>
 
-        <!-- Action button -->
-        <button class="btn-primary-grad btn-full" 
+        <button
+          class="btn-primary-grad btn-full"
+          type="button"
           [disabled]="loading()"
-          (click)="startAssessment(skill.id)">
-          {{ loading() ? 'Starting...' : 'Start Now' }}
+          (click)="onStartClick(cat, $event)">
+          {{ loading() ? 'Starting…' : 'Start now' }}
         </button>
       </div>
     }
@@ -59,13 +73,12 @@
   <div class="info-card">
     <span class="info-card__icon">ℹ️</span>
     <div>
-      <h4 class="info-card__title">How Our Adaptive Assessments Work</h4>
+      <h4 class="info-card__title">How assessments work</h4>
       <ul class="info-card__list">
-        <li><strong>Intelligent Difficulty:</strong> Questions adapt based on your responses</li>
-        <li><strong>Personalized:</strong> Each assessment is unique to your skill level</li>
-        <li><strong>Efficient:</strong> Get comprehensive evaluation in 10-15 minutes</li>
-        <li><strong>Accurate:</strong> Uses Item Response Theory for precise results</li>
-        <li><strong>Actionable:</strong> Receive detailed feedback and improvement recommendations</li>
+        <li><strong>Coding:</strong> Dynamic tasks, Judge0 runs, tests, adaptive difficulty (theta)</li>
+        <li><strong>Quiz:</strong> AI-generated MCQ and short answers — scored automatically</li>
+        <li><strong>Language:</strong> Grammar, vocabulary, writing — LanguageTool + AI rubric</li>
+        <li><strong>Results:</strong> Score, breakdown, and strengths or gaps when you finish</li>
       </ul>
     </div>
   </div>

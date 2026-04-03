@@ -109,6 +109,17 @@
   white-space: nowrap;
 }
 
+.sidebar__item--locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: auto;
+}
+.sidebar__lock {
+  margin-left: auto;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
 /* Bottom */
 .sidebar__bottom {
   margin-top: auto;

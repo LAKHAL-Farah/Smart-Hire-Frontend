@@ -59,14 +59,28 @@
 
       @if (avatarOpen()) {
         <div class="dropdown dropdown--avatar">
-          <a routerLink="/dashboard/profile" class="dropdown__link" (click)="avatarOpen.set(false)">
-            <lucide-icon name="user" [size]="16"></lucide-icon>
-            Profile
-          </a>
-          <a routerLink="/dashboard/settings" class="dropdown__link" (click)="avatarOpen.set(false)">
-            <lucide-icon name="settings" [size]="16"></lucide-icon>
-            Settings
-          </a>
+          @if (navLocked('/dashboard/profile')) {
+            <button type="button" class="dropdown__link dropdown__link--locked" (click)="goAssessmentFirst()">
+              <lucide-icon name="user" [size]="16"></lucide-icon>
+              Profile <span class="muted">— complete assessment first</span>
+            </button>
+          } @else {
+            <a routerLink="/dashboard/profile" class="dropdown__link" (click)="avatarOpen.set(false)">
+              <lucide-icon name="user" [size]="16"></lucide-icon>
+              Profile
+            </a>
+          }
+          @if (navLocked('/dashboard/settings')) {
+            <button type="button" class="dropdown__link dropdown__link--locked" (click)="goAssessmentFirst()">
+              <lucide-icon name="settings" [size]="16"></lucide-icon>
+              Settings <span class="muted">— complete assessment first</span>
+            </button>
+          } @else {
+            <a routerLink="/dashboard/settings" class="dropdown__link" (click)="avatarOpen.set(false)">
+              <lucide-icon name="settings" [size]="16"></lucide-icon>
+              Settings
+            </a>
+          }
           <button class="dropdown__link dropdown__link--danger" (click)="signOut()">
             <lucide-icon name="log-out" [size]="16"></lucide-icon>
             Sign Out

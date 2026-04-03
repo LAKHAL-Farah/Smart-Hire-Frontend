@@ -46,14 +46,14 @@
 
           <!-- Data polygon -->
           <polygon
-            [attr.points]="dataPoints()"
+            [attr.points]="dataPoints() || ''"
             fill="url(#radarGrad)"
             stroke="url(#radarStroke)"
             stroke-width="1.5"
           />
 
           <!-- Data dots -->
-          @for (skill of skills; track skill.name; let i = $index) {
+          @for (skill of skills(); track skill.name; let i = $index) {
             <circle
               [attr.cx]="getAxisPoint(i, skill.score).x"
               [attr.cy]="getAxisPoint(i, skill.score).y"
@@ -63,7 +63,7 @@
           }
 
           <!-- Labels -->
-          @for (skill of skills; track skill.name; let i = $index) {
+          @for (skill of skills(); track skill.name; let i = $index) {
             <text
               [attr.x]="getAxisPoint(i, 118).x"
               [attr.y]="getAxisPoint(i, 118).y"
@@ -79,7 +79,7 @@
 
       <!-- Bar rows -->
       <div class="skill-bars">
-        @for (skill of skills; track skill.name) {
+        @for (skill of skills(); track skill.name) {
           <div class="skill-bar-row">
             <span class="skill-bar-row__name">{{ skill.name }}</span>
             <div class="skill-bar-row__track">
@@ -96,17 +96,23 @@
       <!-- Readiness -->
       <div class="result-card result-card--readiness">
         <span class="result-card__label">Overall Readiness</span>
-        <span class="readiness-score">62%</span>
-        <p class="readiness-text">You have a solid foundation. A focused 8-week roadmap can get you interview-ready.</p>
+        <span class="readiness-score">{{ readinessPct() }}%</span>
+        <p class="readiness-text">
+          @if (situation(); as sit) {
+            Based on your profile as <strong>{{ sit }}</strong>, SmartHire will adapt quiz and coding difficulty as you progress.
+          } @else {
+            You have a measurable baseline. Complete assessments to refine adaptive difficulty and your development plan.
+          }
+        </p>
       </div>
 
       <!-- Best match -->
       <div class="result-card result-card--match">
         <div class="match-top-line"></div>
         <span class="result-card__label result-card__label--teal">Best Career Match</span>
-        <span class="match-title">Frontend Engineer</span>
+        <span class="match-title">{{ matchTitle() }}</span>
         <div class="match-compat">
-          <span class="match-pct">87%</span>
+          <span class="match-pct">{{ readinessPct() }}%</span>
           <span class="match-label">compatibility</span>
         </div>
         <div class="match-tags">
@@ -123,19 +129,19 @@
         <span class="result-card__label">Your Next Steps</span>
         <div class="next-steps-list">
           @for (ns of nextSteps; track ns.num) {
-            <div class="next-step-item">
+            <a class="next-step-item next-step-item--link" [routerLink]="ns.link">
               <span class="next-step-item__num">{{ ns.num }}</span>
               <span class="next-step-item__text">{{ ns.text }}</span>
-            </div>
+            </a>
           }
         </div>
       </div>
 
       <!-- CTA -->
-      <button class="cta-btn" routerLink="/">
-        Start My Roadmap
+      <a class="cta-btn" routerLink="/dashboard/roadmap">
+        Open roadmap
         <lucide-icon name="arrow-right" [size]="16"></lucide-icon>
-      </button>
+      </a>
     </div>
   </div>
 </div>

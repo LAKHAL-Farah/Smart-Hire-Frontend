@@ -1,85 +1,151 @@
-import { Component, OnInit, Input, signal } from '@angular/core';
+import { Component, OnInit, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
+import {
+  CodingAssessmentService,
+  CodingAssessmentResult,
+  formatAssessmentHttpError,
+} from '../../services/coding-assessment.service';
+import { SkillService, SkillProfileResponse } from '../../services/skill.service';
+import { ASSESSMENT_PLACEHOLDER_USER_ID } from '../../assessment-placeholder-user';
+import { ProfileApiService } from '../../../profile/profile-api.service';
 
-/**
- * Assessment Results Page Component
- * Displays detailed results and feedback after completing an assessment
- */
 @Component({
   selector: 'app-assessment-results',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './assessment-results.component.html',
-  styleUrl: './assessment-results.component.scss'
+  styleUrl: './assessment-results.component.scss',
 })
-export class AssessmentResultsComponent implements OnInit {
-  @Input() assessmentId: number = 1;
+export class AssessmentResultsComponent implements OnInit, OnDestroy {
+  sessionId: number = 0;
+  result = signal<CodingAssessmentResult | null>(null);
+  userSkillProfiles = signal<SkillProfileResponse[]>([]);
+  isLoading = signal(true);
 
-  finalScore = signal(0);
-  scorePercentage = signal(0);
-  questionsAnswered = signal(0);
-  totalQuestions = signal(10);
-  timeSpent = signal('18m 24s');
-  assessmentType = signal('INITIAL');
+  private destroy$ = new Subject<void>();
 
-  skillBreakdown = signal([
-    { skill: 'Frontend', score: 85, maxScore: 100, color: 'linear-gradient(90deg, #2ee8a5, #14b8a6)' },
-    { skill: 'Backend', score: 72, maxScore: 100, color: 'linear-gradient(90deg, #3b82f6, #6366f1)' },
-    { skill: 'DevOps', score: 58, maxScore: 100, color: 'linear-gradient(90deg, #f59e0b, #f97316)' },
-    { skill: 'Databases', score: 68, maxScore: 100, color: 'linear-gradient(90deg, #ec4899, #f43f5e)' },
-  ]);
-
-  recommendedPaths = signal([
-    { title: 'Frontend Engineer', match: 89, icon: '💻' },
-    { title: 'Full-Stack Developer', match: 76, icon: '🚀' },
-    { title: 'Backend Engineer', match: 71, icon: '⚙️' },
-  ]);
-
-  nextSteps = signal([
-    {
-      step: 1,
-      title: 'Review Weak Areas',
-      description: 'Focus on improving your DevOps knowledge with targeted learning'
-    },
-    {
-      step: 2,
-      title: 'Follow Learning Path',
-      description: 'Start the recommended Frontend Engineer learning roadmap'
-    },
-    {
-      step: 3,
-      title: 'Retake Assessment',
-      description: 'Come back in 2 weeks to track your progress'
-    }
-  ]);
-
-  constructor(private router: Router) {}
+  constructor(
+    private codingAssessment: CodingAssessmentService,
+    private skillService: SkillService,
+    private profileApi: ProfileApiService,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    this.calculateResults();
+    this.sessionId = Number(this.route.snapshot.paramMap.get('sessionId'));
+    if (!this.sessionId) {
+      this.router.navigate(['/dashboard/assessment/start']);
+      return;
+    }
+
+    this.loadResults();
   }
 
-  calculateResults(): void {
-    this.finalScore.set(77);
-    this.scorePercentage.set(77);
-    this.questionsAnswered.set(10);
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  viewDetailedReport(): void {
-    this.router.navigate(['/dashboard/assessment/report', this.assessmentId]);
+  loadResults(): void {
+    this.isLoading.set(true);
+    this.codingAssessment
+      .getResult(this.sessionId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (r) => {
+          this.result.set(r);
+          this.isLoading.set(false);
+          this.syncAssessmentToUserProfile(r);
+          this.loadUserSkillProfiles();
+        },
+        error: (err) => {
+          console.error('Error loading results:', err);
+          this.isLoading.set(false);
+          alert(formatAssessmentHttpError(err));
+          this.router.navigate(['/dashboard/assessment/start']);
+        },
+      });
   }
 
-  startLearning(): void {
-    this.router.navigate(['/dashboard/roadmap']);
+  /** Persists validated scores into MS-User profile (merge JSON). Silent failure if user service is down. */
+  private syncAssessmentToUserProfile(r: CodingAssessmentResult): void {
+    const payload = {
+      lastAssessmentSummary: {
+        kind: 'coding',
+        sessionId: this.sessionId,
+        at: new Date().toISOString(),
+        overallScore: r.overallScore,
+        skills: r.skills,
+        strengths: r.strengths,
+        weaknesses: r.weaknesses,
+        finalTheta: r.finalTheta,
+        tasksCompleted: r.tasksCompleted,
+        targetTaskCount: r.targetTaskCount,
+        status: r.status,
+      },
+      [`codingSession_${this.sessionId}`]: {
+        at: new Date().toISOString(),
+        overallScore: r.overallScore,
+        skills: r.skills,
+      },
+    };
+    this.profileApi.mergeAssessmentSkills(JSON.stringify(payload)).subscribe({
+      error: (err) => console.warn('[SmartHire] Could not sync assessment to profile', err),
+    });
+  }
+
+  loadUserSkillProfiles(): void {
+    const userId = ASSESSMENT_PLACEHOLDER_USER_ID;
+    this.skillService
+      .getUserSkillProfiles(userId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (profiles) => {
+          this.userSkillProfiles.set(profiles);
+        },
+        error: (err) => {
+          console.error('Error loading skill profiles:', err);
+        },
+      });
+  }
+
+  getScoreLevel(score: number): string {
+    if (score >= 80) return 'Expert';
+    if (score >= 60) return 'Advanced';
+    if (score >= 40) return 'Intermediate';
+    return 'Beginner';
+  }
+
+  getScoreColor(score: number): string {
+    if (score >= 80) return '#10b981';
+    if (score >= 60) return '#3b82f6';
+    if (score >= 40) return '#f59e0b';
+    return '#ef4444';
   }
 
   retakeAssessment(): void {
-    this.router.navigate(['/dashboard/assessment']);
+    void this.router.navigate(['/dashboard/assessment/unified-start']);
+  }
+
+  viewHistory(): void {
+    this.router.navigate(['/dashboard/assessment/history']);
+  }
+
+  downloadResults(): void {
+    console.log('Downloading results...');
+    alert('Download functionality coming soon');
   }
 
   downloadCertificate(): void {
-    // TODO: Implement certificate download
     console.log('Downloading certificate...');
+    alert('Certificate download coming soon');
+  }
+
+  viewDetailedReport(): void {
+    console.log('Viewing detailed report...');
+    alert('Detailed report view coming soon');
   }
 }

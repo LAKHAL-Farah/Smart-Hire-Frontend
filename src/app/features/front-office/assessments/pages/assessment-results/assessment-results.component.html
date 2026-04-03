@@ -6,150 +6,134 @@
   </div>
 </section>
 
+<!-- ══════ LOADING STATE ══════ -->
+@if (isLoading()) {
+  <div class="loading-container">
+    <div class="spinner"></div>
+    <p>Loading your results...</p>
+  </div>
+}
+
 <!-- ══════ SCORE CARD ══════ -->
-<section class="score-card">
-  <div class="score-display">
-    <div class="score-circle">
-      <svg viewBox="0 0 100 100" class="score-ring">
-        <circle
-          cx="50" cy="50" r="45"
-          fill="none"
-          stroke="rgba(255, 255, 255, 0.1)"
-          stroke-width="6"/>
-        <circle
-          cx="50" cy="50" r="45"
-          fill="none"
-          stroke="url(#scoreGradient)"
-          stroke-width="6"
-          [style.stroke-dashoffset]="(1 - (finalScore() / 100)) * 283"/>
-      </svg>
+@if (!isLoading() && result(); as res) {
+  <section class="score-card">
+    <div class="score-display">
       <div class="score-value">
-        <span class="score-number">{{ finalScore() }}</span>
+        <span class="score-number">{{ res.overallScore }}</span>
         <span class="score-unit">%</span>
+        <span class="score-level">{{ getScoreLevel(res.overallScore) }}</span>
       </div>
-    </div>
 
-    <div class="score-details">
-      <h2 class="score-title">Excellent Performance!</h2>
-      <p class="score-message">You've demonstrated strong technical skills across multiple areas.</p>
-
-      <div class="score-stats">
-        <div class="stat">
-          <span class="stat__label">Questions Answered</span>
-          <span class="stat__value">{{ questionsAnswered() }}/{{ totalQuestions() }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat__label">Time Spent</span>
-          <span class="stat__value">{{ timeSpent }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat__label">Assessment Level</span>
-          <span class="stat__value">{{ assessmentType() }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ══════ SKILL BREAKDOWN ══════ -->
-<section class="skills-section">
-  <h2 class="section-title">Skills Breakdown</h2>
-  
-  <div class="skills-grid">
-    @for (skill of skillBreakdown(); track skill.skill) {
-      <div class="skill-item">
-        <div class="skill-header">
-          <h3 class="skill-name">{{ skill.skill }}</h3>
-          <span class="skill-score">{{ skill.score }}/{{ skill.maxScore }}</span>
-        </div>
-        <div class="skill-bar-track">
-          <div class="skill-bar-fill" 
-            [style.width.%]="(skill.score / skill.maxScore) * 100"
-            [style.background]="skill.color"></div>
-        </div>
-        <p class="skill-feedback">
-          @if (skill.score >= 80) {
-            <span class="feedback-excellent">✓ Excellent proficiency</span>
-          } @else if (skill.score >= 60) {
-            <span class="feedback-good">→ Good understanding</span>
-          } @else {
-            <span class="feedback-fair">↑ Room for improvement</span>
-          }
-        </p>
-      </div>
-    }
-  </div>
-</section>
-
-<!-- ══════ RECOMMENDED PATHS ══════ -->
-<section class="paths-section">
-  <h2 class="section-title">Recommended Career Paths</h2>
-
-  <div class="paths-grid">
-    @for (path of recommendedPaths(); track path.title) {
-      <div class="path-card">
-        <div class="path-icon">{{ path.icon }}</div>
-        <h3 class="path-title">{{ path.title }}</h3>
+      <div class="score-details">
+        <h2 class="score-title">{{ getScoreLevel(res.overallScore) }} Performance!</h2>
         
-        <div class="match-display">
-          <span class="match-label">Match Score</span>
-          <div class="match-bar">
-            <div class="match-fill" [style.width.%]="path.match"></div>
+        <div class="score-stats">
+          <div class="stat">
+            <span class="stat__label">Tasks completed</span>
+            <span class="stat__value">{{ res.tasksCompleted }} / {{ res.targetTaskCount }}</span>
           </div>
-          <span class="match-percent">{{ path.match }}%</span>
-        </div>
-
-        <button class="btn-secondary">Explore Path</button>
-      </div>
-    }
-  </div>
-</section>
-
-<!-- ══════ NEXT STEPS ══════ -->
-<section class="next-steps-section">
-  <h2 class="section-title">Your Next Steps</h2>
-
-  <div class="steps-container">
-    @for (item of nextSteps(); track item.step) {
-      <div class="step-item">
-        <div class="step-number">{{ item.step }}</div>
-        <div class="step-content">
-          <h3 class="step-title">{{ item.title }}</h3>
-          <p class="step-description">{{ item.description }}</p>
+          <div class="stat">
+            <span class="stat__label">Adaptive level (theta)</span>
+            <span class="stat__value">{{ res.finalTheta | number:'1.2-2' }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Status</span>
+            <span class="stat__value">{{ res.status }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat__label">Overall</span>
+            <span class="stat__value">{{ res.overallScore }}%</span>
+          </div>
         </div>
       </div>
-    }
-  </div>
-</section>
-
-<!-- ══════ CTA SECTION ══════ -->
-<section class="cta-section">
-  <div class="cta-container">
-    <div class="cta-buttons-primary">
-      <button class="btn-primary-grad" (click)="startLearning()">
-        Start Learning Path
-      </button>
-      <button class="btn-secondary" (click)="viewDetailedReport()">
-        View Detailed Report
-      </button>
     </div>
+  </section>
+
+  <!-- ══════ SKILL BREAKDOWN ══════ -->
+  <section class="skills-section">
+    <h2 class="section-title">Skills Breakdown</h2>
     
-    <div class="cta-buttons-secondary">
-      <button class="btn-ghost" (click)="downloadCertificate()">
-        📥 Download Certificate
+    <div class="skills-grid">
+      @for (skillName of (res.skills | keyvalue); track skillName.key) {
+        <div class="skill-item">
+          <div class="skill-header">
+            <h3 class="skill-name">{{ skillName.key }}</h3>
+            <span class="skill-score">{{ skillName.value }}/100</span>
+          </div>
+          <div class="skill-bar-track">
+            <div class="skill-bar-fill" 
+              [style.width.%]="skillName.value"
+              [style.background]="getScoreColor(skillName.value)"></div>
+          </div>
+          <p class="skill-feedback">
+            @if (skillName.value >= 80) {
+              <span class="feedback-excellent">✓ Excellent proficiency</span>
+            } @else if (skillName.value >= 60) {
+              <span class="feedback-good">→ Good understanding</span>
+            } @else {
+              <span class="feedback-fair">↑ Room for improvement</span>
+            }
+          </p>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ══════ RECOMMENDATIONS ══════ -->
+  <section class="recommendations-section">
+    <h2 class="section-title">Recommendations</h2>
+    
+    <div class="recommendations">
+      @if (res.strengths && res.strengths.length > 0) {
+        <div class="recommendation-group">
+          <h3>Your Strengths</h3>
+          <ul>
+            @for (strength of res.strengths; track strength) {
+              <li>{{ strength }}</li>
+            }
+          </ul>
+        </div>
+      }
+      
+      @if (res.weaknesses && res.weaknesses.length > 0) {
+        <div class="recommendation-group">
+          <h3>Areas for Improvement</h3>
+          <ul>
+            @for (area of res.weaknesses; track area) {
+              <li>{{ area }}</li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- ══════ ACTIONS ══════ -->
+  <section class="actions-section">
+    <div class="action-buttons">
+      <button class="btn-primary" (click)="viewHistory()">
+        View History
       </button>
-      <button class="btn-ghost" (click)="retakeAssessment()">
-        🔄 Retake Assessment
+      <button class="btn-secondary" (click)="downloadResults()">
+        Download Results
+      </button>
+      <button class="btn-secondary" (click)="downloadCertificate()">
+        Download Certificate
+      </button>
+      <button class="btn-outline" (click)="retakeAssessment()">
+        Retake Assessment
       </button>
     </div>
-  </div>
-</section>
+  </section>
+}
 
-<svg style="display: none;">
-  <defs>
-    <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2ee8a5"/>
-      <stop offset="100%" stop-color="#14b8a6"/>
-    </linearGradient>
-  </defs>
-</svg>
+<!-- ══════ NO RESULTS STATE ══════ -->
+@if (!isLoading() && !result()) {
+  <div class="empty-container">
+    <p>No results found. Please complete an assessment first.</p>
+    <button class="btn-primary" routerLink="/dashboard/assessment/unified-start">
+      Start assessment
+    </button>
+  </div>
+}
+

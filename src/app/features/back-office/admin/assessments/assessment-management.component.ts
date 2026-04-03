@@ -3,6 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AssessmentService } from '../../../front-office/assessments/services';
 import { Assessment, Skill, CareerPath, AssessmentQuestion, AssessmentAnswer } from '../../../front-office/assessments/models';
+import {
+  AdminAssessmentSessionsService,
+  AdminSessionRow,
+} from '../services/admin-assessment-sessions.service';
 
 @Component({
   selector: 'app-assessment-management',
@@ -48,12 +52,39 @@ export class AssessmentManagementComponent implements OnInit {
   successMessage = '';
   errorMessage = '';
 
-  constructor(private assessmentService: AssessmentService) { }
+  /** Live sessions from MS-Assessment (read-only). */
+  liveSessions: AdminSessionRow[] = [];
+  liveSessionsError = '';
+  liveSessionsLoading = false;
+
+  constructor(
+    private assessmentService: AssessmentService,
+    private adminSessions: AdminAssessmentSessionsService
+  ) {}
 
   ngOnInit(): void {
+    this.loadLiveSessionsFromBackend();
     this.loadSkills();
     this.loadAssessments();
     this.loadCareerPaths();
+  }
+
+  loadLiveSessionsFromBackend(): void {
+    this.liveSessionsLoading = true;
+    this.liveSessionsError = '';
+    this.adminSessions.list(0, 80).subscribe({
+      next: (rows) => {
+        this.liveSessions = rows;
+        this.liveSessionsLoading = false;
+      },
+      error: (err: unknown) => {
+        this.liveSessionsLoading = false;
+        const msg = err instanceof Error ? err.message : String(err);
+        this.liveSessionsError =
+          msg ||
+          'Could not reach MS-Assessment (ensure it is running on port 8084 with /api/v1).';
+      },
+    });
   }
 
   // ============ SKILLS ============

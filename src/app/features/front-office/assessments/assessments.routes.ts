@@ -2,46 +2,44 @@ import { Routes } from '@angular/router';
 
 /**
  * Assessment Routes (Front-Office - User Facing)
- * Lazy-loaded from dashboard
+ * Handles CAT assessment workflow with skill-based testing
  */
 export const ASSESSMENTS_ROUTES: Routes = [
   {
     path: '',
+    redirectTo: 'unified-start',
+    pathMatch: 'full',
+  },
+  {
+    path: 'start',
     loadComponent: () =>
       import('./pages/assessment-start/assessment-start.component').then(
         (m) => m.AssessmentStartComponent
       ),
   },
   {
-    path: 'quiz',
+    path: 'unified-start',
     loadComponent: () =>
-      import('./pages/assessment-host/assessment-host.component').then(
-        (m) => m.AssessmentHostComponent
+      import('./pages/unified-assessment-start/unified-assessment-start.component').then(
+        (m) => m.UnifiedAssessmentStartComponent
       ),
   },
   {
-    path: 'quiz/:id',
+    path: 'unified/:sessionId',
     loadComponent: () =>
-      import('./pages/assessment-host/assessment-host.component').then(
-        (m) => m.AssessmentHostComponent
+      import('./pages/unified-assessment-player/unified-assessment-player.component').then(
+        (m) => m.UnifiedAssessmentPlayerComponent
       ),
   },
   {
-    path: 'results',
+    path: 'questions/:sessionId',
     loadComponent: () =>
-      import('./pages/assessment-results/assessment-results.component').then(
-        (m) => m.AssessmentResultsComponent
+      import('./pages/assessment-coding/assessment-coding.component').then(
+        (m) => m.AssessmentCodingComponent
       ),
   },
   {
-    path: 'results/:id',
-    loadComponent: () =>
-      import('./pages/assessment-results/assessment-results.component').then(
-        (m) => m.AssessmentResultsComponent
-      ),
-  },
-  {
-    path: 'report/:id',
+    path: 'results/:sessionId',
     loadComponent: () =>
       import('./pages/assessment-results/assessment-results.component').then(
         (m) => m.AssessmentResultsComponent

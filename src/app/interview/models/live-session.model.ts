@@ -9,13 +9,14 @@ export interface LiveSessionStartRequest {
   targetRole?: string;
 }
 
-export interface LiveSession {
-  id: number;
-  liveSubMode: LiveSubMode;
-  questionCountRequested: number;
+export interface LiveSessionStartResponse {
+  sessionId: number;
+  greetingAudioUrl: string;
+  firstQuestionText: string;
+  firstQuestionId: number;
+  totalQuestions: number;
+  liveSubMode: string;
   status: string;
-  currentQuestionIndex: number;
-  liveMode: boolean;
 }
 
 export interface LiveSessionReadyPayload {

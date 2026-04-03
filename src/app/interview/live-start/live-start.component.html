@@ -1,54 +1,136 @@
-<div class="live-start-page">
-  <div class="live-start-shell">
-    <header class="live-start-header">
-      <h1>Join Live Interview</h1>
-      <p>
-        This is a behavioral interview. Speak naturally. The AI will listen and respond like a real interviewer.
-      </p>
-    </header>
+<div class="live-start-screen">
+  <div class="preview-panel">
+    <div class="camera-frame">
+      <video
+        *ngIf="cameraStream"
+        [srcObject]="cameraStream"
+        autoplay
+        playsinline
+        muted
+        class="camera-preview"
+        data-testid="camera-preview"
+      ></video>
 
-    <section class="preview-card">
-      <div class="preview-video-wrap">
-        <video #previewVideo autoplay playsinline muted class="preview-video"></video>
-      </div>
-      <div class="permission-state" [class.ok]="permissionsGranted" [class.bad]="!permissionsGranted" data-testid="permissions-badge">
-        <mat-icon>{{ permissionsGranted ? 'check_circle' : 'warning' }}</mat-icon>
-        {{ permissionsGranted ? 'Camera and microphone ready' : 'Permissions required' }}
-      </div>
-    </section>
-
-    <section class="config-card">
-      <div class="field">
-        <label>Question Count: {{ questionCount }}</label>
-        <input data-testid="question-count-slider" type="range" min="3" max="15" step="1" [value]="questionCount" (input)="onQuestionCountInput($event)" />
-        <div class="range-meta"><span>3</span><span>15</span></div>
+      <div *ngIf="cameraPermission === 'denied'" class="no-camera">
+        <mat-icon>videocam_off</mat-icon>
+        <span>Camera unavailable</span>
+        <small>You can still join. Camera is optional.</small>
       </div>
 
-      <div class="field">
-        <label>Mode</label>
-        <div class="mode-switch" data-testid="mode-toggle">
-          <button data-testid="mode-practice" type="button" [class.active]="liveSubMode === 'PRACTICE_LIVE'" (click)="setSubMode('PRACTICE_LIVE')">Practice</button>
-          <button data-testid="mode-test" type="button" [class.active]="liveSubMode === 'TEST_LIVE'" (click)="setSubMode('TEST_LIVE')">Test</button>
-        </div>
-        <p class="mode-hint" *ngIf="liveSubMode === 'PRACTICE_LIVE'">Practice gives adaptive feedback and lets you retry low-score answers.</p>
-        <p class="mode-hint" *ngIf="liveSubMode === 'TEST_LIVE'">Test runs straight through with no interruptions, like a real interview loop.</p>
+      <div *ngIf="cameraPermission === 'pending'" class="no-camera">
+        <mat-icon>hourglass_empty</mat-icon>
+        <span>Requesting camera...</span>
       </div>
 
-      <div class="field">
-        <label>Company Name (optional)</label>
-        <input data-testid="company-input" type="text" [(ngModel)]="companyName" placeholder="Tech Company" />
+      <div class="preview-badge">You</div>
+    </div>
+
+    <div
+      class="perm-status"
+      [class.granted]="cameraPermission === 'granted'"
+      [class.denied]="cameraPermission === 'denied'"
+      data-testid="permissions-badge"
+    >
+      <mat-icon>{{ cameraPermission === 'granted' ? 'check_circle' : 'info' }}</mat-icon>
+      <span>{{ cameraPermission === 'granted' ? 'Camera ready' : 'Camera optional' }}</span>
+    </div>
+  </div>
+
+  <div class="config-panel">
+    <div class="config-header">
+      <h1>Behavioral Interview</h1>
+      <p class="subtitle">Speak naturally. The AI listens and responds like a real interviewer.</p>
+    </div>
+
+    <div class="config-row">
+      <label>Questions</label>
+      <div class="slider-row">
+        <input
+          type="range"
+          min="3"
+          max="15"
+          step="1"
+          [(ngModel)]="questionCount"
+          data-testid="question-count-slider"
+          class="count-slider"
+        />
+        <span class="count-value">{{ questionCount }}</span>
       </div>
+    </div>
 
-      <div class="field">
-        <label>Target Role (optional)</label>
-        <input type="text" [(ngModel)]="targetRole" placeholder="Backend Engineer Intern" />
+    <div class="config-row">
+      <label>Mode</label>
+      <div class="mode-toggle" data-testid="mode-toggle">
+        <button
+          class="mode-btn"
+          [class.active]="liveSubMode === 'PRACTICE_LIVE'"
+          (click)="liveSubMode = 'PRACTICE_LIVE'"
+          data-testid="mode-practice"
+          type="button"
+        >
+          <mat-icon>school</mat-icon>
+          Practice
+          <small>Feedback after low-scoring answers</small>
+        </button>
+
+        <button
+          class="mode-btn"
+          [class.active]="liveSubMode === 'TEST_LIVE'"
+          (click)="liveSubMode = 'TEST_LIVE'"
+          data-testid="mode-test"
+          type="button"
+        >
+          <mat-icon>timer</mat-icon>
+          Test
+          <small>No interruptions, full session</small>
+        </button>
       </div>
+    </div>
 
-      <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+    <div class="config-row optional">
+      <label>Company name <span class="optional-tag">optional</span></label>
+      <input
+        type="text"
+        placeholder="e.g. Acme Corp"
+        [(ngModel)]="companyName"
+        data-testid="company-input"
+        class="text-input"
+      />
+    </div>
 
-      <button class="join-btn" data-testid="join-btn" type="button" [disabled]="!permissionsGranted || isLoading" (click)="onStart()">
-        {{ isLoading ? 'Joining...' : 'Join Interview' }}
-      </button>
-    </section>
+    <div class="config-row optional">
+      <label>Role <span class="optional-tag">optional</span></label>
+      <input
+        type="text"
+        placeholder="e.g. Backend Engineer Intern"
+        [(ngModel)]="targetRole"
+        data-testid="role-input"
+        class="text-input"
+      />
+    </div>
+
+    <div class="error-msg" *ngIf="errorMessage" data-testid="error-msg">
+      <mat-icon>error_outline</mat-icon>
+      {{ errorMessage }}
+    </div>
+
+    <button
+      class="join-btn"
+      [disabled]="joinDisabled"
+      (click)="onJoin()"
+      data-testid="join-btn"
+      type="button"
+    >
+      <mat-icon>{{ isLoading ? 'hourglass_empty' : 'videocam' }}</mat-icon>
+      {{ joinLabel }}
+    </button>
+  </div>
+
+  <div class="join-overlay" *ngIf="isLoading" aria-live="polite" role="status">
+    <div class="join-card">
+      <div class="join-spinner" aria-hidden="true"></div>
+      <h2>Preparing your interview room</h2>
+      <p>Creating live session, loading questions from backend, and connecting room context...</p>
+    </div>
   </div>
 </div>

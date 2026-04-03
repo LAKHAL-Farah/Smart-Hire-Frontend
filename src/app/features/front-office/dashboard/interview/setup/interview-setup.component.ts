@@ -2,16 +2,9 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
 import { InterviewApiService } from '../interview-api.service';
-import { InterviewMode, InterviewType, LiveBootstrapResponse, LiveSubMode, RoleType } from '../interview.models';
+import { InterviewMode, InterviewType, LiveSubMode, RoleType } from '../interview.models';
 import { resolveCurrentUserId } from '../interview-user.util';
-
-interface PreparedLiveAudio {
-  greetingAudioUrl: string;
-  resolvedGreetingAudioUrl: string;
-  bootstrap: LiveBootstrapResponse;
-}
 
 interface RoleCard {
   value: RoleType;
@@ -156,7 +149,7 @@ export class InterviewSetupComponent implements OnInit {
     }
 
     if (mode === 'LIVE') {
-      this.startLiveInterview(role);
+      void this.navigateToLiveStart(role);
       return;
     }
 
@@ -196,192 +189,25 @@ export class InterviewSetupComponent implements OnInit {
       });
   }
 
-  private startLiveInterview(role: RoleType): void {
-    this.isStarting.set(true);
-    this.errorMessage.set(null);
-
-    const request = {
-      userId: this.userId!,
-      careerPathId: 1,
-      liveSubMode: this.selectedLiveSubMode(),
-      questionCount: Math.min(15, Math.max(3, this.questionCount())),
-      companyName: 'Tech Company',
-      targetRole: this.roleLabel(role),
-    };
-
-    this.api
-      .startLiveSession(request)
-      .subscribe({
-        next: (response) => {
-          const sessionId = response?.sessionId;
-          if (!sessionId) {
-            this.isStarting.set(false);
-            this.errorMessage.set('Live session was created but no session id was returned.');
-            return;
-          }
-
-          void this.prepareLiveSessionAndNavigate(sessionId, this.selectedLiveSubMode(), {
-            companyName: request.companyName,
-            targetRole: request.targetRole,
-          });
-        },
-        error: async (error: HttpErrorResponse) => {
-          const backendMessage = this.extractBackendErrorMessage(error);
-
-          if (error.status === 409) {
-            const resolved = await this.resolveLiveConflictAndRetry(request, backendMessage ?? '');
-            if (resolved) {
-              this.isStarting.set(false);
-              return;
-            }
-          }
-
-          this.isStarting.set(false);
-          this.errorMessage.set(
-            backendMessage
-              ? `Unable to start live session: ${backendMessage}`
-              : 'Unable to start live session. Please try again.'
-          );
-        },
-      });
-  }
-
-  private async resolveLiveConflictAndRetry(request: {
-    userId: number;
-    careerPathId: number;
-    liveSubMode: LiveSubMode;
-    questionCount: number;
-    companyName: string;
-    targetRole: string;
-  }, backendMessage: string): Promise<boolean> {
-    let activeSessionId = this.extractActiveSessionIdFromMessage(backendMessage);
-    let activeMode = '';
-
-    try {
-      const active = await firstValueFrom(this.api.getActiveSession(request.userId));
-      if (active?.id) {
-        activeSessionId = active.id;
-        activeMode = String(active.mode ?? '').toUpperCase();
-      }
-    } catch {
-      // Ignore lookup issues and fallback to id parsed from conflict payload.
-    }
-
-    if (!activeSessionId) {
-      return false;
-    }
-
-    if (!activeMode) {
-      try {
-        const byId = await firstValueFrom(this.api.getSessionById(activeSessionId));
-        activeMode = String(byId.mode ?? '').toUpperCase();
-      } catch {
-        activeMode = '';
-      }
-    }
-
-    if (activeMode === 'LIVE') {
-      await this.prepareLiveSessionAndNavigate(activeSessionId, request.liveSubMode, {
-        companyName: request.companyName,
-        targetRole: request.targetRole,
-      });
-      return true;
-    }
-
-    try {
-      await firstValueFrom(this.api.abandonSession(activeSessionId));
-      const retried = await firstValueFrom(this.api.startLiveSession(request));
-      if (retried?.sessionId) {
-        await this.prepareLiveSessionAndNavigate(retried.sessionId, request.liveSubMode, {
-          companyName: request.companyName,
-          targetRole: request.targetRole,
-        });
-        return true;
-      }
-    } catch {
-      return false;
-    }
-
-    return false;
-  }
-
-  private async prepareLiveSessionAndNavigate(
-    sessionId: number,
-    subMode: LiveSubMode,
-    context?: { companyName?: string; targetRole?: string }
-  ): Promise<void> {
+  private async navigateToLiveStart(role: RoleType): Promise<void> {
     this.isStarting.set(false);
     this.isPreparingLive.set(true);
     this.errorMessage.set(null);
-    this.preparingMessage.set('Preparing your session...');
+    this.preparingMessage.set('Opening live pre-call...');
 
-    const preparedAudio = await this.waitForLiveGreetingAudio(sessionId, context);
-    if (!preparedAudio) {
-      this.isPreparingLive.set(false);
-      this.errorMessage.set(
-        'Your session started, but greeting audio is still preparing. Please try Start Interview again in a few seconds.'
-      );
-      return;
-    }
-
-    this.preparingMessage.set('Audio is ready. Opening your live room...');
-    await this.navigateToLiveRoom(sessionId, subMode, context, preparedAudio);
-    this.isPreparingLive.set(false);
-  }
-
-  private async waitForLiveGreetingAudio(
-    sessionId: number,
-    context?: { companyName?: string; targetRole?: string }
-  ): Promise<PreparedLiveAudio | null> {
-    const maxAttempts = 25;
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      this.preparingMessage.set(`Preparing your session audio (${attempt}/${maxAttempts})...`);
-
-      try {
-        const bootstrap = await firstValueFrom(
-          this.api.getLiveBootstrap(sessionId, {
-            companyName: context?.companyName,
-            targetRole: context?.targetRole,
-            candidateName: 'Candidate',
-          })
-        );
-
-        const greetingAudioUrl = (bootstrap?.greetingAudioUrl ?? '').trim();
-        if (greetingAudioUrl) {
-          const resolvedGreetingAudioUrl = this.api.resolveBackendAssetUrl(greetingAudioUrl);
-          const audioReady = await this.isGreetingAudioReachable(resolvedGreetingAudioUrl);
-          if (audioReady) {
-            return {
-              greetingAudioUrl,
-              resolvedGreetingAudioUrl,
-              bootstrap,
-            };
-          }
-        }
-      } catch {
-        // Keep waiting because TTS can become available a few seconds later.
-      }
-
-      await this.sleep(1200);
-    }
-
-    return null;
-  }
-
-  private async isGreetingAudioReachable(resolvedUrl: string): Promise<boolean> {
-    try {
-      const response = await fetch(resolvedUrl, { method: 'GET', cache: 'no-store' });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  private async sleep(ms: number): Promise<void> {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, ms);
+    const params = new URLSearchParams({
+      subMode: this.selectedLiveSubMode(),
+      questionCount: String(Math.min(15, Math.max(3, this.questionCount()))),
+      company: 'Tech Company',
+      targetRole: this.roleLabel(role),
     });
+
+    const target = `/dashboard/interview/live/start?${params.toString()}`;
+    const routed = await this.safeNavigate(target);
+    if (!routed) {
+      this.isPreparingLive.set(false);
+      this.errorMessage.set('Unable to open live pre-call screen. Please try again.');
+    }
   }
 
   private async navigateAfterStart(
@@ -440,90 +266,6 @@ export class InterviewSetupComponent implements OnInit {
     } catch {
       return false;
     }
-  }
-
-  private async navigateToLiveRoom(
-    sessionId: number,
-    subMode: LiveSubMode,
-    context?: { companyName?: string; targetRole?: string },
-    preparedAudio?: PreparedLiveAudio
-  ): Promise<void> {
-    const dashboardTarget = `/dashboard/interview/live/${sessionId}`;
-    const topLevelTarget = `/interview/live/${sessionId}`;
-    const query = new URLSearchParams({ subMode });
-    if (context?.companyName) {
-      query.set('company', context.companyName);
-    }
-    if (context?.targetRole) {
-      query.set('targetRole', context.targetRole);
-    }
-    if (preparedAudio?.greetingAudioUrl) {
-      query.set('preparedGreetingUrl', preparedAudio.greetingAudioUrl);
-      query.set('preparedResolvedGreetingUrl', preparedAudio.resolvedGreetingAudioUrl);
-    }
-    const queryString = query.toString();
-
-    try {
-      const routed = await this.router.navigateByUrl(
-        `${dashboardTarget}?${queryString}`,
-        { replaceUrl: true }
-      );
-      if (routed) {
-        return;
-      }
-    } catch {
-      // Fallback handled below.
-    }
-
-    try {
-      const routed = await this.router.navigate(['/dashboard/interview/live', sessionId], {
-        queryParams: {
-          subMode,
-          company: context?.companyName,
-          targetRole: context?.targetRole,
-          preparedGreetingUrl: preparedAudio?.greetingAudioUrl,
-          preparedResolvedGreetingUrl: preparedAudio?.resolvedGreetingAudioUrl,
-        },
-        replaceUrl: true,
-      });
-      if (routed) {
-        return;
-      }
-    } catch {
-      // Fallback handled below.
-    }
-
-    try {
-      const routed = await this.router.navigateByUrl(
-        `${topLevelTarget}?${queryString}`,
-        { replaceUrl: true }
-      );
-      if (routed) {
-        return;
-      }
-    } catch {
-      // Final fallback handled below.
-    }
-
-    try {
-      const routed = await this.router.navigate(['/interview/live', sessionId], {
-        queryParams: {
-          subMode,
-          company: context?.companyName,
-          targetRole: context?.targetRole,
-          preparedGreetingUrl: preparedAudio?.greetingAudioUrl,
-          preparedResolvedGreetingUrl: preparedAudio?.resolvedGreetingAudioUrl,
-        },
-        replaceUrl: true,
-      });
-      if (routed) {
-        return;
-      }
-    } catch {
-      // Final fallback handled below.
-    }
-
-    this.errorMessage.set(`Live session started, but navigation failed. Open: ${dashboardTarget}?subMode=${subMode}`);
   }
 
   private normalizeMode(raw: string | null): InterviewMode | null {
@@ -604,13 +346,4 @@ export class InterviewSetupComponent implements OnInit {
     return null;
   }
 
-  private extractActiveSessionIdFromMessage(message: string): number | null {
-    const match = /active session:\s*(\d+)/i.exec(message ?? '');
-    if (!match) {
-      return null;
-    }
-
-    const parsed = Number(match[1]);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
 }

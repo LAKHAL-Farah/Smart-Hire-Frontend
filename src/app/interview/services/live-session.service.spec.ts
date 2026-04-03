@@ -43,14 +43,22 @@ describe('LiveSessionService', () => {
     req.flush({ id: 42, liveMode: true, status: 'IN_PROGRESS' });
   });
 
-  it('startLiveSession returns LiveSession on 200', () => {
+  it('startLiveSession returns LiveSessionStartResponse on 200', () => {
     service.startLiveSession(reqBody).subscribe((session) => {
-      expect(session.id).toBe(42);
-      expect(session.liveMode).toBeTrue();
+      expect(session.sessionId).toBe(42);
+      expect(session.status).toBe('IN_PROGRESS');
     });
 
     const req = httpMock.expectOne('/api/v1/sessions/start-live');
-    req.flush({ id: 42, liveMode: true, status: 'IN_PROGRESS' });
+    req.flush({
+      sessionId: 42,
+      greetingAudioUrl: '/api/v1/audio/tts_abc.wav',
+      firstQuestionText: 'Tell me about yourself',
+      firstQuestionId: 11,
+      totalQuestions: 5,
+      liveSubMode: 'PRACTICE_LIVE',
+      status: 'IN_PROGRESS',
+    });
   });
 
   it('abandonSession sends PUT to /api/v1/sessions/42/abandon', () => {

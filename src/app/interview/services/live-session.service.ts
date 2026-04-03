@@ -1,15 +1,15 @@
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { LiveSession, LiveSessionReadyPayload, LiveSessionStartRequest } from '../models/live-session.model';
+import { LiveSessionReadyPayload, LiveSessionStartRequest, LiveSessionStartResponse } from '../models/live-session.model';
 
 @Injectable({ providedIn: 'root' })
 export class LiveSessionService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${this.resolveBaseUrl()}/sessions`;
 
-  startLiveSession(req: LiveSessionStartRequest): Observable<LiveSession> {
-    return this.http.post<LiveSession>(`${this.baseUrl}/start-live`, req);
+  startLiveSession(req: LiveSessionStartRequest): Observable<LiveSessionStartResponse> {
+    return this.http.post<LiveSessionStartResponse>(`${this.baseUrl}/start-live`, req);
   }
 
   abandonSession(sessionId: number): Observable<void> {
@@ -42,10 +42,6 @@ export class LiveSessionService {
       return configured.replace(/\/+$/, '');
     }
 
-    if (globalThis.location?.protocol && globalThis.location?.hostname) {
-      return `${globalThis.location.protocol}//${globalThis.location.hostname}:8081/interview-service/api/v1`;
-    }
-
-    return '/interview-service/api/v1';
+    return '/api/v1';
   }
 }

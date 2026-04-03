@@ -39,6 +39,22 @@
   filter: grayscale(0.45);
 }
 
+.transcript-banner {
+  position: absolute;
+  left: 72px;
+  right: 72px;
+  bottom: 26px;
+  z-index: 12;
+  background: rgba(9, 27, 20, 0.88);
+  border: 1px solid rgba(52, 211, 153, 0.5);
+  border-radius: 14px;
+  color: #d1fae5;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
 .muted-badge {
   position: absolute;
   top: 6px;
@@ -240,6 +256,13 @@
 @media (max-width: 900px) {
   .ai-tile-wrapper {
     padding: 48px 16px 0;
+  }
+
+  .transcript-banner {
+    left: 16px;
+    right: 16px;
+    bottom: 82px;
+    font-size: 12px;
   }
 
   .candidate-tile-wrapper {

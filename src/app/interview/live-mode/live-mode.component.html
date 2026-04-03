@@ -16,6 +16,9 @@
         [isLarge]="true"
       ></app-participant-tile>
       <app-question-caption [questionText]="currentQuestionText"></app-question-caption>
+      <div class="transcript-banner" *ngIf="latestTranscriptLine" data-testid="transcript-banner">
+        {{ latestTranscriptLine }}
+      </div>
     </div>
 
     <div class="candidate-tile-wrapper" [class.camera-off]="!cameraEnabled" data-testid="candidate-tile">

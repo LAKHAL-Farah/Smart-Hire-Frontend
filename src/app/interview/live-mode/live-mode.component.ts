@@ -56,6 +56,21 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   sessionTimerSeconds = 0;
 
   videoStream: MediaStream | null = null;
+  private micStream: MediaStream | null = null;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private animFrameId = 0;
+  private mediaRecorder: MediaRecorder | null = null;
+  private isRecording = false;
+  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private silenceAnimFrame = 0;
+  private readonly SILENCE_THRESHOLD_MS = 5000;
+  private readonly AMPLITUDE_NOISE_FLOOR = 10;
+  private amplitudeAnimFrame = 0;
+  private processingFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly PROCESSING_WATCHDOG_MS = 12000;
+  private readonly AUDIO_CHUNK_UPLOAD_ENABLED = true;
+  private chunkUploadNoticeLogged = false;
 
   isDebugMode = false;
   debugBgTask = 'nothing';
@@ -65,6 +80,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   debugWsState: 'connecting' | 'connected' | 'disconnected' = 'disconnected';
   debugLastEvent = '—';
   showAutoplayPrompt = false;
+  latestTranscriptLine: string | null = null;
 
   private blockedUrl: string | null = null;
   private blockedCallback: (() => void) | null = null;
@@ -117,6 +133,10 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopRecording();
+    this.stopSilenceDetection();
+    this.stopAmplitudeTracker();
+
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
       this.sessionTimerInterval = null;
@@ -124,6 +144,16 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.videoStream?.getTracks().forEach((track) => track.stop());
     this.videoStream = null;
+    this.micStream?.getTracks().forEach((track) => track.stop());
+    this.micStream = null;
+
+    if (this.audioContext) {
+      void this.audioContext.close().catch(() => undefined);
+      this.audioContext = null;
+    }
+
+    this.analyser = null;
+    this.animFrameId = 0;
 
     if (this.mainAudioElRef?.nativeElement) {
       this.mainAudioElRef.nativeElement.pause();
@@ -140,12 +170,24 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.bootstrapRetryTimer = null;
     }
 
+    if (this.processingFallbackTimer) {
+      clearTimeout(this.processingFallbackTimer);
+      this.processingFallbackTimer = null;
+    }
+
     this.disconnectWebSocket();
   }
 
   onMicToggle(enabled: boolean): void {
     this.micEnabled = enabled;
-    this.currentTurn = enabled ? 'IDLE' : 'PROCESSING';
+    if (this.currentTurn === 'CANDIDATE_SPEAKING') {
+      if (enabled) {
+        this.unmuteMicInput();
+      } else {
+        this.muteMicInput();
+      }
+    }
+    console.log('[Controls] User mic toggle:', enabled);
   }
 
   onCameraToggle(enabled: boolean): void {
@@ -181,15 +223,110 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private initCamera(): void {
+    // Camera stream - video only, NO audio
     navigator.mediaDevices
       .getUserMedia({ video: true, audio: false })
       .then((stream) => {
         this.videoStream = stream;
+        console.log('[Media] Camera stream acquired (video only)');
       })
       .catch((error: unknown) => {
-        console.warn('[LiveMode] Camera unavailable:', error);
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn('[Media] Camera unavailable:', message);
         this.videoStream = null;
       });
+  }
+
+  private async initMic(): Promise<void> {
+    if (this.micStream) {
+      return;
+    }
+
+    console.log('[Media] Requesting microphone...');
+    try {
+      this.micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 16000,
+        },
+        video: false,
+      });
+      console.log('[Media] Mic stream acquired');
+
+      this.audioContext = new AudioContext();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+
+      const source = this.audioContext.createMediaStreamSource(this.micStream);
+      source.connect(this.analyser);
+
+      console.log('[Media] AudioContext and AnalyserNode ready');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[Media] Mic permission denied:', message);
+      this.micStream = null;
+    }
+  }
+
+  private setTurn(turn: string): void {
+    console.log(`[Turn] ${this.currentTurn} -> ${turn}`);
+    this.currentTurn = turn;
+
+    if (turn !== 'PROCESSING' && this.processingFallbackTimer) {
+      clearTimeout(this.processingFallbackTimer);
+      this.processingFallbackTimer = null;
+    }
+
+    switch (turn) {
+      case 'AI_SPEAKING':
+        this.muteMicInput();
+        this.stopRecording();
+        this.aiSpeaking = true;
+        this.candidateSpeaking = false;
+        break;
+      case 'CANDIDATE_SPEAKING':
+        this.aiSpeaking = false;
+        this.unmuteMicInput();
+        this.startRecording();
+        break;
+      case 'PROCESSING':
+        this.aiSpeaking = false;
+        this.muteMicInput();
+        this.stopRecording();
+        this.candidateSpeaking = false;
+        if (!this.AUDIO_CHUNK_UPLOAD_ENABLED) {
+          this.armProcessingWatchdog();
+        }
+        break;
+      case 'IDLE':
+      default:
+        this.aiSpeaking = false;
+        this.muteMicInput();
+        this.stopRecording();
+        this.candidateSpeaking = false;
+        break;
+    }
+  }
+
+  private muteMicInput(): void {
+    this.micStream?.getAudioTracks().forEach((track) => {
+      track.enabled = false;
+      console.log('[Turn] Mic input track MUTED');
+    });
+  }
+
+  private unmuteMicInput(): void {
+    if (!this.micEnabled) {
+      console.log('[Turn] User has mic muted - not unmuting system');
+      return;
+    }
+
+    this.micStream?.getAudioTracks().forEach((track) => {
+      track.enabled = true;
+      console.log('[Turn] Mic input track UNMUTED');
+    });
   }
 
   private connectWebSocket(): void {
@@ -305,6 +442,10 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.handleLiveSessionReady(payload);
         break;
       }
+      case 'LIVE_TRANSCRIPT': {
+        this.handleLiveTranscript(payload);
+        break;
+      }
       case 'LIVE_AI_SPEECH': {
         this.handleLiveAiSpeech(payload);
         break;
@@ -364,10 +505,11 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.liveSubMode = liveSubMode;
     }
 
+    this.latestTranscriptLine = null;
+
     const resolvedUrl = this.resolveBackendAssetUrl(greetingAudioUrl || '');
     if (!resolvedUrl) {
-      this.aiSpeaking = false;
-      this.currentTurn = 'CANDIDATE_SPEAKING';
+      this.setTurn('CANDIDATE_SPEAKING');
       this.debugBgTask = 'no_greeting_audio';
       this.debugAudioState = 'missing';
       return;
@@ -376,20 +518,29 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.playGreetingFlow(resolvedUrl);
   }
 
+  private handleLiveTranscript(payload: Record<string, unknown>): void {
+    const transcript = this.readString(payload, 'transcript');
+    if (!transcript) {
+      return;
+    }
+
+    this.latestTranscriptLine = transcript;
+    this.debugLastTranscript = transcript;
+    this.debugBgTask = 'transcript_ready';
+  }
+
   private playGreetingFlow(audioUrl: string): void {
     if (this.aiSpeaking && this.debugGreetingUrl === audioUrl) {
       return;
     }
 
-    this.currentTurn = 'AI_SPEAKING';
-    this.aiSpeaking = true;
+    this.setTurn('AI_SPEAKING');
     this.debugBgTask = 'starting_greeting';
     this.debugAudioState = 'starting';
     this.debugGreetingUrl = audioUrl;
 
     this.playMainAudio(audioUrl, () => {
-      this.currentTurn = 'CANDIDATE_SPEAKING';
-      this.aiSpeaking = false;
+      this.setTurn('CANDIDATE_SPEAKING');
       this.debugBgTask = 'nothing';
       this.debugAudioState = 'ended';
       console.log('[LiveMode] Greeting ended — ready for candidate');
@@ -462,6 +613,11 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private handleLiveAiSpeech(payload: Record<string, unknown>): void {
+    if (this.processingFallbackTimer) {
+      clearTimeout(this.processingFallbackTimer);
+      this.processingFallbackTimer = null;
+    }
+
     const nextQuestionText = this.readString(payload, 'nextQuestionText');
     const aiText = this.readString(payload, 'text');
     const audioUrl = this.resolveBackendAssetUrl(this.readString(payload, 'audioUrl') || '');
@@ -485,33 +641,32 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.debugLastTranscript = aiText;
     }
 
+    this.latestTranscriptLine = null;
+
     if (!audioUrl) {
-      this.aiSpeaking = false;
       if (isClosing) {
-        this.currentTurn = 'IDLE';
+        this.setTurn('IDLE');
         void this.router.navigate(['/interview/report', this.sessionId]);
       } else {
-        this.currentTurn = 'CANDIDATE_SPEAKING';
+        this.setTurn('CANDIDATE_SPEAKING');
       }
       return;
     }
 
-    this.aiSpeaking = true;
-    this.currentTurn = 'AI_SPEAKING';
+    this.setTurn('AI_SPEAKING');
     this.debugBgTask = 'starting_ai_speech';
     this.debugAudioState = 'starting';
     this.debugGreetingUrl = audioUrl;
 
     this.playMainAudio(audioUrl, () => {
-      this.aiSpeaking = false;
       this.debugBgTask = 'nothing';
       this.debugAudioState = 'ended';
       if (isClosing) {
         console.log('[LiveMode] Closing speech ended — navigating to report');
-        this.currentTurn = 'IDLE';
+        this.setTurn('IDLE');
         void this.router.navigate(['/interview/report', this.sessionId]);
       } else {
-        this.currentTurn = 'CANDIDATE_SPEAKING';
+        this.setTurn('CANDIDATE_SPEAKING');
         console.log('[LiveMode] Next question audio ended — ready for candidate');
       }
     });
@@ -523,7 +678,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.currentTurn = 'PROCESSING';
+    // Filler audio plays during PROCESSING, turn should already be set by silence detection.
     this.debugBgTask = 'playing_filler';
     this.debugAudioState = 'playing';
     this.debugGreetingUrl = audioUrl;
@@ -553,6 +708,9 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private startPlayback(audio: HTMLAudioElement, url: string, onEnded: () => void): void {
+    // Guarantee mic is muted before any AI audio plays.
+    this.setTurn('AI_SPEAKING');
+
     audio.onended = null;
     audio.onerror = null;
     audio.src = url;
@@ -608,6 +766,214 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  private startRecording(): void {
+    if (this.isRecording) {
+      console.log('[Mic] Already recording - skip');
+      return;
+    }
+
+    this.initMic()
+      .then(() => {
+        if (!this.micStream) {
+          console.error('[Mic] No mic stream available - cannot record');
+          return;
+        }
+
+        if (this.currentTurn !== 'CANDIDATE_SPEAKING') {
+          console.log('[Mic] Turn changed during mic init - aborting startRecording');
+          return;
+        }
+
+        if (this.micEnabled) {
+          this.unmuteMicInput();
+        } else {
+          this.muteMicInput();
+        }
+
+        try {
+          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : 'audio/webm';
+
+          this.mediaRecorder = new MediaRecorder(this.micStream, { mimeType });
+          console.log('[Mic] MediaRecorder created, mimeType:', mimeType);
+        } catch (error) {
+          console.error('[Mic] MediaRecorder creation failed:', error);
+          return;
+        }
+
+        this.mediaRecorder.addEventListener('dataavailable', (event: BlobEvent) => {
+          if (!this.AUDIO_CHUNK_UPLOAD_ENABLED) {
+            if (!this.chunkUploadNoticeLogged) {
+              console.log('[Mic] Stub mode active - audio chunk upload disabled');
+              this.chunkUploadNoticeLogged = true;
+            }
+            return;
+          }
+
+          if (event.data.size > 0 && this.stompClient?.connected) {
+            event.data
+              .arrayBuffer()
+              .then((buffer) => {
+                if (!this.stompClient?.connected || this.currentTurn !== 'CANDIDATE_SPEAKING') {
+                  return;
+                }
+
+                const encodedChunk = this.encodeChunkBase64(buffer);
+                if (!encodedChunk) {
+                  console.warn('[Mic] Dropping audio chunk because base64 encoding failed');
+                  return;
+                }
+
+                this.stompClient.publish({
+                  destination: `/app/session/${this.sessionId}/audio-chunk`,
+                  headers: { 'content-type': 'text/plain' },
+                  body: `b64:${encodedChunk}`,
+                });
+              })
+              .catch((error) => {
+                console.warn('[Mic] Failed to serialize audio chunk:', error);
+              });
+          }
+        });
+
+        this.mediaRecorder.addEventListener('stop', () => {
+          console.log('[Mic] MediaRecorder stopped');
+          this.isRecording = false;
+        });
+
+        this.mediaRecorder.start(250);
+        this.isRecording = true;
+        console.log('[Mic] Recording started');
+
+        this.startSilenceDetection();
+        this.startAmplitudeTracker();
+      })
+      .catch((error) => {
+        console.error('[Mic] startRecording failed:', error);
+      });
+  }
+
+  private stopRecording(): void {
+    this.stopSilenceDetection();
+    this.stopAmplitudeTracker();
+
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+      console.log('[Mic] Stop requested');
+    }
+
+    this.mediaRecorder = null;
+    this.isRecording = false;
+  }
+
+  private startSilenceDetection(): void {
+    this.stopSilenceDetection();
+
+    const detect = () => {
+      if (this.currentTurn !== 'CANDIDATE_SPEAKING' || !this.analyser) {
+        return;
+      }
+
+      const data = new Uint8Array(this.analyser.frequencyBinCount);
+      this.analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+
+      if (avg < this.AMPLITUDE_NOISE_FLOOR) {
+        if (!this.silenceTimer) {
+          console.log('[Silence] Silence started - countdown begins (5s)');
+          this.silenceTimer = setTimeout(() => {
+            if (this.currentTurn === 'CANDIDATE_SPEAKING') {
+              console.log('[Silence] 5s silence confirmed - sealing turn');
+              this.setTurn('PROCESSING');
+              if (this.stompClient?.connected) {
+                this.stompClient.publish({
+                  destination: `/app/session/${this.sessionId}/end-turn`,
+                  body: '',
+                });
+                console.log('[Silence] /end-turn sent to backend');
+              }
+            }
+          }, this.SILENCE_THRESHOLD_MS);
+        }
+      } else {
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer);
+          this.silenceTimer = null;
+        }
+        this.candidateSpeaking = true;
+      }
+
+      if (avg < this.AMPLITUDE_NOISE_FLOOR) {
+        this.candidateSpeaking = false;
+      }
+
+      this.silenceAnimFrame = requestAnimationFrame(detect);
+    };
+
+    this.silenceAnimFrame = requestAnimationFrame(detect);
+    console.log('[Silence] Detection started');
+  }
+
+  private stopSilenceDetection(): void {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+
+    cancelAnimationFrame(this.silenceAnimFrame);
+    this.candidateSpeaking = false;
+    console.log('[Silence] Detection stopped');
+  }
+
+  private startAmplitudeTracker(): void {
+    const track = () => {
+      if (!this.analyser || this.currentTurn !== 'CANDIDATE_SPEAKING') {
+        this.micLevel = 0;
+        return;
+      }
+
+      const data = new Uint8Array(this.analyser.frequencyBinCount);
+      this.analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      this.micLevel = avg / 255;
+      this.amplitudeAnimFrame = requestAnimationFrame(track);
+      this.animFrameId = this.amplitudeAnimFrame;
+    };
+
+    this.amplitudeAnimFrame = requestAnimationFrame(track);
+    this.animFrameId = this.amplitudeAnimFrame;
+  }
+
+  private stopAmplitudeTracker(): void {
+    cancelAnimationFrame(this.amplitudeAnimFrame);
+    cancelAnimationFrame(this.animFrameId);
+    this.animFrameId = 0;
+    this.micLevel = 0;
+  }
+
+  private armProcessingWatchdog(): void {
+    if (this.processingFallbackTimer) {
+      clearTimeout(this.processingFallbackTimer);
+      this.processingFallbackTimer = null;
+    }
+
+    this.processingFallbackTimer = setTimeout(() => {
+      if (this.currentTurn !== 'PROCESSING') {
+        return;
+      }
+
+      if (this.stompClient?.connected) {
+        this.stompClient.publish({
+          destination: `/app/session/${this.sessionId}/continue`,
+          body: '',
+        });
+        this.debugBgTask = 'processing_watchdog_continue';
+        console.warn('[Processing] Watchdog fired - /continue sent');
+      }
+    }, this.PROCESSING_WATCHDOG_MS);
+  }
+
   private handleAutoplayBlocked(url: string, onEnded: () => void): void {
     console.warn('[Audio] Autoplay blocked - showing tap prompt');
     this.blockedUrl = url;
@@ -633,6 +999,24 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     return '/ws-interview';
+  }
+
+  private encodeChunkBase64(buffer: ArrayBuffer): string | null {
+    try {
+      const bytes = new Uint8Array(buffer);
+      const chunkSize = 0x8000;
+      let binary = '';
+
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const slice = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode(...slice);
+      }
+
+      return globalThis.btoa(binary);
+    } catch (error) {
+      console.warn('[Mic] Base64 encoding failed:', error);
+      return null;
+    }
   }
 
   private asRecord(value: unknown): Record<string, unknown> {

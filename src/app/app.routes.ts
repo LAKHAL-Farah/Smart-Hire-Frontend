@@ -82,6 +82,18 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'assessments',
+        loadComponent: () =>
+          import('./features/front-office/assessments/assessment-hub.component').then(
+            (m) => m.AssessmentHubComponent
+          ),
+      },
+      {
+        path: 'assessments/session/:sessionId',
+        loadComponent: () =>
+          import('./features/front-office/assessments/mcq-session.component').then((m) => m.McqSessionComponent),
+      },
+      {
         path: 'interview',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(

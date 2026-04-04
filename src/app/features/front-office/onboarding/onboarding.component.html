@@ -73,7 +73,8 @@
         (selectionChange)="careerSelection.set($event)"
       />
       <p class="ob-after-career-hint">
-        When you continue, your preferences are saved and you will go to the <strong>dashboard</strong>.
+        When you continue, your preferences are saved and you’ll open <strong>Skill assessments</strong> while an admin assigns
+        categories that match your goals.
       </p>
       @if (saveError(); as err) {
         <p class="ob-save-error">{{ err }}</p>
@@ -94,7 +95,7 @@
       <div></div>
     }
 
-    <span class="ob-footer__hint">Then: assessment → profile</span>
+    <span class="ob-footer__hint">Then: wait for assignment → take assessments</span>
 
     <button
       class="ob-footer__next"

@@ -7,6 +7,7 @@ import {
   AssessmentAdminApiService,
   CategoryAdminRow,
   ChoiceAdminRow,
+  PendingAssignmentRow,
   QuestionAdminRow,
 } from '../../service/assessment-admin-api.service';
 
@@ -39,8 +40,57 @@ export class SkillAssessmentAdminComponent implements OnInit {
   choiceForm = { label: '', correct: false, sortOrder: 1 };
   editingChoiceId: number | null = null;
 
+  pending: PendingAssignmentRow[] = [];
+  /** userId -> selected category ids for approval */
+  approvalPicks: Record<string, number[]> = {};
+
   ngOnInit(): void {
     this.refreshCategories();
+    this.refreshPending();
+  }
+
+  refreshPending(): void {
+    this.api.listPendingAssignments().subscribe({
+      next: (rows) => {
+        this.pending = rows;
+      },
+      error: () => {
+        this.pending = [];
+      },
+    });
+  }
+
+  toggleApprovalCat(userId: string, catId: number): void {
+    const cur = [...(this.approvalPicks[userId] ?? [])];
+    const i = cur.indexOf(catId);
+    if (i >= 0) {
+      cur.splice(i, 1);
+    } else {
+      cur.push(catId);
+    }
+    this.approvalPicks[userId] = cur;
+  }
+
+  isApprovalCat(userId: string, catId: number): boolean {
+    return (this.approvalPicks[userId] ?? []).includes(catId);
+  }
+
+  approveRow(userId: string): void {
+    const ids = this.approvalPicks[userId] ?? [];
+    if (ids.length === 0) {
+      this.apiError = 'Select at least one category for this candidate.';
+      return;
+    }
+    this.loading = true;
+    this.apiError = null;
+    this.api.approveAssignment(userId, ids).subscribe({
+      next: () => {
+        delete this.approvalPicks[userId];
+        this.refreshPending();
+        this.loading = false;
+      },
+      error: (e) => this.fail(e),
+    });
   }
 
   refreshCategories(): void {

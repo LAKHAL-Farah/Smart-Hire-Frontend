@@ -9,8 +9,9 @@ export const environment = {
   /**
    * MS-Assessment — must include `/assessment` so admin calls hit
    * `/api/v1/assessment/admin/...` (not `/api/v1/admin/...`).
+   * Use a same-origin path with `ng serve` so `proxy.conf.json` forwards `/api` → :8084 and avoids CORS (status 0).
    */
-  assessmentApiUrl: 'http://127.0.0.1:8084/api/v1/assessment',
+  assessmentApiUrl: '/api/v1/assessment',
   /** Shared secret for header X-Admin-Api-Key — must match MS-Assessment `smarthire.assessment.admin-api-key`. */
   assessmentAdminApiKey: 'dev-assessment-admin',
 

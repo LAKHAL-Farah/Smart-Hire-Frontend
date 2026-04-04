@@ -2,6 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { assessmentApiBaseUrl } from '../../../core/assessment-api-url';
 
 export interface CategoryAdminRow {
   id: number;
@@ -16,6 +17,14 @@ export interface ChoiceAdminRow {
   label: string;
   correct: boolean;
   sortOrder: number;
+}
+
+export interface PendingAssignmentRow {
+  userId: string;
+  situation: string | null;
+  careerPath: string | null;
+  status: string;
+  createdAt: string | null;
 }
 
 export interface QuestionAdminRow {
@@ -35,7 +44,7 @@ export class AssessmentAdminApiService {
   private readonly http = inject(HttpClient);
 
   private base(): string {
-    return environment.assessmentApiUrl.replace(/\/$/, '');
+    return assessmentApiBaseUrl();
   }
 
   private adminHeaders(): HttpHeaders {
@@ -126,6 +135,18 @@ export class AssessmentAdminApiService {
 
   deleteChoice(choiceId: number): Observable<void> {
     return this.http.delete<void>(`${this.base()}/admin/choices/${choiceId}`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  listPendingAssignments(): Observable<PendingAssignmentRow[]> {
+    return this.http.get<PendingAssignmentRow[]>(`${this.base()}/admin/assignments/pending`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  approveAssignment(userId: string, categoryIds: number[]): Observable<unknown> {
+    return this.http.post(`${this.base()}/admin/assignments/${userId}/approve`, { categoryIds }, {
       headers: this.adminHeaders(),
     });
   }

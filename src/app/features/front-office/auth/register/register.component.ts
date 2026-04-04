@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../../environments/environment';
 import { ProfileApiService, ProfileApiResponse } from '../../profile/profile-api.service';
-import { setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
+import { ACCOUNT_ROLE_KEY, setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 
@@ -128,6 +128,10 @@ export class RegisterComponent {
           if (u?.id) {
             setProfileUserUuid(String(u.id));
           }
+          localStorage.setItem(
+            ACCOUNT_ROLE_KEY,
+            this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate'
+          );
           void this.router.navigate(['/onboarding']);
         },
         error: () => {
@@ -159,6 +163,10 @@ export class RegisterComponent {
         lastName,
         role: this.selectedRole(),
       })
+    );
+    localStorage.setItem(
+      ACCOUNT_ROLE_KEY,
+      this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate'
     );
     const profile: ProfileApiResponse = {
       userId: id,

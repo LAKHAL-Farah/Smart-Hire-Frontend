@@ -12,6 +12,45 @@
     <div class="saa__alert" role="alert">{{ apiError }}</div>
   }
 
+  @if (pending.length > 0) {
+    <section class="saa-pending" aria-label="Candidates waiting for categories">
+      <div class="saa-pending__head">
+        <h2 class="saa-pending__title">Assign assessments</h2>
+        <p class="saa-pending__sub">
+          Candidates finished onboarding and are waiting. Pick one or more categories, then approve — they will see these
+          under Skill assessments.
+        </p>
+      </div>
+      <ul class="saa-pending__list">
+        @for (row of pending; track row.userId) {
+          <li class="saa-pending__card">
+            <div class="saa-pending__meta">
+              <span class="saa-pending__uid" title="MS-User id">{{ row.userId }}</span>
+              <span class="saa-pending__prefs">
+                {{ row.situation || '—' }} → {{ row.careerPath || '—' }}
+              </span>
+            </div>
+            <div class="saa-pending__cats">
+              @for (c of categories; track c.id) {
+                <label class="saa-pending__chk">
+                  <input
+                    type="checkbox"
+                    [checked]="isApprovalCat(row.userId, c.id)"
+                    (change)="toggleApprovalCat(row.userId, c.id)"
+                  />
+                  <span>{{ c.title }}</span>
+                </label>
+              }
+            </div>
+            <button type="button" class="saa-btn saa-btn--gradient" [disabled]="loading" (click)="approveRow(row.userId)">
+              Approve assignment
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
   <div class="saa__stats">
     <div class="saa__stats-item">
       <span class="saa__stats-label">Categories</span>

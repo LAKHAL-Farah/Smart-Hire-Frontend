@@ -6,6 +6,8 @@ import { StepSituationComponent } from './steps/step-situation.component';
 import { StepCareerGoalComponent } from './steps/step-career-goal.component';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import { ProfileApiService } from '../profile/profile-api.service';
+import { ACCOUNT_ROLE_KEY, getProfileUserUuid } from '../profile/profile-user-id';
+import { CandidateAssignmentApiService } from '../assessments/candidate-assignment-api.service';
 
 @Component({
   selector: 'app-onboarding',
@@ -34,6 +36,7 @@ export class OnboardingComponent implements OnInit {
 
   constructor(
     private readonly profileApi: ProfileApiService,
+    private readonly assignmentApi: CandidateAssignmentApiService,
     private readonly router: Router
   ) {}
 
@@ -90,8 +93,23 @@ export class OnboardingComponent implements OnInit {
       })
       .subscribe({
         next: () => {
-          this.saving.set(false);
-          void this.router.navigate(['/dashboard']);
+          const role = (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
+          if (role === 'recruiter') {
+            this.saving.set(false);
+            void this.router.navigate(['/dashboard']);
+            return;
+          }
+          const uid = getProfileUserUuid();
+          this.assignmentApi.register(uid, situation, careerPath).subscribe({
+            next: () => {
+              this.saving.set(false);
+              void this.router.navigate(['/dashboard/assessments']);
+            },
+            error: () => {
+              this.saving.set(false);
+              void this.router.navigate(['/dashboard/assessments']);
+            },
+          });
         },
         error: (err: unknown) => {
           this.saving.set(false);

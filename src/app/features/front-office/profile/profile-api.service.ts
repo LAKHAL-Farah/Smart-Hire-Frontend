@@ -23,6 +23,7 @@ export interface UserApiResponse {
   id: string;
   email: string;
   status?: string;
+  role?: { id?: string; name?: string };
 }
 
 export interface OnboardingCompletePayload {

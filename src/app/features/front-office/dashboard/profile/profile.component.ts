@@ -1,17 +1,34 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import {
+  ProfileApiService,
+  ProfileApiResponse,
+} from '../../profile/profile-api.service';
 
 type ProfileTab = 'overview' | 'experience' | 'projects' | 'assessments';
+
+interface OnboardingSnapshot {
+  situation?: string;
+  careerPath?: string;
+  answers?: string[];
+  skillScores?: Record<string, number>;
+  preferencesOnly?: boolean;
+  developmentPlanNotes?: string;
+  completedAt?: string;
+}
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, LUCIDE_ICONS],
+  imports: [CommonModule, RouterLink, LUCIDE_ICONS],
   templateUrl: './profile.component.html',
-  styleUrl: './profile.component.scss'
+  styleUrl: './profile.component.scss',
 })
-export class ProfileComponent {
+export class ProfileComponent implements OnInit {
+  private readonly profileApi = inject(ProfileApiService);
+
   activeTab = signal<ProfileTab>('overview');
   tabs: { id: ProfileTab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -20,28 +37,40 @@ export class ProfileComponent {
     { id: 'assessments', label: 'Assessments' },
   ];
 
+  apiProfile = signal<ProfileApiResponse | null>(null);
+  profileLoading = signal(true);
+  profileError = signal<string | null>(null);
+  onboardingSnap = signal<OnboardingSnapshot | null>(null);
+
   ringCircum = 2 * Math.PI * 42;
 
-  /* ── Skills ── */
   skillGroups = [
-    { category: 'Frontend', skills: [
-      { name: 'Angular', level: 88 },
-      { name: 'React', level: 72 },
-      { name: 'TypeScript', level: 90 },
-    ]},
-    { category: 'Backend', skills: [
-      { name: 'Node.js', level: 82 },
-      { name: 'Python', level: 60 },
-      { name: 'PostgreSQL', level: 75 },
-    ]},
-    { category: 'DevOps', skills: [
-      { name: 'Docker', level: 70 },
-      { name: 'AWS', level: 55 },
-      { name: 'CI/CD', level: 65 },
-    ]},
+    {
+      category: 'Frontend',
+      skills: [
+        { name: 'Angular', level: 88 },
+        { name: 'React', level: 72 },
+        { name: 'TypeScript', level: 90 },
+      ],
+    },
+    {
+      category: 'Backend',
+      skills: [
+        { name: 'Node.js', level: 82 },
+        { name: 'Python', level: 60 },
+        { name: 'PostgreSQL', level: 75 },
+      ],
+    },
+    {
+      category: 'DevOps',
+      skills: [
+        { name: 'Docker', level: 70 },
+        { name: 'AWS', level: 55 },
+        { name: 'CI/CD', level: 65 },
+      ],
+    },
   ];
 
-  /* ── Badges ── */
   badges = [
     { name: 'Early Adopter', icon: '🚀' },
     { name: 'Code Streak 30', icon: '🔥' },
@@ -51,7 +80,6 @@ export class ProfileComponent {
     { name: 'Team Player', icon: '🤝' },
   ];
 
-  /* ── GitHub data ── */
   languages = [
     { name: 'TypeScript', pct: 42, color: '#3178c6' },
     { name: 'Python', pct: 22, color: '#3572A5' },
@@ -67,7 +95,6 @@ export class ProfileComponent {
     { name: 'infra-terraform', stars: 54, lang: 'Go', color: '#00ADD8' },
   ];
 
-  /* ── LinkedIn scores ── */
   linkedinScores = [
     { section: 'Headline', score: 90 },
     { section: 'Summary', score: 78 },
@@ -76,7 +103,6 @@ export class ProfileComponent {
     { section: 'Education', score: 92 },
   ];
 
-  /* ── Experience ── */
   experiences = [
     {
       company: 'TechCorp',
@@ -109,7 +135,6 @@ export class ProfileComponent {
     },
   ];
 
-  /* ── Projects ── */
   projects = [
     { name: 'SmartHire Platform', techStack: ['Angular', 'NestJS', 'PostgreSQL', 'Docker'], aiScore: 88 },
     { name: 'DevSync Editor', techStack: ['TypeScript', 'WebSockets', 'OT', 'Redis'], aiScore: 82 },
@@ -119,7 +144,6 @@ export class ProfileComponent {
     { name: 'Portfolio Site', techStack: ['Next.js', 'Tailwind', 'Vercel'], aiScore: 45 },
   ];
 
-  /* ── Radar chart ── */
   radarAxes = [
     { label: 'Frontend', value: 85 },
     { label: 'Backend', value: 72 },
@@ -129,30 +153,6 @@ export class ProfileComponent {
     { label: 'Soft Skills', value: 80 },
   ];
 
-  get radarPoints(): string {
-    return this.radarAxes.map((a, i) => {
-      const x = 150 + a.value * 1.2 * this.cos(i);
-      const y = 150 + a.value * 1.2 * this.sin(i);
-      return `${x},${y}`;
-    }).join(' ');
-  }
-
-  cos(i: number): number {
-    return Math.cos(Math.PI * 2 * i / 6 - Math.PI / 2);
-  }
-  sin(i: number): number {
-    return Math.sin(Math.PI * 2 * i / 6 - Math.PI / 2);
-  }
-
-  getHexPoints(cx: number, cy: number, r: number): string {
-    return Array.from({ length: 6 }, (_, i) => {
-      const x = cx + r * Math.cos(Math.PI * 2 * i / 6 - Math.PI / 2);
-      const y = cy + r * Math.sin(Math.PI * 2 * i / 6 - Math.PI / 2);
-      return `${x},${y}`;
-    }).join(' ');
-  }
-
-  /* ── Score history ── */
   scoreHistory = [
     { date: 'Feb 20, 2026', score: 72 },
     { date: 'Jan 15, 2026', score: 65 },
@@ -160,4 +160,69 @@ export class ProfileComponent {
     { date: 'Nov 5, 2025', score: 52 },
     { date: 'Oct 1, 2025', score: 44 },
   ];
+
+  displayName = computed(() => {
+    const p = this.apiProfile();
+    if (p?.firstName || p?.lastName) {
+      return [p.firstName, p.lastName].filter(Boolean).join(' ').trim();
+    }
+    return 'Your profile';
+  });
+
+  displayInitials = computed(() => {
+    const p = this.apiProfile();
+    const f = p?.firstName?.charAt(0) ?? '';
+    const l = p?.lastName?.charAt(0) ?? '';
+    const s = `${f}${l}`.toUpperCase();
+    return s || '?';
+  });
+
+  displayHeadline = computed(() => {
+    const p = this.apiProfile();
+    if (p?.headline?.trim()) return p.headline;
+    return 'Complete onboarding to personalize your headline';
+  });
+
+  displayLocation = computed(() => this.apiProfile()?.location?.trim() ?? '');
+
+  skillGroupsForSidebar = computed(() => this.skillGroups);
+
+  readinessPct = computed(() => 72);
+
+  developmentPlanText = computed(() => {
+    const n = this.onboardingSnap()?.developmentPlanNotes?.trim();
+    if (n) return n;
+    return '';
+  });
+
+  ngOnInit(): void {
+    this.loadProfile();
+  }
+
+  loadProfile(): void {
+    this.profileLoading.set(true);
+    this.profileError.set(null);
+    this.profileApi.getProfile().subscribe({
+      next: (p) => {
+        this.apiProfile.set(p);
+        this.onboardingSnap.set(this.parseOnboarding(p.onboardingJson));
+        this.profileLoading.set(false);
+      },
+      error: () => {
+        this.profileLoading.set(false);
+        this.profileError.set(
+          'Could not load your profile from MS-User. Ensure the service is running (port 8082) and you are logged in.'
+        );
+      },
+    });
+  }
+
+  private parseOnboarding(raw: string | null | undefined): OnboardingSnapshot | null {
+    if (!raw?.trim()) return null;
+    try {
+      return JSON.parse(raw) as OnboardingSnapshot;
+    } catch {
+      return null;
+    }
+  }
 }

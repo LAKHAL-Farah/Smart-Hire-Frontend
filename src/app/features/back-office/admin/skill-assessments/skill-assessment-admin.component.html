@@ -1,0 +1,222 @@
+<div class="saa">
+  <header class="saa__hero">
+    <div class="saa__hero-text">
+      <h1 class="saa__hero-title">Skill assessments</h1>
+      <p class="saa__hero-sub">
+        Manage categories, multiple-choice questions, and answer options — aligned with your interview practice experience.
+      </p>
+    </div>
+  </header>
+
+  @if (apiError) {
+    <div class="saa__alert" role="alert">{{ apiError }}</div>
+  }
+
+  <div class="saa__stats">
+    <div class="saa__stats-item">
+      <span class="saa__stats-label">Categories</span>
+      <div class="saa__stats-main">
+        <span class="saa__stats-value">{{ categories.length }}</span>
+        <span class="saa__stats-unit">in bank</span>
+      </div>
+    </div>
+    <div class="saa__stats-divider"></div>
+    <div class="saa__stats-item">
+      <span class="saa__stats-label">Total questions</span>
+      <div class="saa__stats-main">
+        <span class="saa__stats-value">{{ totalQuestionsInBank }}</span>
+        <span class="saa__stats-unit">across all</span>
+      </div>
+    </div>
+    <div class="saa__stats-divider"></div>
+    <div class="saa__stats-item">
+      <span class="saa__stats-label">Choices (selected Q)</span>
+      <div class="saa__stats-main">
+        <span class="saa__stats-value">{{ choicesCountSelected }}</span>
+        <span class="saa__stats-unit">options</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="saa__grid">
+    <!-- Categories -->
+    <section class="saa-card saa-card--categories">
+      <div class="saa-card__accent"></div>
+      <div class="saa-card__inner">
+        <div class="saa-card__head">
+          <h2 class="saa-card__title">Categories</h2>
+          <button type="button" class="saa-btn saa-btn--ghost" (click)="startNewCategory()">+ New</button>
+        </div>
+
+        <form class="saa-form" (ngSubmit)="saveCategory()">
+          <label class="saa-field-label">Code</label>
+          <input class="saa-input" name="cCode" [(ngModel)]="catForm.code" placeholder="e.g. JAVA_OOP" />
+          <label class="saa-field-label">Title</label>
+          <input class="saa-input" name="cTitle" [(ngModel)]="catForm.title" />
+          <label class="saa-field-label">Description</label>
+          <textarea class="saa-input saa-input--textarea" name="cDesc" rows="2" [(ngModel)]="catForm.description"></textarea>
+          <button type="submit" class="saa-btn saa-btn--gradient" [disabled]="loading">
+            {{ editingCategoryId == null ? 'Create category' : 'Update category' }}
+          </button>
+        </form>
+
+        <ul class="saa-list">
+          @for (c of categories; track c.id) {
+            <li
+              class="saa-list-row"
+              [class.saa-list-row--active]="selectedCategoryId === c.id"
+              (click)="selectCategory(c.id)"
+            >
+              <div class="saa-list-row__left">
+                <span class="saa-chip saa-chip--code">{{ c.code }}</span>
+                <div class="saa-list-row__info">
+                  <span class="saa-list-row__name">{{ c.title }}</span>
+                  <span class="saa-list-row__meta">{{ c.questionCount }} questions</span>
+                </div>
+              </div>
+              <div class="saa-list-row__actions">
+                <button type="button" class="saa-icon-btn" (click)="editCategory(c); $event.stopPropagation()" title="Edit">
+                  <lucide-icon name="square-pen" [size]="16"></lucide-icon>
+                </button>
+                <button
+                  type="button"
+                  class="saa-icon-btn saa-icon-btn--danger"
+                  (click)="deleteCategory(c); $event.stopPropagation()"
+                  title="Delete"
+                >
+                  <lucide-icon name="circle-x" [size]="16"></lucide-icon>
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      </div>
+    </section>
+
+    <!-- Questions -->
+    <section class="saa-card saa-card--questions">
+      <div class="saa-card__accent saa-card__accent--orange"></div>
+      <div class="saa-card__inner">
+        <div class="saa-card__head">
+          <h2 class="saa-card__title">Questions</h2>
+          @if (selectedCategoryId != null) {
+            <button type="button" class="saa-btn saa-btn--ghost" (click)="startNewQuestion()">+ New</button>
+          }
+        </div>
+
+        @if (selectedCategoryId == null) {
+          <p class="saa-empty">Select a category to add or edit questions.</p>
+        } @else {
+          <form class="saa-form" (ngSubmit)="saveQuestion()">
+            <label class="saa-field-label">Prompt</label>
+            <textarea class="saa-input saa-input--textarea" name="qPrompt" rows="3" [(ngModel)]="qForm.prompt"></textarea>
+            <label class="saa-field-label">Topic tag (optional)</label>
+            <input
+              class="saa-input"
+              name="qTopic"
+              [(ngModel)]="qForm.topic"
+              placeholder="e.g. java — used for topic-based quizzes"
+            />
+            <div class="saa-form-row">
+              <div class="saa-form-field">
+                <label class="saa-field-label">Points</label>
+                <input class="saa-input" type="number" name="qPts" min="1" [(ngModel)]="qForm.points" />
+              </div>
+              <div class="saa-form-field">
+                <label class="saa-field-label">Difficulty</label>
+                <select class="saa-input saa-select" name="qDiff" [(ngModel)]="qForm.difficulty">
+                  @for (d of difficulties; track d) {
+                    <option [value]="d">{{ d }}</option>
+                  }
+                </select>
+              </div>
+              <label class="saa-check">
+                <input type="checkbox" name="qAct" [(ngModel)]="qForm.active" />
+                Active
+              </label>
+            </div>
+            <button type="submit" class="saa-btn saa-btn--gradient" [disabled]="loading">
+              {{ editingQuestionId == null ? 'Add question' : 'Update question' }}
+            </button>
+          </form>
+
+          <ul class="saa-list saa-list--scroll">
+            @for (q of questions; track q.id) {
+              <li class="saa-q-row" [class.saa-q-row--open]="selectedQuestionId === q.id">
+                <button type="button" class="saa-q-row__toggle" (click)="selectQuestion(q.id)">
+                  <span class="saa-chip saa-chip--diff">{{ q.difficulty }}</span>
+                  @if (q.topic) {
+                    <span class="saa-chip saa-chip--topic">{{ q.topic }}</span>
+                  }
+                  <span class="saa-q-row__preview">{{ q.prompt | slice : 0 : 80 }}{{ q.prompt.length > 80 ? '…' : '' }}</span>
+                  <span class="saa-q-row__meta">{{ q.choices.length }} choices</span>
+                </button>
+                <div class="saa-q-row__actions">
+                  <button type="button" class="saa-icon-btn" (click)="editQuestion(q); $event.stopPropagation()">
+                    <lucide-icon name="square-pen" [size]="16"></lucide-icon>
+                  </button>
+                  <button type="button" class="saa-icon-btn saa-icon-btn--danger" (click)="deleteQuestion(q); $event.stopPropagation()">
+                    <lucide-icon name="circle-x" [size]="16"></lucide-icon>
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </section>
+
+    <!-- Choices -->
+    <section class="saa-card saa-card--choices">
+      <div class="saa-card__accent saa-card__accent--violet"></div>
+      <div class="saa-card__inner">
+        <div class="saa-card__head">
+          <h2 class="saa-card__title">Choices</h2>
+          @if (selectedQuestionId != null) {
+            <button type="button" class="saa-btn saa-btn--ghost" (click)="startNewChoice()">+ New</button>
+          }
+        </div>
+
+        @if (selectedQuestion == null) {
+          <p class="saa-empty">Select a question to view and edit answer choices (correct flags visible here only).</p>
+        } @else {
+          <form class="saa-form" (ngSubmit)="saveChoice()">
+            <label class="saa-field-label">Label</label>
+            <input class="saa-input" name="chLabel" [(ngModel)]="choiceForm.label" />
+            <div class="saa-form-row">
+              <div class="saa-form-field">
+                <label class="saa-field-label">Sort order</label>
+                <input class="saa-input" type="number" name="chOrd" [(ngModel)]="choiceForm.sortOrder" />
+              </div>
+              <label class="saa-check saa-check--pad">
+                <input type="checkbox" name="chCor" [(ngModel)]="choiceForm.correct" />
+                Correct answer
+              </label>
+            </div>
+            <button type="submit" class="saa-btn saa-btn--gradient" [disabled]="loading">
+              {{ editingChoiceId == null ? 'Add choice' : 'Update choice' }}
+            </button>
+          </form>
+
+          <ul class="saa-choice-list">
+            @for (ch of selectedQuestion.choices; track ch.id) {
+              <li class="saa-choice-row">
+                <span class="saa-chip" [class.saa-chip--ok]="ch.correct">{{ ch.correct ? 'OK' : '—' }}</span>
+                <span class="saa-choice-row__label">{{ ch.label }}</span>
+                <span class="saa-choice-row__order">#{{ ch.sortOrder }}</span>
+                <div class="saa-choice-row__actions">
+                  <button type="button" class="saa-icon-btn" (click)="editChoice(ch)">
+                    <lucide-icon name="square-pen" [size]="16"></lucide-icon>
+                  </button>
+                  <button type="button" class="saa-icon-btn saa-icon-btn--danger" (click)="deleteChoice(ch)">
+                    <lucide-icon name="circle-x" [size]="16"></lucide-icon>
+                  </button>
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </section>
+  </div>
+</div>

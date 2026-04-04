@@ -1,7 +1,8 @@
 import { Routes } from '@angular/router';
+import { adminCanMatch } from './core/guards/admin.guard';
+import { onboardingCanMatch } from './core/guards/onboarding.guard';
 
 export const routes: Routes = [
-  /* ═══════ FRONT OFFICE ═══════ */
   {
     path: '',
     loadComponent: () =>
@@ -25,6 +26,7 @@ export const routes: Routes = [
   },
   {
     path: 'onboarding',
+    canMatch: [onboardingCanMatch],
     loadComponent: () =>
       import('./features/front-office/onboarding/onboarding.component').then(
         (m) => m.OnboardingComponent
@@ -49,13 +51,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/front-office/dashboard/roadmap/roadmap.component').then(
             (m) => m.RoadmapComponent
-          ),
-      },
-      {
-        path: 'assessment',
-        loadComponent: () =>
-          import('./features/front-office/dashboard/assessment/assessment.component').then(
-            (m) => m.AssessmentComponent
           ),
       },
       {
@@ -110,9 +105,9 @@ export const routes: Routes = [
     ],
   },
 
-  /* ═══════ BACK OFFICE ═══════ */
   {
     path: 'admin',
+    canMatch: [adminCanMatch],
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent
@@ -154,6 +149,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'skill-assessments',
+        loadComponent: () =>
+          import('./features/back-office/admin/skill-assessments/skill-assessment-admin.component').then(
+            (m) => m.SkillAssessmentAdminComponent
+          ),
+      },
+      {
         path: 'ai-monitor',
         loadComponent: () =>
           import('./features/back-office/admin/ai-monitor/ai-monitor.component').then(
@@ -191,7 +193,6 @@ export const routes: Routes = [
     ],
   },
 
-  /* ═══════ 404 WILDCARD ═══════ */
   {
     path: '**',
     loadComponent: () =>

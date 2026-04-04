@@ -44,6 +44,13 @@
 
       <!-- Form -->
       <form class="auth-form" (ngSubmit)="onSubmit()" novalidate>
+        <!-- Error Message -->
+        @if (errorMsg) {
+          <div class="auth-error" style="background: #fee2e2; color: #991b1b; padding: 12px; border-radius: 6px; margin-bottom: 16px; border-left: 4px solid #dc2626;">
+            {{ errorMsg }}
+          </div>
+        }
+
         <!-- Email -->
         <div class="form-field" [class.form-field--error]="emailTouched && !isEmailValid()">
           <label class="form-field__label" for="email">Email address</label>
@@ -103,7 +110,7 @@
         </label>
 
         <!-- Submit -->
-        <button type="submit" class="auth-submit-btn" [disabled]="isLoading()">
+        <button type="submit" class="auth-submit-btn" [disabled]="isLoading()" (click)="onSubmit()">
           @if (isLoading()) {
             <span class="auth-submit-btn__spinner"></span>
           }

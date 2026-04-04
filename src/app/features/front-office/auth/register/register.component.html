@@ -113,11 +113,11 @@
               placeholder="Doe"
               [(ngModel)]="lastName"
               name="lastName"
-              (blur)="nameTouched = true"
+              (blur)="lastNameTouched = true"
               autocomplete="name"
               />
             </div>
-            @if (nameTouched && !lastName.trim()) {
+            @if (lastNameTouched && !lastName.trim()) {
               <p class="form-field__error">Last name is required</p>
             }
           </div>

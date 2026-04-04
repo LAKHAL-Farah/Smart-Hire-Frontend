@@ -1,10 +1,7 @@
 <aside class="sidebar" [class.sidebar--disabled]="disabled">
-  <!-- Logo -->
   <a routerLink="/" class="sidebar__logo">SmartHire</a>
 
-  <!-- Main nav groups -->
   <nav class="sidebar__nav">
-    <!-- MAIN -->
     <span class="sidebar__section-label">Main</span>
     <div class="sidebar__group">
       @for (item of mainItems; track item.label) {
@@ -20,7 +17,6 @@
       }
     </div>
 
-    <!-- PREPARE -->
     <span class="sidebar__section-label">Prepare</span>
     <div class="sidebar__group">
       @for (item of prepareItems; track item.label) {
@@ -35,7 +31,6 @@
       }
     </div>
 
-    <!-- RECRUIT -->
     <span class="sidebar__section-label">Recruit</span>
     <div class="sidebar__group">
       @for (item of recruitItems; track item.label) {
@@ -51,7 +46,6 @@
     </div>
   </nav>
 
-  <!-- Bottom -->
   <div class="sidebar__bottom">
     <a routerLink="/dashboard/settings" routerLinkActive="sidebar__item--active" class="sidebar__item">
       <span class="sidebar__icon">

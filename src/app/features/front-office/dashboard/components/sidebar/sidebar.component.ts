@@ -1,6 +1,7 @@
-import { Component, Input, signal } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { AuthService } from '../../../auth/auth.service';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 
 interface NavItem {
@@ -20,7 +21,6 @@ export class SidebarComponent {
   @Input() disabled = false;
   mainItems: NavItem[] = [
     { icon: 'layout-grid', label: 'Dashboard', route: '/dashboard' },
-    { icon: 'activity', label: 'Assessment', route: '/dashboard/assessment' },
     { icon: 'clock', label: 'Roadmap', route: '/dashboard/roadmap' },
     { icon: 'book-open', label: 'Projects', route: '/dashboard/projects' },
   ];
@@ -35,7 +35,9 @@ export class SidebarComponent {
     { icon: 'briefcase', label: 'Jobs', route: '/dashboard/jobs' },
   ];
 
+  constructor(private authService: AuthService) {}
+
   logout(): void {
-    console.log('Logout');
+    this.authService.logout();
   }
 }

@@ -1,44 +1,41 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { environment } from '../../../../../environments/environment';
+import { ProfileApiService, ProfileApiResponse } from '../../profile/profile-api.service';
+import { setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { UserService } from '../user.service';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AuthLeftPanelComponent, LUCIDE_ICONS, HttpClientModule],
+  imports: [CommonModule, FormsModule, RouterLink, AuthLeftPanelComponent, LUCIDE_ICONS],
   templateUrl: './register.component.html',
   styleUrl: './register.component.scss'
 })
 export class RegisterComponent {
+  private readonly profileApi = inject(ProfileApiService);
+  private readonly router = inject(Router);
 
-  constructor(private userService: UserService) {}
-
- 
-
-  fullName = '';
   firstName = '';
   lastName = '';
   email = '';
-  headline = '';
-  location = '';
   password = '';
+  location = '';
   githubUrl = '';
   linkedinUrl = '';
+  headline = '';
   acceptTerms = false;
   nameTouched = false;
-  headlineTouched = false;
-  locationTouched = false;
-  githubTouched = false;
   lastNameTouched = false;
-  linkedinTouched = false;
-  
   emailTouched = false;
   passwordTouched = false;
+  locationTouched = false;
+  githubTouched = false;
+  linkedinTouched = false;
+  headlineTouched = false;
 
   selectedRole = signal<'candidate' | 'recruiter'>('candidate');
   showPassword = signal(false);
@@ -57,14 +54,19 @@ export class RegisterComponent {
     if (!this.email) return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email);
   }
-  isValidUrl(url: string): boolean {
+
+  isValidUrl(s: string): boolean {
+    const t = s?.trim() ?? '';
+    if (!t) {
+      return true;
+    }
     try {
-      new URL(url);
+      new URL(t);
       return true;
     } catch {
       return false;
+    }
   }
-}
 
   hasUppercase(): boolean { return /[A-Z]/.test(this.password); }
   hasNumber(): boolean { return /[0-9]/.test(this.password); }
@@ -79,57 +81,98 @@ export class RegisterComponent {
     this.passwordStrength.set(strength);
   }
 
-  private createUserAndProfile(userRequest: any, profileRequest: any): void {
-
-    this.userService.createUser(userRequest, profileRequest).subscribe({
-            next: (responseUser) => {
-              console.log('User created:', responseUser);
-              this.isLoading.set(false);
-            },
-            error: (error) => {
-              console.error('Error creating user:', error);
-              this.isLoading.set(false);
-            }
-    });
-  }
-
-
   onSubmit(): void {
     this.nameTouched = true;
+    this.lastNameTouched = true;
     this.emailTouched = true;
     this.passwordTouched = true;
+    this.locationTouched = true;
+    this.githubTouched = true;
+    this.linkedinTouched = true;
+    this.headlineTouched = true;
+
+    const fn = this.firstName.trim();
+    const ln = this.lastName.trim();
     if (
-      !this.firstName.trim() || 
+      !fn ||
+      !ln ||
       !this.isEmailValid() ||
       !this.password ||
-      !this.acceptTerms
-    ) return;
-
-
+      !this.acceptTerms ||
+      !this.location.trim() ||
+      (this.githubUrl.trim() && !this.isValidUrl(this.githubUrl)) ||
+      (this.linkedinUrl.trim() && !this.isValidUrl(this.linkedinUrl)) ||
+      !this.headline.trim() ||
+      this.headline.length > 200
+    ) {
+      return;
+    }
 
     this.isLoading.set(true);
-    console.log(this.selectedRole());
-    let userRequest =  {
-      email: this.email, 
-      password: this.password,
-      roleName: this.selectedRole()
-    }
+    const firstName = fn;
+    const lastName = ln;
 
-    let profileRequest =  {
-      firstName: this.firstName,
-      lastName: this.lastName,
-      headline: this.headline,
-      location: this.location,
-      githubUrl: this.githubUrl,
-      linkedinUrl: this.linkedinUrl
-    }
-    this.createUserAndProfile(userRequest, profileRequest);
-    
-   
+    this.profileApi
+      .createUserWithProfile({
+        userRequest: {
+          email: this.email.trim(),
+          password: this.password,
+          roleName: this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate',
+        },
+        profileRequest: { firstName, lastName },
+      })
+      .subscribe({
+        next: (u) => {
+          this.isLoading.set(false);
+          setLocalDemoMode(false);
+          if (u?.id) {
+            setProfileUserUuid(String(u.id));
+          }
+          void this.router.navigate(['/onboarding']);
+        },
+        error: () => {
+          this.isLoading.set(false);
+          if (environment.localAuthFallback) {
+            this.startLocalDemoRegistration(firstName, lastName);
+            return;
+          }
+          alert(
+            'Registration failed. Is MS-User on port 8082? If the email already exists, try logging in instead.'
+          );
+        },
+      });
+  }
+
+  /**
+   * MS-User unavailable — keep going with a random user id and data in localStorage only.
+   * Sync to the real service when your teammate’s MS-User is running again.
+   */
+  private startLocalDemoRegistration(firstName: string, lastName: string): void {
+    const id = crypto.randomUUID();
+    setProfileUserUuid(id);
+    setLocalDemoMode(true);
+    localStorage.setItem(
+      'smarthire_local_user',
+      JSON.stringify({
+        email: this.email.trim(),
+        firstName,
+        lastName,
+        role: this.selectedRole(),
+      })
+    );
+    const profile: ProfileApiResponse = {
+      userId: id,
+      firstName,
+      lastName,
+      email: this.email.trim(),
+      headline: '',
+    };
+    localStorage.setItem('smarthire_local_profile', JSON.stringify(profile));
+    void this.router.navigate(['/onboarding']);
   }
 
   oauthSignup(provider: string): void {
     console.log('OAuth signup with:', provider);
-    
+    // TODO: integrate OAuth
   }
 }

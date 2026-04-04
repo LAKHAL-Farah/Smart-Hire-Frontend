@@ -1,22 +1,12 @@
-import { Component } from '@angular/core';
+// user-management.component.ts
+import { Component, OnInit, inject, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  avatar: string;
-  role: 'Candidate' | 'Recruiter' | 'Admin';
-  plan: 'Free' | 'Premium' | 'Recruiter';
-  status: 'Active' | 'Suspended' | 'Pending';
-  joined: string;
-  lastActive: string;
-  assessments: number;
-  interviews: number;
-  location: string;
-}
+import { finalize } from 'rxjs/operators';
+import { DisplayUser, UserManagementService } from '../../service/user-management.service';
+import { EditUserModalComponent } from './edit-user-modal/edit-user-modal.component';
 
 @Component({
   selector: 'app-user-management',
@@ -25,80 +15,107 @@ interface User {
   templateUrl: './user-management.component.html',
   styleUrl: './user-management.component.scss'
 })
-export class UserManagementComponent {
+export class UserManagementComponent implements OnInit {
+  private userService = inject(UserManagementService);
+  private dialog = inject(MatDialog);
+  
   /* ── Filters ── */
   searchQuery = '';
   roleFilter = 'All';
   statusFilter = 'All';
   planFilter = 'All';
   roles = ['All', 'Candidate', 'Recruiter', 'Admin'];
-  statuses = ['All', 'Active', 'Suspended', 'Pending'];
+  statuses = ['All', 'Active', 'Suspended', 'Inactive', 'Pending'];
   plans = ['All', 'Free', 'Premium', 'Recruiter'];
+
+  /* ── Data ── */
+  users: DisplayUser[] = [];
+  isLoading = true;
+  errorMessage: string | null = null;
 
   /* ── Pagination ── */
   currentPage = 1;
   pageSize = 15;
-  totalUsers = 1284;
-  get totalPages(): number { return Math.ceil(this.filteredUsers.length / this.pageSize); }
-  get paginatedUsers(): User[] {
+  
+  get totalPages(): number { 
+    return Math.ceil(this.filteredUsers.length / this.pageSize); 
+  }
+  
+  get paginatedUsers(): DisplayUser[] {
     const start = (this.currentPage - 1) * this.pageSize;
     return this.filteredUsers.slice(start, start + this.pageSize);
   }
 
   /* ── Selection / Bulk ── */
-  selectedIds = new Set<number>();
+  selectedIds = new Set<string>();
   allChecked = false;
 
   /* ── Drawer ── */
   drawerOpen = false;
-  drawerUser: User | null = null;
+  drawerUser: DisplayUser | null = null;
 
   /* ── Action dropdown ── */
-  openMenuId: number | null = null;
+  openMenuId: string | null = null;
+  menuPosition: 'below' | 'above' = 'below';
 
-  /* ── Data ── */
-  users: User[] = [
-    { id: 1, name: 'Sarah Chen', email: 'sarah.chen@mail.com', avatar: 'SC', role: 'Candidate', plan: 'Premium', status: 'Active', joined: 'Jan 15, 2024', lastActive: '2 min ago', assessments: 12, interviews: 4, location: 'San Francisco, CA' },
-    { id: 2, name: 'Marcus Johnson', email: 'marcus.j@company.io', avatar: 'MJ', role: 'Recruiter', plan: 'Recruiter', status: 'Active', joined: 'Dec 03, 2023', lastActive: '1 hr ago', assessments: 0, interviews: 38, location: 'New York, NY' },
-    { id: 3, name: 'Aisha Patel', email: 'aisha.p@email.com', avatar: 'AP', role: 'Candidate', plan: 'Free', status: 'Active', joined: 'Mar 22, 2024', lastActive: '5 min ago', assessments: 7, interviews: 2, location: 'London, UK' },
-    { id: 4, name: 'James Wilson', email: 'j.wilson@corp.com', avatar: 'JW', role: 'Recruiter', plan: 'Recruiter', status: 'Pending', joined: 'Apr 10, 2024', lastActive: 'Never', assessments: 0, interviews: 0, location: 'Chicago, IL' },
-    { id: 5, name: 'Elena Rodriguez', email: 'elena.r@mail.com', avatar: 'ER', role: 'Candidate', plan: 'Premium', status: 'Active', joined: 'Feb 28, 2024', lastActive: '30 min ago', assessments: 15, interviews: 6, location: 'Madrid, Spain' },
-    { id: 6, name: 'Kenji Tanaka', email: 'kenji.t@tech.jp', avatar: 'KT', role: 'Candidate', plan: 'Free', status: 'Suspended', joined: 'Nov 12, 2023', lastActive: '3 days ago', assessments: 3, interviews: 1, location: 'Tokyo, Japan' },
-    { id: 7, name: 'Lisa Müller', email: 'lisa.m@web.de', avatar: 'LM', role: 'Admin', plan: 'Premium', status: 'Active', joined: 'Sep 01, 2023', lastActive: '15 min ago', assessments: 0, interviews: 0, location: 'Berlin, Germany' },
-    { id: 8, name: 'David Kim', email: 'david.k@email.com', avatar: 'DK', role: 'Candidate', plan: 'Free', status: 'Active', joined: 'Apr 02, 2024', lastActive: '1 hr ago', assessments: 5, interviews: 0, location: 'Seoul, Korea' },
-    { id: 9, name: 'Fatima Al-Hassan', email: 'fatima.h@mail.com', avatar: 'FA', role: 'Candidate', plan: 'Premium', status: 'Active', joined: 'Jan 30, 2024', lastActive: '10 min ago', assessments: 20, interviews: 8, location: 'Dubai, UAE' },
-    { id: 10, name: 'Ryan O\'Brien', email: 'ryan.ob@corp.ie', avatar: 'RO', role: 'Recruiter', plan: 'Recruiter', status: 'Active', joined: 'Oct 18, 2023', lastActive: '45 min ago', assessments: 0, interviews: 52, location: 'Dublin, Ireland' },
-    { id: 11, name: 'Priya Sharma', email: 'priya.s@tech.in', avatar: 'PS', role: 'Candidate', plan: 'Free', status: 'Active', joined: 'Mar 05, 2024', lastActive: '2 hr ago', assessments: 9, interviews: 3, location: 'Mumbai, India' },
-    { id: 12, name: 'Thomas Laurent', email: 't.laurent@mail.fr', avatar: 'TL', role: 'Candidate', plan: 'Free', status: 'Pending', joined: 'Apr 14, 2024', lastActive: 'Never', assessments: 0, interviews: 0, location: 'Paris, France' },
-    { id: 13, name: 'Olivia Brown', email: 'olivia.b@email.com', avatar: 'OB', role: 'Candidate', plan: 'Premium', status: 'Active', joined: 'Feb 11, 2024', lastActive: '20 min ago', assessments: 11, interviews: 5, location: 'Sydney, Australia' },
-    { id: 14, name: 'Ahmed Bakr', email: 'ahmed.b@mail.eg', avatar: 'AB', role: 'Candidate', plan: 'Free', status: 'Suspended', joined: 'Dec 20, 2023', lastActive: '1 week ago', assessments: 2, interviews: 0, location: 'Cairo, Egypt' },
-    { id: 15, name: 'Mei Lin Zhang', email: 'meilin@tech.cn', avatar: 'MZ', role: 'Recruiter', plan: 'Recruiter', status: 'Active', joined: 'Nov 25, 2023', lastActive: '5 min ago', assessments: 0, interviews: 41, location: 'Shanghai, China' },
-    { id: 16, name: 'Carlos Mendez', email: 'carlos.m@mail.mx', avatar: 'CM', role: 'Candidate', plan: 'Premium', status: 'Active', joined: 'Mar 18, 2024', lastActive: '1 hr ago', assessments: 8, interviews: 3, location: 'Mexico City, MX' },
-  ];
+  /* ── Lifecycle ── */
+  ngOnInit(): void {
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    this.isLoading = true;
+    this.errorMessage = null;
+    
+    this.userService.getAllUsers()
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (apiUsers) => {
+          this.users = apiUsers.map(user => this.userService.transformToDisplayUser(user));
+          console.log('Users loaded:', this.users.length);
+        },
+        error: (error) => {
+          this.errorMessage = error.message;
+          console.error('Error loading users:', error);
+        }
+      });
+  }
 
   /* ── Filtered list ── */
-  get filteredUsers(): User[] {
+  get filteredUsers(): DisplayUser[] {
     return this.users.filter(u => {
       const matchSearch = !this.searchQuery ||
         u.name.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(this.searchQuery.toLowerCase());
+        u.email.toLowerCase().includes(this.searchQuery.toLowerCase()) ||
+        u.headline?.toLowerCase().includes(this.searchQuery.toLowerCase());
+      
       const matchRole = this.roleFilter === 'All' || u.role === this.roleFilter;
       const matchStatus = this.statusFilter === 'All' || u.status === this.statusFilter;
       const matchPlan = this.planFilter === 'All' || u.plan === this.planFilter;
+      
       return matchSearch && matchRole && matchStatus && matchPlan;
     });
   }
 
   /* ── Helpers ── */
   getRoleClass(role: string): string {
-    return role === 'Candidate' ? 'pill--teal' : role === 'Recruiter' ? 'pill--purple' : 'pill--red';
+    return role === 'Candidate' ? 'pill--teal' : 
+           role === 'Recruiter' ? 'pill--purple' : 
+           'pill--red';
   }
+  
   getPlanClass(plan: string): string {
-    return plan === 'Free' ? 'pill--gray' : plan === 'Premium' ? 'pill--amber' : 'pill--purple';
+    return plan === 'Free' ? 'pill--gray' : 
+           plan === 'Premium' ? 'pill--amber' : 
+           'pill--purple';
   }
+  
   getStatusClass(status: string): string {
-    return status === 'Active' ? 'badge--green' : status === 'Suspended' ? 'badge--red' : 'badge--yellow';
+    return status === 'Active' ? 'badge--green' : 
+           status === 'Suspended' ? 'badge--red' : 
+           'badge--yellow';
   }
+  
   avatarGradient(role: string): string {
     return role === 'Candidate' ? 'linear-gradient(135deg,#2ee8a5,#0ea5e9)' :
            role === 'Recruiter' ? 'linear-gradient(135deg,#a78bfa,#7c3aed)' :
@@ -115,31 +132,186 @@ export class UserManagementComponent {
       this.allChecked = true;
     }
   }
-  toggleRow(id: number): void {
+  
+  toggleRow(id: string): void {
     this.selectedIds.has(id) ? this.selectedIds.delete(id) : this.selectedIds.add(id);
     this.allChecked = this.paginatedUsers.every(u => this.selectedIds.has(u.id));
   }
-  isSelected(id: number): boolean { return this.selectedIds.has(id); }
+  
+  isSelected(id: string): boolean { 
+    return this.selectedIds.has(id); 
+  }
 
-  clearSelection(): void { this.selectedIds.clear(); this.allChecked = false; }
+  clearSelection(): void { 
+    this.selectedIds.clear(); 
+    this.allChecked = false; 
+  }
 
   /* ── Pagination ── */
   goPage(page: number): void {
-    if (page >= 1 && page <= this.totalPages) { this.currentPage = page; this.allChecked = false; }
+    if (page >= 1 && page <= this.totalPages) { 
+      this.currentPage = page; 
+      this.allChecked = false; 
+    }
   }
+  
   get pageNumbers(): number[] {
     const pages: number[] = [];
-    for (let i = 1; i <= this.totalPages; i++) pages.push(i);
+    const total = this.totalPages;
+    const current = this.currentPage;
+    const maxVisible = 5;
+    
+    if (total <= maxVisible) {
+      for (let i = 1; i <= total; i++) pages.push(i);
+    } else {
+      if (current <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i);
+        pages.push(-1);
+        pages.push(total);
+      } else if (current >= total - 2) {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = total - 3; i <= total; i++) pages.push(i);
+      } else {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = current - 1; i <= current + 1; i++) pages.push(i);
+        pages.push(-1);
+        pages.push(total);
+      }
+    }
     return pages;
   }
 
   /* ── Drawer ── */
-  openDrawer(user: User): void { this.drawerUser = user; this.drawerOpen = true; this.openMenuId = null; }
-  closeDrawer(): void { this.drawerOpen = false; this.drawerUser = null; }
+  openDrawer(user: DisplayUser): void { 
+    this.drawerUser = user; 
+    this.drawerOpen = true; 
+    this.openMenuId = null; 
+  }
+  
+  closeDrawer(): void { 
+    this.drawerOpen = false; 
+    this.drawerUser = null; 
+  }
 
   /* ── Row actions menu ── */
-  toggleMenu(id: number, event: Event): void {
+  toggleMenu(id: string, event: Event): void {
     event.stopPropagation();
+    
+    // Calculate menu position
+    const button = event.target as HTMLElement;
+    const rect = button.getBoundingClientRect();
+    const menuHeight = 160; // Approximate height of the menu
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    
+    this.menuPosition = spaceBelow >= menuHeight || spaceBelow > spaceAbove ? 'below' : 'above';
+    
     this.openMenuId = this.openMenuId === id ? null : id;
   }
-}
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    this.openMenuId = null;
+  }
+
+  /* ── Actions ── */
+  exportCSV(): void {
+    const headers = ['Name', 'Email', 'Role', 'Plan', 'Status', 'Joined', 'Last Active', 'Location', 'Headline'];
+    const data = this.filteredUsers.map(u => [
+      u.name,
+      u.email,
+      u.role,
+      u.plan,
+      u.status,
+      u.joined,
+      u.lastActive,
+      u.location,
+      u.headline
+    ]);
+    
+    const csvContent = [headers, ...data]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'users_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  editUser(user: DisplayUser): void {
+    const dialogRef = this.dialog.open(EditUserModalComponent, {
+      width: '500px',
+      maxWidth: '90vw',
+      maxHeight: '85vh',
+      panelClass: ['custom-dialog'],
+      data: { user },
+      backdropClass: 'custom-backdrop'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.success) {
+        // Update the user in the local list
+        const index = this.users.findIndex(u => u.id === user.id);
+        if (index !== -1) {
+          // Reload the user data from the updated response
+          const updatedApiUser = result.user;
+          this.users[index] = this.userService.transformToDisplayUser(updatedApiUser);
+          
+          // Update drawer if it's open for this user
+          if (this.drawerUser?.id === user.id) {
+            this.drawerUser = this.users[index];
+          }
+        }
+        this.closeDrawer();
+        this.openMenuId = null;
+      }
+    });
+  }
+
+  resetPassword(user: DisplayUser): void {
+    console.log('Reset password for:', user);
+    // Implement password reset
+  }
+
+  suspendUser(user: DisplayUser): void {
+    console.log('Suspend user:', user);
+    // Implement suspend logic
+  }
+
+  reactivateUser(user: DisplayUser): void {
+    console.log('Reactivate user:', user);
+    // Implement reactivate logic
+  }
+
+  deleteUser(user: DisplayUser): void {
+    const confirmed = confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`);
+    
+    if (!confirmed) {
+      return;
+    }
+
+    this.userService.deleteUser(user.id).subscribe({
+      next: () => {
+        console.log('User deleted successfully');
+        // Remove user from the local list without refreshing the page
+        this.users = this.users.filter(u => u.id !== user.id);
+        this.selectedIds.delete(user.id);
+        this.closeDrawer();
+        this.openMenuId = null;
+      },
+      error: (error) => {
+        console.error('Error deleting user:', error);
+        alert('Failed to delete user. Please try again.');
+      }
+    });
+  
+  }}

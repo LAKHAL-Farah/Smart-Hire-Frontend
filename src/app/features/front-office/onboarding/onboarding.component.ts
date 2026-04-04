@@ -1,109 +1,106 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { isLocalDemoMode } from '../profile/profile-user-id';
 import { StepSituationComponent } from './steps/step-situation.component';
 import { StepCareerGoalComponent } from './steps/step-career-goal.component';
-import { StepSkillCheckComponent } from './steps/step-skill-check.component';
-import { StepResultsComponent } from './steps/step-results.component';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
+import { ProfileApiService } from '../profile/profile-api.service';
 
 @Component({
   selector: 'app-onboarding',
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterLink,
-    StepSituationComponent,
-    StepCareerGoalComponent,
-    StepSkillCheckComponent,
-    StepResultsComponent,
-    LUCIDE_ICONS,
-  ],
+  imports: [CommonModule, RouterLink, StepSituationComponent, StepCareerGoalComponent, LUCIDE_ICONS],
   templateUrl: './onboarding.component.html',
-  styleUrl: './onboarding.component.scss'
+  styleUrl: './onboarding.component.scss',
 })
-export class OnboardingComponent {
-  totalSteps = 4;
+export class OnboardingComponent implements OnInit {
+  totalSteps = 2;
 
-  currentStep  = signal(1);
+  localDemoBanner = signal(false);
 
-  /* Step 1 */
+  currentStep = signal(1);
+
   situationSelection = signal<string | null>(null);
-  /* Step 2 */
   careerSelection = signal<string | null>(null);
-  /* Step 3 */
-  currentQuestion = signal(0);
-  currentAnswer   = signal<string | null>(null);
-  answers: (string | null)[] = [null, null, null, null, null];
 
   stepMeta = [
     { num: 1, label: 'Who you are' },
-    { num: 2, label: 'Career goal' },
-    { num: 3, label: 'Skill check' },
-    { num: 4, label: 'Your profile' },
+    { num: 2, label: 'Your target' },
   ];
+
+  saving = signal(false);
+  saveError = signal<string | null>(null);
+
+  constructor(
+    private readonly profileApi: ProfileApiService,
+    private readonly router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.localDemoBanner.set(isLocalDemoMode());
+  }
 
   canProceed = computed(() => {
     const step = this.currentStep();
     if (step === 1) return this.situationSelection() !== null;
     if (step === 2) return this.careerSelection() !== null;
-    if (step === 3) return this.currentAnswer() !== null;
     return false;
-  });
-
-  nextLabel = computed(() => {
-    const step = this.currentStep();
-    if (step === 3) {
-      return this.currentQuestion() >= 4 ? 'See My Results' : 'Next Question';
-    }
-    return 'Next';
   });
 
   goNext(): void {
     const step = this.currentStep();
-
-    if (step === 3) {
-      // Save answer
-      const qi = this.currentQuestion();
-      this.answers[qi] = this.currentAnswer();
-
-      if (qi < 4) {
-        this.currentQuestion.set(qi + 1);
-        this.currentAnswer.set(null);
-        return;
-      }
-      // Last question → go to results
-    }
-
-    if (step < this.totalSteps) {
-      this.currentStep.set(step + 1);
+    if (step === 1) {
+      this.currentStep.set(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (step === 2) {
+      void this.savePreferencesAndFinish();
     }
   }
 
   goBack(): void {
-    const step = this.currentStep();
-    if (step === 3 && this.currentQuestion() > 0) {
-      const qi = this.currentQuestion();
-      this.currentQuestion.set(qi - 1);
-      this.currentAnswer.set(this.answers[qi - 1]);
-      return;
-    }
-    if (step > 1) {
-      this.currentStep.set(step - 1);
+    if (this.currentStep() > 1) {
+      this.currentStep.set(1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
   skip(): void {
-    const step = this.currentStep();
-    if (step <= 2) {
-      this.currentStep.set(step + 1);
+    if (this.currentStep() === 1) {
+      this.currentStep.set(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
-  onAnswerSelected(letter: string): void {
-    this.currentAnswer.set(letter);
+  private savePreferencesAndFinish(): void {
+    const situation = this.situationSelection() || 'student';
+    const careerPath = this.careerSelection() || 'fullstack';
+
+    this.saveError.set(null);
+    this.saving.set(true);
+    this.profileApi
+      .completeOnboarding({
+        situation,
+        careerPath,
+        answers: [],
+        skillScores: {},
+        developmentPlanNotes: 'Preferences saved. You can extend your profile from the dashboard.',
+      })
+      .subscribe({
+        next: () => {
+          this.saving.set(false);
+          void this.router.navigate(['/dashboard']);
+        },
+        error: (err: unknown) => {
+          this.saving.set(false);
+          const msg =
+            err && typeof err === 'object' && 'error' in err
+              ? JSON.stringify((err as { error: unknown }).error)
+              : 'Could not save preferences. Is MS-User running?';
+          this.saveError.set(msg);
+        },
+      });
   }
 }

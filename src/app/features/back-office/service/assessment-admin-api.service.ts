@@ -1,0 +1,132 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+
+export interface CategoryAdminRow {
+  id: number;
+  code: string;
+  title: string;
+  description: string | null;
+  questionCount: number;
+}
+
+export interface ChoiceAdminRow {
+  id: number;
+  label: string;
+  correct: boolean;
+  sortOrder: number;
+}
+
+export interface QuestionAdminRow {
+  id: number;
+  categoryId: number;
+  prompt: string;
+  points: number;
+  difficulty: string;
+  active: boolean;
+  /** Tag for topic-based quizzes (e.g. java). */
+  topic?: string | null;
+  choices: ChoiceAdminRow[];
+}
+
+@Injectable({ providedIn: 'root' })
+export class AssessmentAdminApiService {
+  private readonly http = inject(HttpClient);
+
+  private base(): string {
+    return environment.assessmentApiUrl.replace(/\/$/, '');
+  }
+
+  private adminHeaders(): HttpHeaders {
+    return new HttpHeaders({
+      'Content-Type': 'application/json',
+      'X-Admin-Api-Key': environment.assessmentAdminApiKey,
+    });
+  }
+
+  listCategories(): Observable<CategoryAdminRow[]> {
+    return this.http.get<CategoryAdminRow[]>(`${this.base()}/admin/categories`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  createCategory(body: { code: string; title: string; description?: string | null }): Observable<CategoryAdminRow> {
+    return this.http.post<CategoryAdminRow>(`${this.base()}/admin/categories`, body, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  updateCategory(
+    id: number,
+    body: { code: string; title: string; description?: string | null }
+  ): Observable<CategoryAdminRow> {
+    return this.http.put<CategoryAdminRow>(`${this.base()}/admin/categories/${id}`, body, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  deleteCategory(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/admin/categories/${id}`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  listQuestions(categoryId: number): Observable<QuestionAdminRow[]> {
+    return this.http.get<QuestionAdminRow[]>(`${this.base()}/admin/categories/${categoryId}/questions`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  createQuestion(
+    categoryId: number,
+    body: { prompt: string; points: number; difficulty: string; active: boolean; topic?: string | null }
+  ): Observable<QuestionAdminRow> {
+    return this.http.post<QuestionAdminRow>(
+      `${this.base()}/admin/categories/${categoryId}/questions`,
+      body,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  updateQuestion(
+    questionId: number,
+    body: { prompt: string; points: number; difficulty: string; active: boolean; topic?: string | null }
+  ): Observable<QuestionAdminRow> {
+    return this.http.put<QuestionAdminRow>(`${this.base()}/admin/questions/${questionId}`, body, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  deleteQuestion(questionId: number): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/admin/questions/${questionId}`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  createChoice(
+    questionId: number,
+    body: { label: string; correct: boolean; sortOrder: number }
+  ): Observable<ChoiceAdminRow> {
+    return this.http.post<ChoiceAdminRow>(
+      `${this.base()}/admin/questions/${questionId}/choices`,
+      body,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  updateChoice(
+    choiceId: number,
+    body: { label: string; correct: boolean; sortOrder: number }
+  ): Observable<ChoiceAdminRow> {
+    return this.http.put<ChoiceAdminRow>(`${this.base()}/admin/choices/${choiceId}`, body, {
+      headers: this.adminHeaders(),
+    });
+  }
+
+  deleteChoice(choiceId: number): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/admin/choices/${choiceId}`, {
+      headers: this.adminHeaders(),
+    });
+  }
+}

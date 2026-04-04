@@ -6,7 +6,6 @@ import { StepSituationComponent } from './steps/step-situation.component';
 import { StepCareerGoalComponent } from './steps/step-career-goal.component';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import { ProfileApiService } from '../profile/profile-api.service';
-import { careerPathToAssessmentSkill } from './onboarding-assessment-mapping';
 
 @Component({
   selector: 'app-onboarding',
@@ -16,7 +15,6 @@ import { careerPathToAssessmentSkill } from './onboarding-assessment-mapping';
   styleUrl: './onboarding.component.scss',
 })
 export class OnboardingComponent implements OnInit {
-  /** Situation + career goal only — skills come from assessments. */
   totalSteps = 2;
 
   localDemoBanner = signal(false);
@@ -58,7 +56,7 @@ export class OnboardingComponent implements OnInit {
       return;
     }
     if (step === 2) {
-      void this.savePreferencesAndStartAssessment();
+      void this.savePreferencesAndFinish();
     }
   }
 
@@ -76,10 +74,9 @@ export class OnboardingComponent implements OnInit {
     }
   }
 
-  private savePreferencesAndStartAssessment(): void {
+  private savePreferencesAndFinish(): void {
     const situation = this.situationSelection() || 'student';
     const careerPath = this.careerSelection() || 'fullstack';
-    const skill = careerPathToAssessmentSkill(careerPath);
 
     this.saveError.set(null);
     this.saving.set(true);
@@ -89,19 +86,12 @@ export class OnboardingComponent implements OnInit {
         careerPath,
         answers: [],
         skillScores: {},
-        developmentPlanNotes:
-          'Skills and progress will be built from your assessments. You can retake assessments to update your profile.',
+        developmentPlanNotes: 'Preferences saved. You can extend your profile from the dashboard.',
       })
       .subscribe({
         next: () => {
           this.saving.set(false);
-          void this.router.navigate(['/dashboard/assessment/unified-start'], {
-            queryParams: {
-              skill,
-              situation,
-              careerPath,
-            },
-          });
+          void this.router.navigate(['/dashboard']);
         },
         error: (err: unknown) => {
           this.saving.set(false);

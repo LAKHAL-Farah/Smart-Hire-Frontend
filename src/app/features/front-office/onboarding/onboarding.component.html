@@ -73,7 +73,7 @@
         (selectionChange)="careerSelection.set($event)"
       />
       <p class="ob-after-career-hint">
-        Next you will start a <strong>coding + technical quiz</strong> assessment tailored to your target. Your profile and skills are built from that assessment — not from this short setup.
+        When you continue, your preferences are saved and you will go to the <strong>dashboard</strong>.
       </p>
       @if (saveError(); as err) {
         <p class="ob-save-error">{{ err }}</p>
@@ -105,7 +105,7 @@
       @if (saving()) {
         Saving…
       } @else if (currentStep() === 2) {
-        Save &amp; start assessment
+        Save &amp; continue
       } @else {
         Next
       }

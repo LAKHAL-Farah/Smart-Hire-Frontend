@@ -56,7 +56,7 @@ export class StepResultsComponent {
 
   nextSteps = [
     { num: '1', text: 'Review your profile & linked accounts', link: '/dashboard/profile' },
-    { num: '2', text: 'Validate skills with a SmartHire assessment', link: '/dashboard/assessment/start' },
+    { num: '2', text: 'Explore your dashboard and roadmap', link: '/dashboard' },
     { num: '3', text: 'Explore your roadmap & CV tools', link: '/dashboard/roadmap' },
   ];
 

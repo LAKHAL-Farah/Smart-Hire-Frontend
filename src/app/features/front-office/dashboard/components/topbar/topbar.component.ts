@@ -1,11 +1,9 @@
-import { Component, Input, signal, HostListener, ElementRef, computed } from '@angular/core';
+import { Component, Input, signal, HostListener, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { filter } from 'rxjs/operators';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { AssessmentGateService } from '../../../../../core/services/assessment-gate.service';
 
 @Component({
   selector: 'app-topbar',
@@ -24,7 +22,6 @@ export class TopbarComponent {
 
   private pageTitles: Record<string, string> = {
     '/dashboard/roadmap': 'Roadmap',
-    '/dashboard/assessment': 'Assessment',
     '/dashboard/projects': 'Projects',
     '/dashboard/interview': 'Interview Simulation',
     '/dashboard/cv': 'CV Optimizer',
@@ -36,12 +33,9 @@ export class TopbarComponent {
   private url = signal('');
   pageTitle = computed(() => this.pageTitles[this.url()] ?? '');
 
-  constructor(
-    private router: Router,
-    private assessmentGate: AssessmentGateService
-  ) {
+  constructor(private router: Router) {
     this.url.set(this.router.url);
-    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: any) => {
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: NavigationEnd) => {
       this.url.set(e.urlAfterRedirects ?? e.url);
     });
   }
@@ -62,23 +56,14 @@ export class TopbarComponent {
     this.avatarOpen.update(v => !v);
   }
 
-  navLocked(path: string): boolean {
-    return this.assessmentGate.isNavItemLocked(path);
-  }
-
-  goAssessmentFirst(): void {
-    this.avatarOpen.set(false);
-    void this.router.navigate(['/dashboard', 'assessment', 'unified-start']);
-  }
-
   signOut(): void {
     this.avatarOpen.set(false);
     console.log('Sign out');
   }
 
   @HostListener('document:click', ['$event'])
-  onDocClick(e: Event): void {
-    // Close dropdowns on outside click — simplified
+  onDocClick(_e: Event): void {
+    /* close dropdowns if needed */
   }
 
   private getFormattedDate(): string {

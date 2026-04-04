@@ -120,8 +120,8 @@
           </dl>
         </section>
         <section class="profile-section profile-section--learning">
-          <h2 class="profile-section__title">Assessment &amp; skills</h2>
-          <p class="profile-section__hint">Skills and scores come from your assessments. Goals below are from your short onboarding (situation &amp; target).</p>
+          <h2 class="profile-section__title">Goals &amp; onboarding</h2>
+          <p class="profile-section__hint">Your situation and career target from onboarding.</p>
           @if (onboardingSnap(); as ob) {
             <p class="profile-learning-line">
               <strong>Onboarding:</strong>
@@ -134,9 +134,8 @@
           @if (developmentPlanText()) {
             <p class="profile-dev-plan">{{ developmentPlanText() }}</p>
           } @else if (!onboardingSnap()) {
-            <p class="profile-muted">Complete <a routerLink="/onboarding">onboarding</a> then an assessment to build your profile.</p>
+            <p class="profile-muted">Complete <a routerLink="/onboarding">onboarding</a> to personalize your profile.</p>
           }
-          <a routerLink="/dashboard/assessment/unified-start" class="profile-cta-assessment">Start or retake assessment</a>
         </section>
       </div>
 
@@ -159,7 +158,7 @@
               @if (developmentPlanText()) {
                 {{ developmentPlanText() }}
               } @else {
-                Your development focus will appear here after onboarding and assessments. The sections below show sample portfolio analytics — connect GitHub or LinkedIn in a future release for live data.
+                Your development focus will appear here after onboarding. The sections below show sample portfolio analytics — connect GitHub or LinkedIn in a future release for live data.
               }
             </p>
           </section>
@@ -276,53 +275,11 @@
       <!-- ══ ASSESSMENTS TAB ══ -->
       @if (activeTab() === 'assessments') {
         <div class="tab-content">
-          <!-- Radar chart -->
           <section class="content-card">
-            <h3 class="content-card__title">Skill Radar</h3>
-            <div class="radar-wrap">
-              <svg viewBox="0 0 300 300" class="radar-svg">
-                <!-- Grid hexagons -->
-                @for (level of [1, 0.75, 0.5, 0.25]; track level) {
-                  <polygon
-                    [attr.points]="getHexPoints(150, 150, 120 * level)"
-                    fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-                }
-                <!-- Axes -->
-                @for (i of [0,1,2,3,4,5]; track i) {
-                  <line [attr.x1]="150" [attr.y1]="150"
-                    [attr.x2]="150 + 120 * cos(i)" [attr.y2]="150 + 120 * sin(i)"
-                    stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-                }
-                <!-- Data polygon -->
-                <polygon [attr.points]="radarPointsStr()" fill="rgba(46,232,165,0.12)" stroke="#2ee8a5" stroke-width="2"/>
-                <!-- Data dots + labels -->
-                @for (axis of radarAxesLive(); track axis.label; let i = $index) {
-                  <circle [attr.cx]="150 + axis.value * 1.2 * cos(i)"
-                          [attr.cy]="150 + axis.value * 1.2 * sin(i)"
-                          r="4" fill="#2ee8a5"/>
-                  <text [attr.x]="150 + 140 * cos(i)" [attr.y]="150 + 140 * sin(i)"
-                    text-anchor="middle" fill="#a0a0b8" font-size="11" font-family="Inter">
-                    {{ axis.label }}
-                  </text>
-                }
-              </svg>
-            </div>
-          </section>
-
-          <!-- Score History -->
-          <section class="content-card">
-            <h3 class="content-card__title">Score History</h3>
-            <div class="score-history">
-              @for (entry of scoreHistoryLive(); track $index) {
-                <div class="history-row">
-                  <span class="history-row__date">{{ entry.date }}</span>
-                  <div class="history-row__bar-track">
-                    <div class="history-row__bar-fill" [style.width.%]="entry.score"></div>
-                  </div>
-                  <span class="history-row__score">{{ entry.score }}%</span>
-                </div>
-              }
-            </div>
+            <h3 class="content-card__title">Assessments</h3>
+            <p class="content-card__text">
+              Skill assessment results and history can be shown here when wired to MS-Assessment.
+            </p>
           </section>
         </div>
       }

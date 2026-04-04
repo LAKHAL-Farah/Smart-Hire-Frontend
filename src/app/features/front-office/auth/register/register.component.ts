@@ -19,13 +19,23 @@ export class RegisterComponent {
   private readonly profileApi = inject(ProfileApiService);
   private readonly router = inject(Router);
 
-  fullName = '';
+  firstName = '';
+  lastName = '';
   email = '';
   password = '';
+  location = '';
+  githubUrl = '';
+  linkedinUrl = '';
+  headline = '';
   acceptTerms = false;
   nameTouched = false;
+  lastNameTouched = false;
   emailTouched = false;
   passwordTouched = false;
+  locationTouched = false;
+  githubTouched = false;
+  linkedinTouched = false;
+  headlineTouched = false;
 
   selectedRole = signal<'candidate' | 'recruiter'>('candidate');
   showPassword = signal(false);
@@ -45,6 +55,19 @@ export class RegisterComponent {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.email);
   }
 
+  isValidUrl(s: string): boolean {
+    const t = s?.trim() ?? '';
+    if (!t) {
+      return true;
+    }
+    try {
+      new URL(t);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   hasUppercase(): boolean { return /[A-Z]/.test(this.password); }
   hasNumber(): boolean { return /[0-9]/.test(this.password); }
   hasSpecial(): boolean { return /[^A-Za-z0-9]/.test(this.password); }
@@ -60,15 +83,34 @@ export class RegisterComponent {
 
   onSubmit(): void {
     this.nameTouched = true;
+    this.lastNameTouched = true;
     this.emailTouched = true;
     this.passwordTouched = true;
+    this.locationTouched = true;
+    this.githubTouched = true;
+    this.linkedinTouched = true;
+    this.headlineTouched = true;
 
-    if (!this.fullName.trim() || !this.isEmailValid() || !this.password || !this.acceptTerms) return;
+    const fn = this.firstName.trim();
+    const ln = this.lastName.trim();
+    if (
+      !fn ||
+      !ln ||
+      !this.isEmailValid() ||
+      !this.password ||
+      !this.acceptTerms ||
+      !this.location.trim() ||
+      (this.githubUrl.trim() && !this.isValidUrl(this.githubUrl)) ||
+      (this.linkedinUrl.trim() && !this.isValidUrl(this.linkedinUrl)) ||
+      !this.headline.trim() ||
+      this.headline.length > 200
+    ) {
+      return;
+    }
 
     this.isLoading.set(true);
-    const parts = this.fullName.trim().split(/\s+/);
-    const firstName = parts[0] || 'Candidate';
-    const lastName = parts.slice(1).join(' ') || '';
+    const firstName = fn;
+    const lastName = ln;
 
     this.profileApi
       .createUserWithProfile({

@@ -17,7 +17,6 @@ export interface ProfileApiResponse {
   avatarUrl?: string;
   email?: string;
   onboardingJson?: string | null;
-  assessmentSkillsJson?: string | null;
 }
 
 export interface UserApiResponse {
@@ -29,7 +28,6 @@ export interface UserApiResponse {
 export interface OnboardingCompletePayload {
   situation: string;
   careerPath: string;
-  /** Empty when only saving preferences (skills come from assessments). */
   answers?: string[];
   skillScores?: Record<string, number>;
   developmentPlanNotes?: string;
@@ -68,26 +66,6 @@ export class ProfileApiService {
           if (environment.localAuthFallback) {
             setLocalDemoMode(true);
             return of(this.persistLocalOnboarding(id, body));
-          }
-          return throwError(() => err);
-        })
-      );
-  }
-
-  mergeAssessmentSkills(assessmentSkillsJson: string, userId?: string): Observable<ProfileApiResponse> {
-    const id = userId ?? getProfileUserUuid();
-    if (isLocalDemoMode()) {
-      return of(this.persistLocalAssessmentMerge(id, assessmentSkillsJson));
-    }
-    return this.http
-      .patch<ProfileApiResponse>(`${this.base}/profiles/user/${id}/assessment-skills`, {
-        assessmentSkillsJson,
-      })
-      .pipe(
-        catchError((err) => {
-          if (environment.localAuthFallback) {
-            setLocalDemoMode(true);
-            return of(this.persistLocalAssessmentMerge(id, assessmentSkillsJson));
           }
           return throwError(() => err);
         })
@@ -150,7 +128,6 @@ export class ProfileApiService {
       email,
       headline: '',
       onboardingJson: null,
-      assessmentSkillsJson: null,
     };
   }
 
@@ -181,31 +158,5 @@ export class ProfileApiService {
     };
     this.writeLocalProfile(merged);
     return merged;
-  }
-
-  private persistLocalAssessmentMerge(id: string, assessmentSkillsJson: string): ProfileApiResponse {
-    const prev = this.readLocalProfile(id);
-    let next: Record<string, unknown> = {};
-    try {
-      next = JSON.parse(assessmentSkillsJson) as Record<string, unknown>;
-    } catch {
-      next = { raw: assessmentSkillsJson };
-    }
-    let prevMap: Record<string, unknown> = {};
-    if (prev.assessmentSkillsJson) {
-      try {
-        prevMap = JSON.parse(prev.assessmentSkillsJson) as Record<string, unknown>;
-      } catch {
-        prevMap = {};
-      }
-    }
-    const combined = { ...prevMap, ...next, updatedAt: new Date().toISOString() };
-    const out: ProfileApiResponse = {
-      ...prev,
-      userId: id,
-      assessmentSkillsJson: JSON.stringify(combined),
-    };
-    this.writeLocalProfile(out);
-    return out;
   }
 }

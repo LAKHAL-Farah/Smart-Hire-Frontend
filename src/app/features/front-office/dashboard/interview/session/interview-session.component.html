@@ -35,11 +35,11 @@
 
     <!-- Category & Difficulty chips -->
     <div class="question-chips">
-      <span class="chip chip--category" [class.chip--technical]="currentQuestion()?.category === 'technical'" [class.chip--behavioral]="currentQuestion()?.category === 'behavioral'">
-        {{ currentQuestion()?.category === 'technical' ? 'Technical' : 'Behavioral' }}
+      <span class="chip chip--category" [class.chip--technical]="currentQuestion().category === 'technical'" [class.chip--behavioral]="currentQuestion().category === 'behavioral'">
+        {{ currentQuestion().category === 'technical' ? 'Technical' : 'Behavioral' }}
       </span>
-      <span class="chip chip--difficulty" [style.background]="'rgba(' + (currentQuestion()?.difficultyColor === '#ef4444' ? '239,68,68' : currentQuestion()?.difficultyColor === '#f59e0b' ? '245,158,11' : '16,185,129') + ',.12)'" [style.color]="currentQuestion()?.difficultyColor">
-        {{ currentQuestion()?.difficulty }}
+      <span class="chip chip--difficulty" [style.background]="'rgba(' + (currentQuestion().difficultyColor === '#ef4444' ? '239,68,68' : currentQuestion().difficultyColor === '#f59e0b' ? '245,158,11' : '16,185,129') + ',.12)'" [style.color]="currentQuestion().difficultyColor">
+        {{ currentQuestion().difficulty }}
       </span>
     </div>
 

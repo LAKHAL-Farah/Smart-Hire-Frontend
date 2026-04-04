@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../auth/auth.service';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
-import { AssessmentGateService } from '../../../../../core/services/assessment-gate.service';
 
 interface NavItem {
   icon: string;
@@ -22,7 +21,6 @@ export class SidebarComponent {
   @Input() disabled = false;
   mainItems: NavItem[] = [
     { icon: 'layout-grid', label: 'Dashboard', route: '/dashboard' },
-    { icon: 'activity', label: 'Assessment', route: '/dashboard/assessment' },
     { icon: 'clock', label: 'Roadmap', route: '/dashboard/roadmap' },
     { icon: 'book-open', label: 'Projects', route: '/dashboard/projects' },
   ];
@@ -37,16 +35,7 @@ export class SidebarComponent {
     { icon: 'briefcase', label: 'Jobs', route: '/dashboard/jobs' },
   ];
 
-  readonly lockHint = 'Complete your first assessment to unlock';
-
-  constructor(
-    private authService: AuthService,
-    private assessmentGate: AssessmentGateService
-  ) {}
-
-  navLocked(route: string): boolean {
-    return this.assessmentGate.isNavItemLocked(route);
-  }
+  constructor(private authService: AuthService) {}
 
   logout(): void {
     this.authService.logout();

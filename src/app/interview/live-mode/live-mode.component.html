@@ -1,108 +1,150 @@
-<div class="live-screen">
-  <app-live-top-bar
-    [sessionTimerSeconds]="sessionTimerSeconds"
-    [currentQuestionIndex]="currentQuestionIndex"
-    [totalQuestions]="totalQuestions"
-    [liveSubMode]="liveSubMode"
-    [companyName]="companyName"
-  ></app-live-top-bar>
+<div class="live-root">
+  <header class="top-strip">
+    <div class="title-group">
+      <p class="kicker">LIVE INTERVIEW</p>
+      <h1>{{ companyName }}</h1>
+      <p class="subline">{{ liveSubMode === 'PRACTICE_LIVE' ? 'Practice mode with feedback' : 'Test mode' }}</p>
+    </div>
 
-  <div class="call-area">
-    <div class="ai-tile-wrapper" data-testid="ai-tile">
-      <app-participant-tile
-        [name]="'Alex · ' + companyName"
-        [isAI]="true"
-        [isSpeaking]="aiSpeaking"
-        [isLarge]="true"
-      ></app-participant-tile>
-      <app-question-caption [questionText]="currentQuestionText"></app-question-caption>
-      <div class="transcript-banner" *ngIf="latestTranscriptLine" data-testid="transcript-banner">
-        {{ latestTranscriptLine }}
+    <div class="meta-group">
+      <div class="chip">State {{ stateStep }}/6</div>
+      <div class="chip">Q{{ currentQuestionIndex + 1 }} / {{ totalQuestions }}</div>
+      <div class="chip">{{ formattedSessionTime }}</div>
+      <button class="leave-btn" type="button" (click)="onLeave()">Leave</button>
+    </div>
+  </header>
+
+  <main class="stage-grid">
+    <section class="interviewer-panel">
+      <div class="avatar-shell" [class.speaking]="aiSpeaking">
+        <div class="avatar-core"></div>
       </div>
-    </div>
 
-    <div class="candidate-tile-wrapper" [class.camera-off]="!cameraEnabled" data-testid="candidate-tile">
-      <app-participant-tile
-        [name]="'You'"
-        [isAI]="false"
-        [isSpeaking]="candidateSpeaking"
-        [videoStream]="videoStream"
-        [micLevel]="micLevel"
-        [isLarge]="false"
-      ></app-participant-tile>
+      <p class="state-label">{{ interviewState }}</p>
 
-      <div class="muted-badge" *ngIf="!micEnabled" data-testid="muted-badge">
-        <mat-icon>mic_off</mat-icon>Muted
+      <div class="question-card">
+        <p class="question-title">Current prompt</p>
+        <p class="question-text">{{ currentQuestionText || 'Preparing your first question...' }}</p>
       </div>
+
+      <p class="transcript-line" *ngIf="latestTranscriptLine">{{ latestTranscriptLine }}</p>
+    </section>
+
+    <aside class="candidate-panel" [class.recording]="interviewState === 'CANDIDATE_RESPONSE'">
+      <div class="camera-frame" [class.camera-off]="!cameraEnabled">
+        <video #cameraPreview autoplay muted playsinline></video>
+      </div>
+
+      <div class="meter-group">
+        <div class="meter-label-row">
+          <span>Voice level</span>
+          <span>{{ (micLevel * 100) | number: '1.0-0' }}%</span>
+        </div>
+        <div class="meter-track"><span class="meter-fill" [style.width.%]="micLevel * 100"></span></div>
+
+        <div class="meter-label-row">
+          <span>Silence lock</span>
+          <span>{{ silenceProgressPercent | number: '1.0-0' }}%</span>
+        </div>
+        <div class="meter-track silence">
+          <span class="meter-fill" [style.width.%]="silenceProgressPercent"></span>
+        </div>
+
+        <div class="meter-label-row">
+          <span>Recording</span>
+          <span>{{ (recordingDurationMs / 1000) | number: '1.1-1' }}s</span>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button type="button" (click)="onMicToggle(!micEnabled)">
+          {{ micEnabled ? 'Mute Mic' : 'Unmute Mic' }}
+        </button>
+        <button type="button" (click)="onCameraToggle(!cameraEnabled)">
+          {{ cameraEnabled ? 'Hide Cam' : 'Show Cam' }}
+        </button>
+      </div>
+
+      <button
+        class="finish-btn"
+        type="button"
+        (click)="onFinishAnswerNow()"
+        [disabled]="interviewState !== 'CANDIDATE_RESPONSE'"
+      >
+        Finish Answer Now
+      </button>
+    </aside>
+  </main>
+
+  <app-feedback-overlay
+    *ngIf="showFeedbackOverlay"
+    [feedbackText]="readFeedbackText()"
+    [score]="readFeedbackScore()"
+    [aiFeedback]="readFeedbackAiFeedback()"
+    (retryClicked)="onRetry()"
+    (continueClicked)="onContinue()"
+  ></app-feedback-overlay>
+
+  <div class="modal-backdrop" *ngIf="isPreparing">
+    <div class="modal-card">
+      <div class="loader-ring"></div>
+      <h2>Preparing your live interview</h2>
+      <p>Initializing camera, microphone, and question sequence.</p>
     </div>
   </div>
 
-  <app-live-controls
-    [micEnabled]="micEnabled"
-    [cameraEnabled]="cameraEnabled"
-    (micToggled)="onMicToggle($event)"
-    (cameraToggled)="onCameraToggle($event)"
-    (leaveClicked)="onLeave()"
-  ></app-live-controls>
-
-  <div
-    class="autoplay-prompt"
-    *ngIf="showAutoplayPrompt"
-    (click)="onAutoplayResume()"
-    data-testid="autoplay-prompt"
-  >
-    <div class="autoplay-card">
-      <mat-icon>play_circle</mat-icon>
-      <span>Tap to hear the interviewer</span>
+  <div class="modal-backdrop" *ngIf="showWrappingUp">
+    <div class="modal-card">
+      <div class="loader-ring"></div>
+      <h2>Generating final report</h2>
+      <p>Your interview is complete. We are building your detailed assessment.</p>
     </div>
   </div>
 
-  <div class="debug-toast" *ngIf="isDebugMode" data-testid="debug-toast">
-    <div class="debug-title">DEBUG</div>
-    <div class="debug-row">
-      <span class="lbl">WS</span>
-      <span class="val ws" [attr.data-ws]="debugWsState">{{ debugWsState }}</span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Event</span>
-      <span class="val event">{{ debugLastEvent }}</span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Session</span>
-      <span class="val">{{ sessionId }}</span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Turn</span>
-      <span class="val turn" [attr.data-turn]="currentTurn">{{ currentTurn }}</span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Audio</span>
-      <span class="val audio">{{ debugAudioState }}</span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Background</span>
-      <span class="val bg">{{ debugBgTask }}</span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Greeting</span>
-      <span class="val url">
-        {{ (debugGreetingUrl | slice:0:34) }}{{ debugGreetingUrl.length > 34 ? '...' : '' }}
-      </span>
-    </div>
-    <div class="debug-row">
-      <span class="lbl">Transcript</span>
-      <span class="val transcript">
-        {{ (debugLastTranscript | slice:0:40) }}{{ debugLastTranscript.length > 40 ? '...' : '' }}
-      </span>
-    </div>
-    <div class="debug-dots" *ngIf="debugBgTask !== 'nothing'">
-      <span></span><span></span><span></span>
+  <div class="modal-backdrop autoplay" *ngIf="showAutoplayPrompt" (click)="onAutoplayResume()">
+    <div class="modal-card autoplay-card">
+      <h2>Tap to continue audio</h2>
+      <p>Your browser blocked autoplay. Tap anywhere to resume interviewer speech.</p>
     </div>
   </div>
 
-  <!-- Main AI speech audio — one element, reused for every TTS phrase -->
-  <audio #mainAudioEl style="display:none" preload="auto"></audio>
+  <section class="debug-panel" *ngIf="isDebugMode">
+    <div class="debug-header">
+      <h3>Debug panel</h3>
+      <span>{{ debugBackgroundTask }}</span>
+    </div>
 
-  <!-- Filler audio — separate element so fillers never interrupt main speech -->
-  <audio #fillerAudioEl style="display:none" preload="auto"></audio>
+    <div class="debug-grid">
+      <div>Transition</div>
+      <div>{{ debugStateTransition }}</div>
+
+      <div>State</div>
+      <div>{{ interviewState }}</div>
+
+      <div>Raw RMS</div>
+      <div>{{ debugRawRms | number: '1.3-3' }}</div>
+
+      <div>Smoothed RMS</div>
+      <div>{{ debugSmoothedRms | number: '1.3-3' }}</div>
+
+      <div>Silence ms</div>
+      <div>{{ continuousSilenceMs | number: '1.0-0' }}</div>
+
+      <div>Queue</div>
+      <div>{{ debugQueueState.isPlaying ? 'playing' : 'idle' }} / {{ debugQueueState.pendingCount }} pending</div>
+
+      <div>Queue src</div>
+      <div>{{ debugQueueState.currentSource || '—' }}</div>
+
+      <div>Error</div>
+      <div>{{ debugLastError }}</div>
+    </div>
+
+    <div class="debug-events" *ngIf="debugEvents.length">
+      <p>Recent events</p>
+      <ul>
+        <li *ngFor="let line of debugEvents">{{ line }}</li>
+      </ul>
+    </div>
+  </section>
 </div>

@@ -34,6 +34,7 @@ function simplify(envelope) {
   const simple = {
     type,
     message: envelope.message || null,
+    audioUrl: payload.audioUrl || null,
     transcript: payload.transcript || null,
     text: payload.text || null,
     nextQuestionText: payload.nextQuestionText || null,

@@ -41,10 +41,10 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
-    path: 'interview/report/:id',
+    path: 'interview/report/:sessionId',
     loadComponent: () =>
-      import('./features/front-office/dashboard/interview/report/interview-report.component').then(
-        (m) => m.InterviewReportComponent
+      import('./interview/report/live-report.component').then(
+        (m) => m.LiveReportComponent
       ),
   },
   {

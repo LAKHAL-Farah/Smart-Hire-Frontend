@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, NgModule } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { Events } from '@tsparticles/engine';
 import { Observable } from 'rxjs';
 
 @Injectable({
@@ -20,8 +21,8 @@ id!: number;
     return this.http.get<any[]>(this.apiUrl);
   }
 
-  addEvent(event: any) {
-    return this.http.post(`${this.apiUrl}`, event);
+  addEvent(event: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}`, event);
   }
   deleteEvent(id: number) {
     return this.http.delete(`${this.apiUrl}/${id}`);

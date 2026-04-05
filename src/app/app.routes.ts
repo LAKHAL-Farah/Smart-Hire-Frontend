@@ -188,6 +188,13 @@ export const routes: Routes = [
             (m) => m.EventManagementComponent
           ),
       },
+        {
+        path: 'reviews',
+        loadComponent: () =>
+          import('./features/back-office/admin/reviews/reviews.component').then(
+            (m) => m.ReviewsComponent 
+          ),
+      },
       {
         path: 'settings',
         loadComponent: () =>

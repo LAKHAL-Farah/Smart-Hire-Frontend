@@ -33,7 +33,7 @@ export class AdminSidebarComponent {
   ];
    contentEventItems: NavItem[] = [
     { icon: 'briefcase', label: 'Event Management', route: '/admin/events' },
-    { icon: 'circle-question-mark', label: 'Event Review ', route: '#' },
+    { icon: 'circle-question-mark', label: 'Event Review ', route: '/admin/reviews' },
     { icon: 'clock', label: 'Hackathon ', route: '/admin/hackathons' },
   ];
 

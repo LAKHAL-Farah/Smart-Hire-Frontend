@@ -13,6 +13,7 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(),
     
     
+    
      // ✅ FIX PRINCIPAL
   ]
 };

@@ -16,6 +16,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { InterviewApiService } from '../../interview-api.service';
 import { MicButtonComponent } from '../mic-button/mic-button.component';
+import { TtsService } from '../../../../../../shared/services/tts.service';
 
 interface PaletteComponent {
   type: string;
@@ -70,6 +71,7 @@ export interface CanvasEdge {
 export class CloudInterviewComponent implements OnChanges, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly interviewApi = inject(InterviewApiService);
+  private readonly ttsService = inject(TtsService);
   private readonly apiBase = this.resolveBaseUrl();
   private readonly apiRoot = this.resolveApiRoot(this.apiBase);
 
@@ -497,10 +499,6 @@ export class CloudInterviewComponent implements OnChanges, OnDestroy {
 
         const audioUrl = this.interviewApi.resolveBackendAssetUrl(response.audioUrl);
         const deleteUrl = this.interviewApi.resolveBackendAssetUrl(response.audioUrl);
-
-        const audio = new Audio(audioUrl);
-        audio.preload = 'auto';
-        audio.load();
         let cleaned = false;
         let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -518,10 +516,7 @@ export class CloudInterviewComponent implements OnChanges, OnDestroy {
         };
 
         cleanupTimer = setTimeout(() => cleanup(), 4000);
-
-        audio.onended = () => cleanup();
-        audio.onerror = () => cleanup();
-        audio.play().catch(() => cleanup());
+        this.ttsService.playAbsoluteUrl(audioUrl).then(() => cleanup()).catch(() => cleanup());
       },
       error: () => {
         // Speech prompt is best-effort.

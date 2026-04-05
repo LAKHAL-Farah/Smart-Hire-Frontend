@@ -7,6 +7,7 @@ import { MicButtonComponent } from '../mic-button/mic-button.component';
 import { CodeExecutionResponse, CodeExecutionService, TestCaseResult } from '../../services/code-execution.service';
 import { InterviewQuestionDto } from '../../interview.models';
 import { InterviewApiService } from '../../interview-api.service';
+import { TtsService } from '../../../../../../shared/services/tts.service';
 
 @Component({
   selector: 'app-coding-interview',
@@ -19,6 +20,7 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
   private readonly codeExecutionService = inject(CodeExecutionService);
   private readonly http = inject(HttpClient);
   private readonly interviewApi = inject(InterviewApiService);
+  private readonly ttsService = inject(TtsService);
   private readonly apiBase = this.resolveBaseUrl();
   private readonly apiRoot = this.resolveApiRoot(this.apiBase);
 
@@ -62,7 +64,7 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.editorCode = this.buildStarterCode(this.selectedLanguage);
-    this.totalCount = this.metadata?.testCases?.length || 0;
+    this.totalCount = this.resolveTotalCountFromMetadata();
     this.lastQuestionId = this.question?.id ?? null;
   }
 
@@ -120,7 +122,7 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
     this.testCaseResults = [];
     this.hasRunOnce = false;
     this.passedCount = 0;
-    this.totalCount = this.metadata?.testCases?.length || 0;
+    this.totalCount = this.resolveTotalCountFromMetadata();
     this.executionStatus = '';
     this.executionError = '';
     this.compilationError = '';
@@ -241,23 +243,8 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
           };
 
           const absoluteAudioUrl = this.interviewApi.resolveBackendAssetUrl(response.audioUrl);
-          const audio = new Audio(absoluteAudioUrl);
-
           cleanupTimer = setTimeout(() => cleanupAudio(), 20000);
-
-          audio.onended = () => {
-            cleanupAudio();
-          };
-
-          audio.onerror = () => {
-            cleanupAudio();
-          };
-
-          audio
-            .play()
-            .catch(() => {
-              cleanupAudio();
-            });
+          this.ttsService.playAbsoluteUrl(absoluteAudioUrl).then(() => cleanupAudio()).catch(() => cleanupAudio());
         },
         error: () => {
           this.aiSpeaking = false;
@@ -332,7 +319,7 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
     this.hasRunOnce = false;
     this.testCaseResults = [];
     this.passedCount = 0;
-    this.totalCount = this.metadata?.testCases?.length || 0;
+    this.totalCount = this.resolveTotalCountFromMetadata();
     this.executionStatus = '';
     this.executionError = '';
     this.compilationError = '';
@@ -434,6 +421,20 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
     }
 
     return this.question?.sampleCode || '';
+  }
+
+  private resolveTotalCountFromMetadata(): number {
+    const tests = this.metadata?.testCases;
+    if (Array.isArray(tests) && tests.length > 0) {
+      return tests.length;
+    }
+
+    const tryThese = this.metadata?.tryThese;
+    if (Array.isArray(tryThese) && tryThese.length > 0) {
+      return tryThese.length;
+    }
+
+    return 0;
   }
 
   private resolveProblemKey(): string {

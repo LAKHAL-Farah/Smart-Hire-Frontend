@@ -20,6 +20,7 @@ import { StreakService } from '../services/streak.service';
 import {
   AnswerEvaluationDto,
   InterviewQuestionDto,
+  InterviewReportDto,
   InterviewSessionDto,
   SessionAnswerDto,
   SessionQuestionOrderDto,
@@ -28,6 +29,8 @@ import {
 const EVALUATION_WAIT_TIMEOUT_MS = 70_000;
 const EVALUATION_POLL_INTERVAL_MS = 2000;
 const EVALUATION_POLL_ATTEMPTS = 35;
+const REPORT_READY_POLL_INTERVAL_MS = 1500;
+const REPORT_REDIRECT_DELAY_MS = 550;
 const TIMER_RADIUS = 54;
 const TIMER_CIRCUMFERENCE = 2 * Math.PI * TIMER_RADIUS;
 
@@ -107,6 +110,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
   readonly showAbandonConfirm = signal(false);
   readonly showStreakCelebration = signal(false);
+  readonly reportPreparing = signal(false);
+  readonly reportPreparingMessage = signal('Getting the report ready...');
   readonly streakCelebrationValue = signal(0);
   readonly celebrationConfettiPieces = Array.from({ length: 20 }, (_, index) => index);
 
@@ -638,11 +643,16 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   }
 
   private async completeAndGenerateReport(): Promise<void> {
+    this.reportPreparing.set(true);
+    this.reportPreparingMessage.set('Getting the report ready...');
+
     try {
       const previousStreak = this.streakService.getSnapshot()?.currentStreak ?? 0;
 
-      await firstValueFrom(this.api.completeSession(this.sessionId));
-      const report = await firstValueFrom(this.api.generateReport(this.sessionId));
+      await this.tryCompleteSessionBestEffort();
+      const report = await this.resolveFinalReport(this.sessionId);
+
+      this.reportPreparingMessage.set('Report is ready. Redirecting...');
 
       if (this.currentUserId) {
         const updatedStreak = await firstValueFrom(this.streakService.refresh(this.currentUserId));
@@ -654,10 +664,57 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
         }
       }
 
-      this.router.navigate(['/dashboard/interview/report', report.id]);
+      await this.sleep(REPORT_REDIRECT_DELAY_MS);
+      await this.router.navigate(['/dashboard/interview/report', report.id]);
     } catch {
-      this.loadError.set('Session completed but report generation failed.');
-      this.router.navigate(['/dashboard/interview']);
+      this.reportPreparingMessage.set('Unexpected issue while preparing the report. Retrying...');
+
+      try {
+        const report = await this.resolveFinalReport(this.sessionId);
+        await this.sleep(REPORT_REDIRECT_DELAY_MS);
+        await this.router.navigate(['/dashboard/interview/report', report.id]);
+      } catch {
+        this.loadError.set('Report generation is taking longer than expected. Please refresh this page.');
+      }
+    } finally {
+      this.reportPreparing.set(false);
+    }
+  }
+
+  private async tryCompleteSessionBestEffort(): Promise<void> {
+    try {
+      await firstValueFrom(this.api.completeSession(this.sessionId));
+    } catch {
+      // Session may already be completed; continue with report resolution.
+    }
+  }
+
+  private async resolveFinalReport(sessionId: number): Promise<InterviewReportDto> {
+    let attempt = 0;
+
+    while (true) {
+      attempt += 1;
+      this.reportPreparingMessage.set(`Getting the report ready... (attempt ${attempt})`);
+
+      try {
+        const generated = await firstValueFrom(this.api.generateReport(sessionId));
+        if (generated?.id) {
+          return generated;
+        }
+      } catch {
+        // Continue and try reading existing report by session.
+      }
+
+      try {
+        const existing = await firstValueFrom(this.api.getReportBySession(sessionId));
+        if (existing?.id) {
+          return existing;
+        }
+      } catch {
+        // Report can still be in progress.
+      }
+
+      await this.sleep(REPORT_READY_POLL_INTERVAL_MS);
     }
   }
 

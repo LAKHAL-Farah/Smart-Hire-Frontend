@@ -911,6 +911,50 @@
   justify-content: center;
 }
 
+.report-preparing-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(1, 6, 12, 0.82);
+  z-index: 10005;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.report-preparing-card {
+  width: min(420px, 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(46, 232, 165, 0.38);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(3, 8, 20, 0.96));
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  padding: 24px 18px;
+}
+
+.report-preparing-card h3 {
+  margin: 12px 0 8px;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.2rem;
+  color: #d1fae5;
+}
+
+.report-preparing-card p {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(203, 213, 225, 0.92);
+}
+
+.report-preparing-spinner {
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid rgba(148, 163, 184, 0.34);
+  border-top-color: #2ee8a5;
+  animation: spin 0.9s linear infinite;
+}
+
 .streak-celebration-card {
   width: min(420px, calc(100vw - 24px));
   border-radius: var(--radius-lg);

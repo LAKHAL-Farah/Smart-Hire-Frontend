@@ -1,0 +1,47 @@
+<div class="report-screen">
+  <div class="report-card">
+    <h1>Interview Report</h1>
+    <p class="session-id">Session #{{ sessionId }}</p>
+
+    <div *ngIf="isLoading" class="loading">Generating your report...</div>
+
+    <div *ngIf="reportError" class="error-msg">{{ reportError }}</div>
+
+    <div *ngIf="report && !isLoading" class="report-data">
+      <div class="score-hero">
+        <span class="score-value">{{ numberField('finalScore') | number:'1.1-1' }}</span>
+        <span class="score-label">/ 10</span>
+      </div>
+
+      <div class="score-breakdown">
+        <div class="score-row">
+          <span>Content Avg</span>
+          <span>{{ numberField('contentAvg') | number:'1.1-1' }}</span>
+        </div>
+        <div class="score-row">
+          <span>Communication Avg</span>
+          <span>{{ communicationScore | number:'1.1-1' }}</span>
+        </div>
+        <div class="score-row">
+          <span>Technical Avg</span>
+          <span>{{ numberField('technicalAvg') | number:'1.1-1' }}</span>
+        </div>
+      </div>
+
+      <div class="recruiter-verdict" *ngIf="textField('recruiterVerdict') as verdict">
+        <h3>Recruiter's Take</h3>
+        <p>{{ verdict }}</p>
+      </div>
+    </div>
+
+    <p class="message">
+      You can return to the dashboard at any time to review your latest progress.
+    </p>
+
+    <div class="actions">
+      <button class="btn-secondary" (click)="goToDashboard()">
+        Back to Dashboard
+      </button>
+    </div>
+  </div>
+</div>

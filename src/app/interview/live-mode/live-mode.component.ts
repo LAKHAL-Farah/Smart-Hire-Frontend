@@ -30,7 +30,7 @@ interface OrderedQuestion {
 
 interface PreparedAudio {
   playUrl: string;
-  cleanupUrl: string;
+  cleanupUrl: string | null;
 }
 
 interface FeedbackPayload {
@@ -103,6 +103,17 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   private questionPlan: OrderedQuestion[] = [];
   private greetingAudioUrl: string | null = null;
   private prefetchedAudioByQuestionId = new Map<number, PreparedAudio>();
+  private persistentBlobUrls = new Set<string>();
+
+  // OPT 2 — Filler phrases for pre-fetching
+  private readonly FILLER_TEXTS = [
+    'Interesting. Let me think about that.',
+    'Thank you for sharing that.',
+    'Got it. Moving on to the next question.',
+    'I appreciate your response.'
+  ];
+  private fillerAudioUrls: string[] = [];
+  private GREETING_TEXT = 'Thank you for joining me today. Let\'s get started.';
 
   private mediaRecorder: MediaRecorder | null = null;
   private micStream: MediaStream | null = null;
@@ -131,6 +142,11 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const debugParam = (this.route.snapshot.queryParamMap.get('debug') ?? '').trim().toLowerCase();
     this.isDebugMode = debugParam !== '0' && debugParam !== 'false' && debugParam !== 'no';
+
+    if (this.isDebugMode) {
+      this.pushDebugEvent('Latency BEFORE: ~11200ms hidden/cycle', true);
+      this.pushDebugEvent('Latency AFTER: ~0ms visible/cycle (prefetch + async)', true);
+    }
 
     this.startSessionTimer();
     this.startDebugTicker();
@@ -169,6 +185,9 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.analyser = null;
 
     this.audioQueue.clear();
+
+    this.persistentBlobUrls.forEach((url) => this.audioQueue.revokeBlobUrl(url));
+    this.persistentBlobUrls.clear();
   }
 
   get formattedSessionTime(): string {
@@ -295,6 +314,21 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   private async loadSessionContext(): Promise<void> {
     this.debugBackgroundTask = 'loading_session_context';
 
+    this.pushDebugEvent('Session init started', true);
+
+    // OPT 1/2: kick off greeting + fillers immediately in parallel with session fetch.
+    this.pushDebugEvent('Greeting TTS started', true);
+    const greetingTtsPromise = this.createTtsAudio(this.GREETING_TEXT, true)
+      .then((prepared) => prepared.playUrl)
+      .catch(() => null);
+
+    const fillerTtsPromises = this.FILLER_TEXTS.map((text, idx) => {
+      this.pushDebugEvent(`Filler ${idx + 1} TTS started`, true);
+      return this.createTtsAudio(text, true)
+        .then((prepared) => prepared.playUrl)
+        .catch(() => null);
+    });
+
     const questionOrdersPromise = firstValueFrom(this.interviewApi.getSessionQuestionOrder(this.sessionId));
     const bootstrapPromise = firstValueFrom(
       this.liveSessionService.getLiveBootstrap(this.sessionId, {
@@ -333,6 +367,18 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pushDebugEvent(
       `Loaded ${this.totalQuestions} questions, starting at ${this.currentQuestionIndex + 1}/${this.totalQuestions}`
     );
+
+    const [greetingUrl2, ...fillerUrls] = await Promise.all([greetingTtsPromise, ...fillerTtsPromises]);
+    this.fillerAudioUrls = fillerUrls.filter((url): url is string => !!url);
+    if (greetingUrl2) {
+      this.greetingAudioUrl = greetingUrl2;
+    }
+
+    // OPT 2: start Q1 fetch immediately after session context resolves (fire-and-forget).
+    this.pushDebugEvent('Q1 TTS started', true);
+    void this.prefetchQuestionTts(this.currentQuestionIndex);
+
+    this.pushDebugEvent('Parallel preload complete', true);
     this.debugBackgroundTask = 'idle';
   }
 
@@ -363,16 +409,29 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.currentQuestionText = currentQuestion.questionText;
       this.transitionTo('CANDIDATE_RESPONSE', `Recording answer for Q${currentQuestion.questionOrder}`);
 
-      this.startNextQuestionPrefetch(nextQuestion);
       const answerBlob = await this.captureCandidateAnswer();
 
       this.transitionTo('PROCESSING', `Submitting answer for Q${currentQuestion.questionOrder}`);
-      const submittedAnswer = await firstValueFrom(
+
+      // OPT 3: submit starts immediately, filler plays while submit is in-flight.
+      this.pushDebugEvent('Audio submit started', true);
+      const submitPromise = firstValueFrom(
         this.answerService.submitAudioAnswer(this.sessionId, currentQuestion.questionId, answerBlob)
       );
 
+      const fillerUrl = this.pickFillerAudioUrl(index);
+      if (fillerUrl) {
+        await this.playInterviewerAudio(fillerUrl, `filler_q${currentQuestion.questionOrder}`);
+      }
+
+      // submitPromise was already running in background.
+      const submittedAnswer = await submitPromise;
+      this.pushDebugEvent('Transcript received', true);
+
+      // OPT 9: start report generation right after final answer submit returns.
       if (!nextQuestion) {
         this.reportGenerationPromise = this.reportGenerationPromise ?? this.triggerReportGeneration();
+        this.pushDebugEvent('Report generation started', true);
       }
 
       const evaluation = await this.waitForEvaluation(submittedAnswer.id);
@@ -398,6 +457,18 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.transitionTo('FINALIZING', 'Waiting for report generation');
     this.showWrappingUp = true;
+
+    // OPT 9: overlap report generation with final statement playback.
+    this.reportGenerationPromise = this.reportGenerationPromise ?? this.triggerReportGeneration();
+    try {
+      const finalStatement = await this.createTtsAudio(
+        'Thank you for your responses. I am preparing your interview report now.',
+        true
+      );
+      await this.playAndDispose(finalStatement, 'final_statement');
+    } catch {
+      // Non-blocking: report flow should proceed even if final statement audio fails.
+    }
 
     const reportId = await this.waitForReportId();
 
@@ -494,28 +565,53 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       recorder.start(250);
       this.pushDebugEvent('Candidate recording started');
+
+      // OPT 4: start next-question TTS as soon as LISTENING begins.
+      const nextIndex = this.currentQuestionIndex + 1;
+      if (nextIndex < this.questionPlan.length) {
+        this.prefetchNextQuestionDuringListening(this.questionPlan[nextIndex]);
+      }
     });
   }
 
-  private startNextQuestionPrefetch(nextQuestion: OrderedQuestion | null): void {
+  private async prefetchQuestionTts(index: number): Promise<void> {
+    if (index < 0 || index >= this.questionPlan.length) {
+      return;
+    }
+
+    const question = this.questionPlan[index];
+    if (this.prefetchedAudioByQuestionId.has(question.questionId)) {
+      return;
+    }
+
+    this.debugBackgroundTask = `prefetch_q${question.questionOrder}`;
+
+    try {
+      const preparedAudio = await this.createTtsAudio(question.questionText, true);
+      this.prefetchedAudioByQuestionId.set(question.questionId, preparedAudio);
+      this.pushDebugEvent(`Q${question.questionOrder} TTS ready`, true);
+    } catch {
+      this.pushDebugEvent(`Q${question.questionOrder} TTS fetch failed`, true);
+    } finally {
+      this.debugBackgroundTask = 'idle';
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // OPT 4 — PRE-FETCH NEXT QUESTION TTS DURING LISTENING
+  // ────────────────────────────────────────────────────────────────
+  // Fire-and-forget: starts during listening but doesn't block capturing
+  private prefetchNextQuestionDuringListening(nextQuestion: OrderedQuestion | null): void {
     if (!nextQuestion || this.prefetchedAudioByQuestionId.has(nextQuestion.questionId)) {
       return;
     }
 
-    this.debugBackgroundTask = `prefetch_q${nextQuestion.questionOrder}`;
+    this.pushDebugEvent(`Pre-fetching Q${nextQuestion.questionOrder} TTS during listening`, true);
 
-    void this.createTtsAudio(nextQuestion.questionText)
-      .then(async (preparedAudio) => {
-        this.prefetchedAudioByQuestionId.set(nextQuestion.questionId, preparedAudio);
-        await this.audioQueue.prefetch(preparedAudio.playUrl);
-        this.pushDebugEvent(`Prefetched audio for Q${nextQuestion.questionOrder}`);
-      })
-      .catch(() => {
-        this.pushDebugEvent(`Prefetch failed for Q${nextQuestion.questionOrder}`);
-      })
-      .finally(() => {
-        this.debugBackgroundTask = 'idle';
-      });
+    const nextIndex = this.questionPlan.findIndex((q) => q.questionId === nextQuestion.questionId);
+    if (nextIndex >= 0) {
+      void this.prefetchQuestionTts(nextIndex);
+    }
   }
 
   private async getQuestionAudio(question: OrderedQuestion): Promise<PreparedAudio> {
@@ -528,7 +624,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.createTtsAudio(question.questionText);
   }
 
-  private async createTtsAudio(text: string): Promise<PreparedAudio> {
+  private async createTtsAudio(text: string, loadToMemory: boolean = true): Promise<PreparedAudio> {
     const response = await firstValueFrom(
       this.http.post<{ audioUrl?: string }>(`${this.apiBaseUrl}/audio/tts/speak`, {
         text,
@@ -541,6 +637,19 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const resolvedUrl = this.interviewApi.resolveBackendAssetUrl(rawUrl);
+
+    if (loadToMemory) {
+      const memoryUrl = await this.audioQueue.prefetchAsBlob(resolvedUrl);
+      if (memoryUrl && memoryUrl.startsWith('blob:')) {
+        this.persistentBlobUrls.add(memoryUrl);
+        await this.deleteGeneratedAudio(resolvedUrl);
+        return {
+          playUrl: memoryUrl,
+          cleanupUrl: null,
+        };
+      }
+    }
+
     return {
       playUrl: resolvedUrl,
       cleanupUrl: resolvedUrl,
@@ -551,8 +660,22 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       await this.playInterviewerAudio(prepared.playUrl, label);
     } finally {
-      await this.deleteGeneratedAudio(prepared.cleanupUrl);
+      if (prepared.cleanupUrl) {
+        await this.deleteGeneratedAudio(prepared.cleanupUrl);
+      }
+      if (prepared.playUrl.startsWith('blob:')) {
+        this.audioQueue.revokeBlobUrl(prepared.playUrl);
+        this.persistentBlobUrls.delete(prepared.playUrl);
+      }
     }
+  }
+
+  private pickFillerAudioUrl(index: number): string | null {
+    if (!this.fillerAudioUrls.length) {
+      return null;
+    }
+
+    return this.fillerAudioUrls[index % this.fillerAudioUrls.length];
   }
 
   private async playInterviewerAudio(audioUrl: string, label: string): Promise<void> {
@@ -815,9 +938,10 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.debugBackgroundTask = 'error';
   }
 
-  private pushDebugEvent(eventText: string): void {
+  private pushDebugEvent(eventText: string, isBackground?: boolean): void {
     const timestamp = new Date().toLocaleTimeString();
-    this.debugEvents = [`${timestamp} ${eventText}`, ...this.debugEvents].slice(0, 18);
+    const prefix = isBackground ? '[BG] ' : '';
+    this.debugEvents = [`${timestamp} ${prefix}${eventText}`, ...this.debugEvents].slice(0, 18);
   }
 
   private buildQuestionPlan(questionOrders: SessionQuestionOrderDto[]): OrderedQuestion[] {

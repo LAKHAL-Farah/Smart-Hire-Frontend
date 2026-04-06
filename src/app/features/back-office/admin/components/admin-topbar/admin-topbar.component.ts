@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
+import { AutheService } from '../../../../front-office/auth/authe.service';
 
 @Component({
   selector: 'app-admin-topbar',
@@ -14,8 +15,12 @@ import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 })
 export class AdminTopbarComponent {
   searchQuery = '';
+  userName = localStorage.getItem('userName') || 'Admin User';
+  email = localStorage.getItem('email')  || 'Admim@gmail.com';
   notifOpen = signal(false);
   avatarOpen = signal(false);
+
+  constructor(private router: Router, private authService: AutheService ){}
 
   notifications = [
     { text: 'API error rate spike — 4.2% in last 15 min', time: '2 min ago', color: '#ef4444' },
@@ -35,12 +40,13 @@ export class AdminTopbarComponent {
   }
 
   signOut(): void {
-    this.avatarOpen.set(false);
+    this.authService.logout();
+    this.router.navigate(['/login']);
     console.log('Admin sign out');
   }
 
   @HostListener('document:click', ['$event'])
   onDocClick(e: Event): void {
-    // Close dropdowns on outside click
+
   }
 }

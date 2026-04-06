@@ -56,12 +56,21 @@ export interface InterviewReportDto {
   voiceAvg: number | null;
   technicalAvg: number | null;
   presenceAvg: number | null;
+  overallStressLevel: 'low' | 'medium' | 'high' | null;
+  avgStressScore: number | null;
+  questionStressScores: QuestionStressScoreDto[] | null;
   strengths: string | null;
   weaknesses: string | null;
   recommendations: string | null;
   recruiterVerdict: string | null;
   pdfUrl: string | null;
   generatedAt: string | null;
+}
+
+export interface QuestionStressScoreDto {
+  questionIndex: number;
+  score: number;
+  level: 'low' | 'medium' | 'high';
 }
 
 export interface InterviewQuestionDto {

@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { LiveSessionReadyPayload, LiveSessionStartRequest, LiveSessionStartResponse } from '../models/live-session.model';
+import { InterviewReportDto } from '../../features/front-office/dashboard/interview/interview.models';
 
 @Injectable({ providedIn: 'root' })
 export class LiveSessionService {
@@ -37,12 +38,12 @@ export class LiveSessionService {
     return this.http.get<LiveSessionReadyPayload>(url);
   }
 
-  getReportBySession(sessionId: number): Observable<{ id: number }> {
-    return this.http.get<{ id: number }>(`${this.apiBaseUrl}/reports/session/${sessionId}`);
+  getReportBySession(sessionId: number): Observable<InterviewReportDto> {
+    return this.http.get<InterviewReportDto>(`${this.apiBaseUrl}/reports/session/${sessionId}`);
   }
 
-  getReport(sessionId: number): Observable<Record<string, unknown>> {
-    return this.http.get<Record<string, unknown>>(`${this.apiBaseUrl}/reports/session/${sessionId}`);
+  getReport(sessionId: number): Observable<InterviewReportDto> {
+    return this.http.get<InterviewReportDto>(`${this.apiBaseUrl}/reports/session/${sessionId}`);
   }
 
   private resolveBaseUrl(): string {

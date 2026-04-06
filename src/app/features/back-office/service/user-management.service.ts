@@ -56,7 +56,7 @@ export interface UserUpdateRequest {
 })
 export class UserManagementService {
   private http = inject(HttpClient);
-  private apiUrl = `http://localhost:8082/api/v1/users`;
+  private apiUrl = `http://localhost:8080/MS-USER/api/v1/users`;
 
   getAllUsers(): Observable<ApiUser[]> {
     return this.http.get<ApiUser[]>(this.apiUrl).pipe(

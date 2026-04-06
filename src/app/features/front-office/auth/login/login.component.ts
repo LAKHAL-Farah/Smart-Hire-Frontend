@@ -1,10 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { AuthService } from '../auth.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { AutheService } from '../authe.service';
 
 @Component({
   selector: 'app-login',
@@ -24,7 +25,7 @@ export class LoginComponent {
   showPassword = signal(false);
   isLoading = signal(false);
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, private autheService: AutheService, private router: Router) {}
 
   isEmailValid(): boolean {
     if (!this.email) return false;
@@ -47,16 +48,18 @@ export class LoginComponent {
     console.log('Validation passed, starting login...');
     this.isLoading.set(true);
     
-    this.authService.login(this.email, this.password)
-      .then((result) => {
-        console.log('Login successful:', result);
+    this.autheService.login(this.email, this.password).subscribe({
+      next: () => {
+        console.log('Login successful');
         this.isLoading.set(false);
-      })
-      .catch((err) => {
+        this.autheService.redirectAfterLogin();
+      },
+      error: (err) => {
         console.error('Login error:', err);
         this.isLoading.set(false);
-        this.errorMsg = 'Login failed: ' + err;
-      });
+        this.errorMsg = 'Login failed: ' + err.message;
+      }
+    });
   }
 
   oauthLogin(provider: string): void {

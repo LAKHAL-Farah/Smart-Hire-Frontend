@@ -114,7 +114,7 @@ export const routes: Routes = [
     path: 'admin',
     canMatch: [adminCanMatch],
     canActivate: [roleGuard],
-    data: { requiredRoles: ['recruiter','candidate'] },
+    data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent

@@ -17,6 +17,11 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const userRole = localStorage.getItem('role');
   const requiredRoles = route.data['requiredRoles'] as string[] | undefined;
 
+  if(! auth.isLoggedIn()) {
+    void router.navigate(['/login']);
+    return false;
+  }
+
   // If no specific roles required, allow access
   if (!requiredRoles || requiredRoles.length === 0) {
     return true;

@@ -1,5 +1,6 @@
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -13,7 +14,9 @@ import { MLScenarioAnswer, PipelineStage } from '../models/ml-scenario-answer.mo
 import { MlAnswerService } from '../services/ml-answer.service';
 import { MicButtonComponent } from '../../features/front-office/dashboard/interview/components/mic-button/mic-button.component';
 import { AnswerService } from '../../features/front-office/dashboard/interview/services/answer.service';
+import { InterviewApiService } from '../../features/front-office/dashboard/interview/interview-api.service';
 import { SessionAnswerDto } from '../../features/front-office/dashboard/interview/interview.models';
+import { TtsService } from '../../shared/services/tts.service';
 
 @Component({
   selector: 'app-ml-pipeline',
@@ -32,8 +35,13 @@ import { SessionAnswerDto } from '../../features/front-office/dashboard/intervie
   styleUrl: './ml-pipeline.component.scss',
 })
 export class MlPipelineComponent implements OnInit, OnDestroy {
+  private readonly http = inject(HttpClient);
+  private readonly interviewApi = inject(InterviewApiService);
+  private readonly ttsService = inject(TtsService);
   private readonly answerService = inject(AnswerService);
   private readonly mlAnswerService = inject(MlAnswerService);
+  private readonly apiBase = this.resolveBaseUrl();
+  private readonly apiRoot = this.resolveApiRoot(this.apiBase);
 
   private readonly destroy$ = new Subject<void>();
   private readonly pollStop$ = new Subject<void>();
@@ -298,15 +306,37 @@ export class MlPipelineComponent implements OnInit, OnDestroy {
 
   playFollowUpTts(): void {
     const text = this.followUpDisplay;
-    if (!text || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (!text?.trim()) {
       return;
     }
 
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-    window.speechSynthesis.speak(utterance);
+    this.http.post<{ audioUrl?: string }>(`${this.apiRoot}/audio/tts/speak`, { text: text.trim() }).subscribe({
+      next: (response) => {
+        const rawAudioUrl = (response?.audioUrl ?? '').trim();
+        if (!rawAudioUrl) {
+          return;
+        }
+
+        const absoluteAudioUrl = this.interviewApi.resolveBackendAssetUrl(rawAudioUrl);
+        const deleteUrl = this.interviewApi.resolveBackendAssetUrl(rawAudioUrl);
+        let cleaned = false;
+
+        const cleanup = (): void => {
+          if (cleaned) {
+            return;
+          }
+          cleaned = true;
+          this.http.delete(deleteUrl).subscribe({ error: () => undefined });
+        };
+
+        this.ttsService.playAbsoluteUrl(absoluteAudioUrl)
+          .then(() => cleanup())
+          .catch(() => cleanup());
+      },
+      error: () => {
+        // Best effort: follow-up TTS should never block the interview flow.
+      },
+    });
   }
 
   toClock(seconds: number): string {
@@ -413,5 +443,26 @@ export class MlPipelineComponent implements OnInit, OnDestroy {
     }
 
     return [400, 404, 409, 410, 500].includes(error.status);
+  }
+
+  private resolveBaseUrl(): string {
+    const configured = (globalThis.localStorage?.getItem('smarthire.interviewApiBaseUrl') ?? '').trim();
+    if (configured) {
+      return configured.replace(/\/+$/, '');
+    }
+
+    if (globalThis.location?.protocol && globalThis.location?.hostname) {
+      return `${globalThis.location.protocol}//${globalThis.location.hostname}:8081/interview-service/api/v1`;
+    }
+
+    return '/interview-service/api/v1';
+  }
+
+  private resolveApiRoot(apiBase: string): string {
+    if (!apiBase) {
+      return '';
+    }
+
+    return apiBase.replace(/\/api\/v1\/?$/, '');
   }
 }

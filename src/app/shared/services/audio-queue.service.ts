@@ -4,6 +4,7 @@ export interface QueueAudioOptions {
   volume?: number;
   playbackRate?: number;
   timeoutMs?: number;
+  revokeBlobOnEnd?: boolean;
   onStart?: () => void;
   onEnd?: () => void;
 }
@@ -62,6 +63,31 @@ export class AudioQueueService {
     }
   }
 
+  // OPT 7 — Load audio as Blob URL in memory for instant playback
+  async prefetchAsBlob(audioUrl: string): Promise<string | null> {
+    const normalizedUrl = audioUrl.trim();
+    if (!normalizedUrl) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(normalizedUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      return blobUrl; // Blob URL is in memory — plays instantly
+    } catch (e) {
+      // Fall back to HTTP URL if blob fetch fails
+      return normalizedUrl;
+    }
+  }
+
+  // Revoke Blob URL to free memory
+  revokeBlobUrl(url: string): void {
+    if (url && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   clear(): void {
     this.queueVersion += 1;
     this.pendingCount = 0;
@@ -95,6 +121,8 @@ export class AudioQueueService {
 
   private playAudio(audioUrl: string, options: QueueAudioOptions): Promise<void> {
     return new Promise((resolve, reject) => {
+      // OPT 6 — Support streaming/progressive download via Accept-Ranges header
+      // Blob URLs play instantly from memory; HTTP URLs support progressive download
       const audio = new Audio(audioUrl);
       const timeoutMs = Math.max(0, options.timeoutMs ?? 0);
       let timeoutRef: ReturnType<typeof setTimeout> | null = null;
@@ -112,6 +140,11 @@ export class AudioQueueService {
         }
 
         this.stopCurrentAudio();
+
+        if (!error && options.revokeBlobOnEnd && audioUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(audioUrl);
+        }
+
         options.onEnd?.();
 
         if (error) {

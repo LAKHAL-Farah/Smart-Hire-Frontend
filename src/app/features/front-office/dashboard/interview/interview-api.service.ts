@@ -29,6 +29,7 @@ export class InterviewApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = this.resolveBaseUrl();
   private readonly backendOrigin = this.resolveOrigin(this.baseUrl);
+  private readonly adminInterviewBaseUrl = `${this.baseUrl}/admin/interview`;
 
   resolveBackendAssetUrl(value: string): string {
     if (!value) {
@@ -298,6 +299,125 @@ export class InterviewApiService {
   addQuestionTag(questionId: number, tag: string): Observable<InterviewQuestionDto> {
     const params = new HttpParams().set('tag', tag);
     return this.http.post<InterviewQuestionDto>(`${this.baseUrl}/questions/${questionId}/tags`, null, { params });
+  }
+
+  getAdminOverviewStats(): Observable<any> {
+    return this.http.get<any>(`${this.adminInterviewBaseUrl}/stats/overview`);
+  }
+
+  getAdminSessionsOverTime(days = 30): Observable<any[]> {
+    const params = new HttpParams().set('days', String(days));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/sessions-over-time`, { params });
+  }
+
+  getAdminScoresOverTime(days = 30): Observable<any[]> {
+    const params = new HttpParams().set('days', String(days));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/scores-over-time`, { params });
+  }
+
+  getAdminByRole(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/by-role`);
+  }
+
+  getAdminByType(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/by-type`);
+  }
+
+  getAdminByDifficulty(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/by-difficulty`);
+  }
+
+  getAdminScoreDistribution(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/score-distribution`);
+  }
+
+  getAdminMostAsked(limit = 10): Observable<any[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/questions/most-asked`, { params });
+  }
+
+  getAdminHardest(limit = 10): Observable<any[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/questions/hardest`, { params });
+  }
+
+  getAdminLongestAnswers(limit = 10): Observable<any[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/questions/longest-answers`, { params });
+  }
+
+  getAdminBestPerforming(limit = 10): Observable<any[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/questions/best-performing`, { params });
+  }
+
+  getAdminLeaderboard(limit = 10): Observable<any[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/leaderboard`, { params });
+  }
+
+  getAdminTopStreaks(limit = 10): Observable<any[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/stats/streaks/top`, { params });
+  }
+
+  getAdminQuestions(params?: {
+    role?: string;
+    type?: string;
+    difficulty?: string;
+    active?: string;
+    search?: string;
+    page?: number;
+    size?: number;
+  }): Observable<any> {
+    let httpParams = new HttpParams();
+    if (params?.role) {
+      httpParams = httpParams.set('role', params.role);
+    }
+    if (params?.type) {
+      httpParams = httpParams.set('type', params.type);
+    }
+    if (params?.difficulty) {
+      httpParams = httpParams.set('difficulty', params.difficulty);
+    }
+    if (params?.active) {
+      httpParams = httpParams.set('active', params.active);
+    }
+    if (params?.search) {
+      httpParams = httpParams.set('search', params.search);
+    }
+    if (params?.page !== undefined) {
+      httpParams = httpParams.set('page', String(params.page));
+    }
+    if (params?.size !== undefined) {
+      httpParams = httpParams.set('size', String(params.size));
+    }
+
+    return this.http.get<any>(`${this.adminInterviewBaseUrl}/questions`, { params: httpParams });
+  }
+
+  getAdminQuestionById(id: number): Observable<InterviewQuestionDto> {
+    return this.http.get<InterviewQuestionDto>(`${this.adminInterviewBaseUrl}/questions/${id}`);
+  }
+
+  createAdminQuestion(payload: any): Observable<InterviewQuestionDto> {
+    return this.http.post<InterviewQuestionDto>(`${this.adminInterviewBaseUrl}/questions`, payload);
+  }
+
+  updateAdminQuestion(id: number, payload: any): Observable<InterviewQuestionDto> {
+    return this.http.put<InterviewQuestionDto>(`${this.adminInterviewBaseUrl}/questions/${id}`, payload);
+  }
+
+  deleteAdminQuestion(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.adminInterviewBaseUrl}/questions/${id}`);
+  }
+
+  toggleAdminQuestionActive(id: number): Observable<InterviewQuestionDto> {
+    return this.http.patch<InterviewQuestionDto>(`${this.adminInterviewBaseUrl}/questions/${id}/toggle-active`, {});
+  }
+
+  getAdminCoverage(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.adminInterviewBaseUrl}/questions/coverage`);
   }
 
   private resolveBaseUrl(): string {

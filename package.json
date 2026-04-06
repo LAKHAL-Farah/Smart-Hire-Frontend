@@ -27,6 +27,7 @@
     "@tsparticles/angular": "^3.0.0",
     "@tsparticles/engine": "^3.9.1",
     "@tsparticles/slim": "^3.9.1",
+    "chart.js": "^4.5.1",
     "gsap": "^3.14.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",

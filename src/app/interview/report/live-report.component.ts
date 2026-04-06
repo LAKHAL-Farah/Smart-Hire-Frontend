@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LiveSessionService } from '../services/live-session.service';
+import { InterviewReportDto, QuestionStressScoreDto } from '../../features/front-office/dashboard/interview/interview.models';
 
 @Component({
   selector: 'app-live-report',
@@ -12,7 +13,7 @@ import { LiveSessionService } from '../services/live-session.service';
 })
 export class LiveReportComponent implements OnInit {
   sessionId = 0;
-  report: Record<string, unknown> | null = null;
+  report: InterviewReportDto | null = null;
   isLoading = true;
   reportError = '';
 
@@ -44,12 +45,28 @@ export class LiveReportComponent implements OnInit {
   }
 
   get communicationScore(): number {
-    if (!this.report) {
-      return 0;
-    }
-
-    const score = this.report['communicationAvg'] ?? this.report['voiceAvg'];
+    const score = this.report?.voiceAvg;
     return typeof score === 'number' ? score : 0;
+  }
+
+  get overallStressLevel(): 'low' | 'medium' | 'high' | null {
+    const level = this.report?.overallStressLevel;
+    if (level === 'low' || level === 'medium' || level === 'high') {
+      return level;
+    }
+    return null;
+  }
+
+  get avgStressScore(): number | null {
+    const value = this.report?.avgStressScore;
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  }
+
+  get questionStressScores(): QuestionStressScoreDto[] {
+    if (!this.report?.questionStressScores || !Array.isArray(this.report.questionStressScores)) {
+      return [];
+    }
+    return this.report.questionStressScores;
   }
 
   numberField(key: string): number {
@@ -57,7 +74,7 @@ export class LiveReportComponent implements OnInit {
       return 0;
     }
 
-    const value = this.report[key];
+    const value = this.report[key as keyof InterviewReportDto] as unknown;
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value;
     }
@@ -73,7 +90,7 @@ export class LiveReportComponent implements OnInit {
       return '';
     }
 
-    const value = this.report[key];
+    const value = this.report[key as keyof InterviewReportDto] as unknown;
     return typeof value === 'string' ? value : '';
   }
 }

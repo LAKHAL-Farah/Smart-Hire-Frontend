@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { AnswerService } from '../../features/front-office/dashboard/interview/services/answer.service';
 import { InterviewApiService } from '../../features/front-office/dashboard/interview/interview-api.service';
 import { AnswerEvaluationDto, SessionQuestionOrderDto } from '../../features/front-office/dashboard/interview/interview.models';
@@ -10,6 +10,7 @@ import { AudioQueueService, AudioQueueSnapshot } from '../../shared/services/aud
 import { LiveSubMode } from '../models/live-session.model';
 import { LiveSessionService } from '../services/live-session.service';
 import { SilenceDetectionService } from '../services/silence-detection.service';
+import { StressDetectionService, StressQuestionSummary, StressResult } from '../services/stress-detection.service';
 import { FeedbackOverlayComponent } from './components/feedback-overlay/feedback-overlay.component';
 
 type InterviewState =
@@ -48,6 +49,8 @@ interface FeedbackPayload {
 })
 export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('cameraPreview') cameraPreviewRef?: ElementRef<HTMLVideoElement>;
+  @ViewChild('overlayCanvas') overlayRef?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('sparklineCanvas') sparklineRef?: ElementRef<HTMLCanvasElement>;
 
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -57,6 +60,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly interviewApi = inject(InterviewApiService);
   private readonly audioQueue = inject(AudioQueueService);
   private readonly silenceDetectionService = inject(SilenceDetectionService);
+  readonly stressSvc = inject(StressDetectionService);
 
   private readonly apiBaseUrl = this.resolveApiBaseUrl();
   private readonly silenceThresholdRms = 0.02;
@@ -99,6 +103,10 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   showFeedbackOverlay = false;
   private feedbackPayload: FeedbackPayload | null = null;
+  currentStress: StressResult | null = null;
+  stressHistory: number[] = [];
+  questionStressScores: Array<{ questionIndex: number; score: number; level: 'low' | 'medium' | 'high' }> = [];
+  cameraFlashClass: '' | 'flash-low' | 'flash-medium' | 'flash-high' = '';
 
   private questionPlan: OrderedQuestion[] = [];
   private greetingAudioUrl: string | null = null;
@@ -125,6 +133,9 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
   private autoplayResumeResolver: (() => void) | null = null;
   private feedbackContinueResolver: (() => void) | null = null;
   private reportGenerationPromise: Promise<number> | null = null;
+  private stressSub?: Subscription;
+  private overlayFlashTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastStressLevel: 'low' | 'medium' | 'high' = 'low';
 
   private sessionTimerInterval: ReturnType<typeof setInterval> | null = null;
   private debugRefreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -160,6 +171,14 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.interviewCancelled = true;
     this.autoplayResumeResolver = null;
     this.feedbackContinueResolver = null;
+    this.stressSub?.unsubscribe();
+    this.stressSub = undefined;
+    this.stressSvc.stop();
+
+    if (this.overlayFlashTimeout) {
+      clearTimeout(this.overlayFlashTimeout);
+      this.overlayFlashTimeout = null;
+    }
 
     if (this.sessionTimerInterval) {
       clearInterval(this.sessionTimerInterval);
@@ -292,6 +311,215 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.feedbackPayload?.aiFeedback ?? '';
   }
 
+  private async startStressTracking(): Promise<void> {
+    const preview = this.cameraPreviewRef?.nativeElement;
+    if (!preview || !this.sessionId) {
+      return;
+    }
+
+    try {
+      await this.stressSvc.start(preview, this.sessionId);
+    } catch {
+      this.pushDebugEvent('Stress tracking unavailable (service start failed)', true);
+      return;
+    }
+
+    this.stressSub?.unsubscribe();
+    this.stressSub = this.stressSvc.stressResult$.subscribe((result) => {
+      this.currentStress = result;
+
+      if (result.face_detected) {
+        this.stressHistory.push(result.stress_score);
+        if (this.stressHistory.length > 20) {
+          this.stressHistory.shift();
+        }
+      }
+
+      requestAnimationFrame(() => {
+        this.drawSparkline();
+        this.drawFaceOverlay(result);
+      });
+    });
+  }
+
+  private recordQuestionStress(
+    question: OrderedQuestion,
+    summary: StressQuestionSummary | null
+  ): void {
+    if (!question) {
+      return;
+    }
+
+    const scoreBase = typeof summary?.avgScore === 'number' ? summary.avgScore : this.stressSvc.getLatestScore();
+    const score = Math.round(Math.max(0, Math.min(1, scoreBase)) * 1000) / 1000;
+    const level = (summary?.level ?? this.resolveStressLevelFromScore(score)) as 'low' | 'medium' | 'high';
+    const questionIndex = Math.max(0, (question.questionOrder ?? 1) - 1);
+
+    const entry = { questionIndex, score, level };
+    const existingIndex = this.questionStressScores.findIndex((value) => value.questionIndex === questionIndex);
+    if (existingIndex >= 0) {
+      this.questionStressScores[existingIndex] = entry;
+      return;
+    }
+
+    this.questionStressScores = [...this.questionStressScores, entry].sort(
+      (a, b) => a.questionIndex - b.questionIndex
+    );
+  }
+
+  drawSparkline(): void {
+    const canvas = this.sparklineRef?.nativeElement;
+    if (!canvas) {
+      return;
+    }
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (this.stressHistory.length < 2) {
+      return;
+    }
+
+    const data = this.stressHistory;
+    const step = width / (data.length - 1);
+
+    const fillGradient = ctx.createLinearGradient(0, 0, width, 0);
+    fillGradient.addColorStop(0, 'rgba(104,211,145,0.3)');
+    fillGradient.addColorStop(0.5, 'rgba(246,224,94,0.3)');
+    fillGradient.addColorStop(1, 'rgba(252,129,129,0.3)');
+
+    ctx.beginPath();
+    ctx.moveTo(0, height - data[0] * height);
+    for (let i = 1; i < data.length; i += 1) {
+      ctx.lineTo(i * step, height - data[i] * height);
+    }
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fillStyle = fillGradient;
+    ctx.fill();
+
+    const lineGradient = ctx.createLinearGradient(0, 0, width, 0);
+    lineGradient.addColorStop(0, '#68D391');
+    lineGradient.addColorStop(0.5, '#F6E05E');
+    lineGradient.addColorStop(1, '#FC8181');
+
+    ctx.beginPath();
+    ctx.moveTo(0, height - data[0] * height);
+    for (let i = 1; i < data.length; i += 1) {
+      ctx.lineTo(i * step, height - data[i] * height);
+    }
+    ctx.strokeStyle = lineGradient;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const last = data[data.length - 1];
+    const lastX = (data.length - 1) * step;
+    const lastY = height - last * height;
+
+    ctx.beginPath();
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = last > 0.6 ? '#FC8181' : last > 0.35 ? '#F6E05E' : '#68D391';
+    ctx.fill();
+  }
+
+  drawFaceOverlay(result: StressResult): void {
+    const canvas = this.overlayRef?.nativeElement;
+    if (!canvas) {
+      return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width));
+    const height = Math.max(1, Math.round(rect.height));
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    ctx.clearRect(0, 0, width, height);
+    if (!result.face_detected) {
+      return;
+    }
+
+    if (result.level !== this.lastStressLevel) {
+      this.lastStressLevel = result.level;
+      this.flashCameraBorder(result.level);
+    }
+
+    const color =
+      result.level === 'high' ? '#FC8181' : result.level === 'medium' ? '#F6E05E' : '#68D391';
+
+    ctx.beginPath();
+    ctx.arc(width / 2, height * 0.35, width * 0.15, Math.PI, 2 * Math.PI);
+    ctx.strokeStyle = `${color}80`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const eyeY = height * 0.38;
+    const leftEyeX = width * 0.38;
+    const rightEyeX = width * 0.62;
+    const ear = typeof result.ear === 'number' ? result.ear : 0.28;
+    const eyeRadius = Math.max(2, (1 - ear) * 8);
+
+    ctx.beginPath();
+    ctx.arc(leftEyeX, eyeY, eyeRadius, 0, Math.PI * 2);
+    ctx.fillStyle = `${color}60`;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(rightEyeX, eyeY, eyeRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    const browFurrow = typeof result.brow_furrow === 'number' ? result.brow_furrow : 0;
+    if (browFurrow > 0.3) {
+      const browY = height * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(leftEyeX - 8, browY);
+      ctx.lineTo(leftEyeX + 8, browY + browFurrow * 6);
+      ctx.moveTo(rightEyeX + 8, browY);
+      ctx.lineTo(rightEyeX - 8, browY + browFurrow * 6);
+      ctx.strokeStyle = `${color}70`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  private flashCameraBorder(level: 'low' | 'medium' | 'high'): void {
+    this.cameraFlashClass = level === 'high' ? 'flash-high' : level === 'medium' ? 'flash-medium' : 'flash-low';
+
+    if (this.overlayFlashTimeout) {
+      clearTimeout(this.overlayFlashTimeout);
+    }
+
+    this.overlayFlashTimeout = setTimeout(() => {
+      this.cameraFlashClass = '';
+      this.overlayFlashTimeout = null;
+    }, 500);
+  }
+
+  private resolveStressLevelFromScore(score: number): 'low' | 'medium' | 'high' {
+    if (score > 0.6) {
+      return 'high';
+    }
+    if (score > 0.35) {
+      return 'medium';
+    }
+    return 'low';
+  }
+
   private async bootstrapAndRunInterview(): Promise<void> {
     if (!this.sessionId || this.sessionId <= 0) {
       this.handleFatalError(new Error('Invalid session id.'), 'missing_session_id');
@@ -303,6 +531,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       await Promise.all([this.initCamera(), this.initMic()]);
       await this.loadSessionContext();
+      await this.startStressTracking();
 
       this.isPreparing = false;
       await this.runInterview();
@@ -407,6 +636,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
 
       this.currentQuestionIndex = index;
       this.currentQuestionText = currentQuestion.questionText;
+      this.stressSvc.setCurrentQuestion(currentQuestion.questionId);
       this.transitionTo('CANDIDATE_RESPONSE', `Recording answer for Q${currentQuestion.questionOrder}`);
 
       const answerBlob = await this.captureCandidateAnswer();
@@ -420,7 +650,7 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       );
 
       const fillerUrl = this.pickFillerAudioUrl(index);
-      if (fillerUrl) {
+      if (nextQuestion && fillerUrl) {
         await this.playInterviewerAudio(fillerUrl, `filler_q${currentQuestion.questionOrder}`);
       }
 
@@ -428,18 +658,20 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       const submittedAnswer = await submitPromise;
       this.pushDebugEvent('Transcript received', true);
 
+      const stressSummary = await this.stressSvc.finalizeCurrentQuestion();
+      this.recordQuestionStress(currentQuestion, stressSummary);
+
       // OPT 9: start report generation right after final answer submit returns.
       if (!nextQuestion) {
         this.reportGenerationPromise = this.reportGenerationPromise ?? this.triggerReportGeneration();
         this.pushDebugEvent('Report generation started', true);
+        this.transitionTo('FINALIZING', 'Final answer submitted; generating report');
+        this.showWrappingUp = true;
+        break;
       }
 
       const evaluation = await this.waitForEvaluation(submittedAnswer.id);
       await this.maybeShowPracticeFeedback(evaluation, currentQuestion);
-
-      if (!nextQuestion) {
-        break;
-      }
 
       this.currentQuestionIndex = index + 1;
       this.currentQuestionText = nextQuestion.questionText;
@@ -455,20 +687,13 @@ export class LiveModeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    this.transitionTo('FINALIZING', 'Waiting for report generation');
-    this.showWrappingUp = true;
-
-    // OPT 9: overlap report generation with final statement playback.
-    this.reportGenerationPromise = this.reportGenerationPromise ?? this.triggerReportGeneration();
-    try {
-      const finalStatement = await this.createTtsAudio(
-        'Thank you for your responses. I am preparing your interview report now.',
-        true
-      );
-      await this.playAndDispose(finalStatement, 'final_statement');
-    } catch {
-      // Non-blocking: report flow should proceed even if final statement audio fails.
+    if (!this.showWrappingUp) {
+      this.transitionTo('FINALIZING', 'Waiting for report generation');
+      this.showWrappingUp = true;
     }
+
+    // Ensure report generation is running even if it was not started in-loop.
+    this.reportGenerationPromise = this.reportGenerationPromise ?? this.triggerReportGeneration();
 
     const reportId = await this.waitForReportId();
 

@@ -31,8 +31,78 @@
     </section>
 
     <aside class="candidate-panel" [class.recording]="interviewState === 'CANDIDATE_RESPONSE'">
-      <div class="camera-frame" [class.camera-off]="!cameraEnabled">
-        <video #cameraPreview autoplay muted playsinline></video>
+      <div class="camera-stress-container">
+        <div
+          class="camera-frame camera-wrapper"
+          [class.camera-off]="!cameraEnabled"
+          [class.stress-high]="currentStress?.level === 'high'"
+          [class.flash-low]="cameraFlashClass === 'flash-low'"
+          [class.flash-medium]="cameraFlashClass === 'flash-medium'"
+          [class.flash-high]="cameraFlashClass === 'flash-high'"
+        >
+          <video #cameraPreview autoplay muted playsinline class="candidate-camera"></video>
+          <canvas #overlayCanvas class="face-overlay"></canvas>
+
+          <div
+            class="stress-badge"
+            [class.low]="currentStress?.level === 'low'"
+            [class.medium]="currentStress?.level === 'medium'"
+            [class.high]="currentStress?.level === 'high'"
+            *ngIf="currentStress?.face_detected"
+          >
+            <span class="stress-dot"></span>
+            <span class="stress-badge-text">{{ currentStress?.level | titlecase }}</span>
+          </div>
+
+          <div class="no-face-badge" *ngIf="currentStress && !currentStress.face_detected">
+            <span>No face detected</span>
+          </div>
+        </div>
+
+        <div class="stress-meter-container" *ngIf="currentStress?.face_detected">
+          <div class="stress-meter-header">
+            <span class="stress-label">Stress Level</span>
+            <span
+              class="stress-value"
+              [class.low]="currentStress?.level === 'low'"
+              [class.medium]="currentStress?.level === 'medium'"
+              [class.high]="currentStress?.level === 'high'"
+            >
+              {{ (currentStress?.stress_score || 0) | percent: '1.0-0' }}
+            </span>
+          </div>
+
+          <div class="stress-bar-track">
+            <div
+              class="stress-bar-fill"
+              [style.width.%]="(currentStress?.stress_score || 0) * 100"
+              [class.low]="currentStress?.level === 'low'"
+              [class.medium]="currentStress?.level === 'medium'"
+              [class.high]="currentStress?.level === 'high'"
+            ></div>
+          </div>
+
+          <div class="stress-markers">
+            <span class="marker" style="left: 35%">|</span>
+            <span class="marker" style="left: 60%">|</span>
+          </div>
+
+          <canvas #sparklineCanvas class="sparkline-canvas" width="180" height="36"></canvas>
+
+          <div class="question-stress-row" *ngIf="questionStressScores.length > 0">
+            <span class="qs-label">Q scores:</span>
+            <div
+              class="qs-pill"
+              *ngFor="let qs of questionStressScores"
+              [class.low]="qs.level === 'low'"
+              [class.medium]="qs.level === 'medium'"
+              [class.high]="qs.level === 'high'"
+              [title]="'Q' + (qs.questionIndex + 1) + ': ' + qs.level"
+            >
+              Q{{ qs.questionIndex + 1 }}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="meter-group">
@@ -138,6 +208,20 @@
 
       <div>Error</div>
       <div>{{ debugLastError }}</div>
+
+      <div>Stress</div>
+      <div [class.low]="currentStress?.level === 'low'" [class.medium]="currentStress?.level === 'medium'" [class.high]="currentStress?.level === 'high'">
+        {{ currentStress?.stress_score | number: '1.3-3' }} ({{ currentStress?.level || 'none' }})
+      </div>
+
+      <div>EAR</div>
+      <div>{{ currentStress?.ear | number: '1.3-3' }}</div>
+
+      <div>Furrow</div>
+      <div>{{ currentStress?.brow_furrow | number: '1.3-3' }}</div>
+
+      <div>Readings</div>
+      <div>{{ stressHistory.length }}</div>
     </div>
 
     <div class="debug-events" *ngIf="debugEvents.length">

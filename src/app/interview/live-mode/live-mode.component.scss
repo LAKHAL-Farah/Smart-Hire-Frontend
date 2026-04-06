@@ -197,6 +197,244 @@ h1 {
   object-fit: cover;
 }
 
+.camera-stress-container {
+  width: 100%;
+}
+
+.camera-wrapper {
+  position: relative;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.camera-wrapper.stress-high {
+  border-color: rgba(252, 129, 129, 0.5);
+  box-shadow: 0 0 16px rgba(252, 129, 129, 0.2);
+}
+
+.camera-wrapper.flash-low {
+  box-shadow: 0 0 0 2px rgba(104, 211, 145, 0.55);
+}
+
+.camera-wrapper.flash-medium {
+  box-shadow: 0 0 0 2px rgba(246, 224, 94, 0.55);
+}
+
+.camera-wrapper.flash-high {
+  box-shadow: 0 0 0 2px rgba(252, 129, 129, 0.6);
+}
+
+.candidate-camera {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.face-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.stress-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+
+  &.low {
+    background: rgba(39, 103, 73, 0.85);
+    color: #9ae6b4;
+  }
+
+  &.medium {
+    background: rgba(116, 66, 16, 0.85);
+    color: #fbd38d;
+  }
+
+  &.high {
+    background: rgba(116, 42, 42, 0.85);
+    color: #feb2b2;
+  }
+}
+
+.stress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: pulse-dot 1.5s infinite;
+}
+
+.stress-badge.low .stress-dot {
+  background: #68d391;
+}
+
+.stress-badge.medium .stress-dot {
+  background: #f6e05e;
+}
+
+.stress-badge.high .stress-dot {
+  background: #fc8181;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.4);
+    opacity: 0.7;
+  }
+}
+
+.no-face-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: #718096;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.stress-meter-container {
+  margin-top: 8px;
+  background: rgba(17, 17, 39, 0.9);
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stress-meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.stress-label {
+  color: #718096;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.stress-value {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.stress-value.low {
+  color: #68d391;
+}
+
+.stress-value.medium {
+  color: #f6e05e;
+}
+
+.stress-value.high {
+  color: #fc8181;
+}
+
+.stress-bar-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.stress-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease, background-color 0.5s ease;
+}
+
+.stress-bar-fill.low {
+  background: linear-gradient(90deg, #276749, #68d391);
+}
+
+.stress-bar-fill.medium {
+  background: linear-gradient(90deg, #744210, #f6e05e);
+}
+
+.stress-bar-fill.high {
+  background: linear-gradient(90deg, #742a2a, #fc8181);
+}
+
+.stress-markers {
+  position: relative;
+  height: 8px;
+  margin-bottom: 4px;
+}
+
+.stress-markers .marker {
+  position: absolute;
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.2);
+  transform: translateX(-50%);
+}
+
+.sparkline-canvas {
+  width: 100%;
+  height: 36px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.question-stress-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.qs-label {
+  color: #718096;
+  font-size: 9px;
+}
+
+.qs-pill {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.qs-pill.low {
+  background: rgba(104, 211, 145, 0.2);
+  color: #68d391;
+}
+
+.qs-pill.medium {
+  background: rgba(246, 224, 94, 0.2);
+  color: #f6e05e;
+}
+
+.qs-pill.high {
+  background: rgba(252, 129, 129, 0.2);
+  color: #fc8181;
+}
+
 .camera-frame.camera-off video {
   filter: grayscale(0.95) brightness(0.35);
 }
@@ -347,6 +585,18 @@ button:disabled {
 
 .debug-grid div:nth-child(even) {
   word-break: break-all;
+}
+
+.debug-grid .low {
+  color: #68d391;
+}
+
+.debug-grid .medium {
+  color: #f6e05e;
+}
+
+.debug-grid .high {
+  color: #fc8181;
 }
 
 .debug-events {

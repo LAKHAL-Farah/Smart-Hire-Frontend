@@ -237,8 +237,8 @@ export const routes: Routes = [
       {
         path: 'interview',
         loadComponent: () =>
-          import('./features/back-office/admin/interview/admin-interview-hub.component').then(
-            (m) => m.AdminInterviewHubComponent
+          import('./admin/interview-dashboard/interview-dashboard.component').then(
+            (m) => m.InterviewDashboardComponent
           ),
       },
       {

@@ -29,7 +29,7 @@ export class AdminSidebarComponent {
   contentItems: NavItem[] = [
     { icon: 'briefcase', label: 'Job Offers', route: '/admin/jobs' },
     { icon: 'circle-question-mark', label: 'Interview Questions', route: '/admin/questions' },
-    { icon: 'file-text', label: 'Interview Hub', route: '/admin/interview' },
+    { icon: 'file-text', label: 'Interview Dashboard', route: '/admin/interview' },
     { icon: 'clock', label: 'Career Paths', route: '/admin/careers' },
   ];
 

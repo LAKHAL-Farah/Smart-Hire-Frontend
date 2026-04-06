@@ -52,7 +52,7 @@ describe('LiveSessionService', () => {
     const req = httpMock.expectOne('/api/v1/sessions/start-live');
     req.flush({
       sessionId: 42,
-      greetingAudioUrl: '/api/v1/audio/tts_abc.wav',
+      greetingAudioUrl: '/api/v1/audio/tts_abc.mp3',
       firstQuestionText: 'Tell me about yourself',
       firstQuestionId: 11,
       totalQuestions: 5,

@@ -61,7 +61,6 @@ describe('InterviewSetupComponent', () => {
   });
 
   it('should start live session when LIVE mode is selected', fakeAsync(() => {
-    apiSpy.startLiveSession.and.returnValue(of({ sessionId: 77 } as any));
     routerSpy.navigateByUrl.and.returnValue(Promise.resolve(true));
 
     component.setMode('LIVE');
@@ -69,8 +68,8 @@ describe('InterviewSetupComponent', () => {
     component.startInterview();
     flushMicrotasks();
 
-    expect(apiSpy.startLiveSession).toHaveBeenCalled();
-    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/dashboard/interview/live/77?subMode=TEST_LIVE', {
+    expect(apiSpy.startLiveSession).not.toHaveBeenCalled();
+    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/dashboard/interview/live/start?subMode=TEST_LIVE&questionCount=8&company=Tech+Company&targetRole=Software+Engineer', {
       replaceUrl: true,
     });
   }));

@@ -1,11 +1,23 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { of, throwError } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import {
   ProfileApiService,
   ProfileApiResponse,
 } from '../../profile/profile-api.service';
+import {
+  CandidateSessionApiService,
+  isSessionCompleted,
+  isSessionPublished,
+  SessionResponseDto,
+} from '../../assessments/candidate-session-api.service';
+import { CandidateAssignmentApiService } from '../../assessments/candidate-assignment-api.service';
+import { collectCandidateUserIdsForSessions } from '../../assessments/assessment-canonical-user';
+import { getAssessmentUserId } from '../../profile/profile-user-id';
 
 type ProfileTab = 'overview' | 'experience' | 'projects' | 'assessments';
 
@@ -28,6 +40,8 @@ interface OnboardingSnapshot {
 })
 export class ProfileComponent implements OnInit {
   private readonly profileApi = inject(ProfileApiService);
+  private readonly sessionApi = inject(CandidateSessionApiService);
+  private readonly assignmentApi = inject(CandidateAssignmentApiService);
 
   activeTab = signal<ProfileTab>('overview');
   tabs: { id: ProfileTab; label: string }[] = [
@@ -41,6 +55,8 @@ export class ProfileComponent implements OnInit {
   profileLoading = signal(true);
   profileError = signal<string | null>(null);
   onboardingSnap = signal<OnboardingSnapshot | null>(null);
+  /** Live from MS-Assessment — drives skill bars & readiness */
+  assessmentSessions = signal<SessionResponseDto[]>([]);
 
   ringCircum = 2 * Math.PI * 42;
 
@@ -185,9 +201,45 @@ export class ProfileComponent implements OnInit {
 
   displayLocation = computed(() => this.apiProfile()?.location?.trim() ?? '');
 
-  skillGroupsForSidebar = computed(() => this.skillGroups);
+  skillGroupsForSidebar = computed(() => {
+    const sessions = this.assessmentSessions().filter(
+      (s) => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null
+    );
+    if (sessions.length === 0) {
+      return this.skillGroups;
+    }
+    const bestByTitle = new Map<string, number>();
+    for (const s of sessions) {
+      const prev = bestByTitle.get(s.categoryTitle) ?? 0;
+      bestByTitle.set(s.categoryTitle, Math.max(prev, s.scorePercent ?? 0));
+    }
+    const skills = [...bestByTitle.entries()].map(([name, level]) => ({ name, level }));
+    return [{ category: 'Skill assessments', skills }];
+  });
 
-  readinessPct = computed(() => 72);
+  readinessPct = computed(() => {
+    const sessions = this.assessmentSessions().filter(
+      (s) => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null
+    );
+    if (sessions.length === 0) {
+      return 72;
+    }
+    const sum = sessions.reduce((a, s) => a + (s.scorePercent ?? 0), 0);
+    return Math.round(sum / sessions.length);
+  });
+
+  /** Best score per category for the bar chart */
+  skillBarRows = computed(() => {
+    const sessions = this.assessmentSessions().filter(
+      (s) => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null
+    );
+    const best = new Map<string, number>();
+    for (const s of sessions) {
+      const prev = best.get(s.categoryTitle) ?? 0;
+      best.set(s.categoryTitle, Math.max(prev, s.scorePercent ?? 0));
+    }
+    return [...best.entries()].map(([categoryTitle, score]) => ({ categoryTitle, score }));
+  });
 
   developmentPlanText = computed(() => {
     const n = this.onboardingSnap()?.developmentPlanNotes?.trim();
@@ -202,19 +254,68 @@ export class ProfileComponent implements OnInit {
   loadProfile(): void {
     this.profileLoading.set(true);
     this.profileError.set(null);
-    this.profileApi.getProfile().subscribe({
-      next: (p) => {
-        this.apiProfile.set(p);
-        this.onboardingSnap.set(this.parseOnboarding(p.onboardingJson));
-        this.profileLoading.set(false);
-      },
-      error: () => {
-        this.profileLoading.set(false);
-        this.profileError.set(
-          'Could not load your profile from MS-User. Ensure the service is running (port 8082) and you are logged in.'
-        );
-      },
-    });
+    const baseUid = getAssessmentUserId();
+
+    this.profileApi
+      .getProfile()
+      .pipe(
+        switchMap((profile) => {
+          if (!baseUid) {
+            return of({ profile, sessions: [] as SessionResponseDto[] });
+          }
+          return this.assignmentApi.getStatus(baseUid).pipe(
+            catchError((err: unknown) => {
+              if (err instanceof HttpErrorResponse && err.status === 404) {
+                return of(null);
+              }
+              return throwError(() => err);
+            }),
+            switchMap((plan) => {
+              const ids = collectCandidateUserIdsForSessions(plan, baseUid);
+              return this.sessionApi.listForUserMergedDistinct(ids).pipe(
+                catchError(() => of([] as SessionResponseDto[])),
+                map((sessions) => ({ profile, sessions }))
+              );
+            })
+          );
+        })
+      )
+      .subscribe({
+        next: ({ profile, sessions }) => {
+          this.apiProfile.set(profile);
+          this.onboardingSnap.set(this.parseOnboarding(profile.onboardingJson));
+          this.assessmentSessions.set(sessions);
+          this.profileLoading.set(false);
+          if (baseUid && sessions.length > 0) {
+            const attempts = sessions
+              .filter((s) => isSessionCompleted(s))
+              .map((s) => ({
+                sessionId: s.id,
+                categoryTitle: s.categoryTitle,
+                categoryCode: s.categoryCode ?? '',
+                scorePercent: s.scorePercent,
+                completedAt: s.completedAt,
+                scoreReleased: s.scoreReleased,
+                adminFeedback: s.adminFeedback ?? null,
+              }));
+            this.profileApi.syncSkillAssessments(baseUid, { attempts }).subscribe({ error: () => {} });
+          }
+        },
+        error: () => {
+          this.profileLoading.set(false);
+          this.profileError.set(
+            'Could not load your profile from MS-User. Ensure the service is running (port 8082) and you are logged in.'
+          );
+        },
+      });
+  }
+
+  sessionCompleted(s: SessionResponseDto): boolean {
+    return isSessionCompleted(s);
+  }
+
+  sessionPublished(s: SessionResponseDto): boolean {
+    return isSessionPublished(s);
   }
 
   private parseOnboarding(raw: string | null | undefined): OnboardingSnapshot | null {

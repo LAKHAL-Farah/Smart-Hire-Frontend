@@ -99,6 +99,13 @@ export const routes: Routes = [
           import('./features/front-office/assessments/mcq-session.component').then((m) => m.McqSessionComponent),
       },
       {
+        path: 'assessments/session/:sessionId/review',
+        loadComponent: () =>
+          import('./features/front-office/assessments/assessment-review.component').then(
+            (m) => m.AssessmentReviewComponent
+          ),
+      },
+      {
         path: 'interview',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(

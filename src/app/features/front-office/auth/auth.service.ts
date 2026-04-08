@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import {
   ACCOUNT_ROLE_KEY,
+  PROFILE_USER_UUID_STORAGE_KEY,
   getProfileUserUuid,
   setProfileUserUuid,
   setLocalDemoMode,
@@ -60,7 +61,10 @@ export class AuthService {
               }
             }
           } catch {
-            setProfileUserUuid(environment.devProfileUserUuid);
+            /* Don’t overwrite a real id from register — sessions are keyed by that UUID. */
+            if (!localStorage.getItem(PROFILE_USER_UUID_STORAGE_KEY)) {
+              setProfileUserUuid(environment.devProfileUserUuid);
+            }
           }
 
           const accountRole = (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
@@ -72,6 +76,8 @@ export class AuthService {
           };
           this.currentUser.set(user);
           localStorage.setItem('user', JSON.stringify(user));
+          /** Keep MS-Assessment / assignment keys aligned with the id used for API calls. */
+          setProfileUserUuid(user.id);
 
           if (accountRole === 'recruiter' || recruiterFromApi) {
             await this.router.navigate(['/dashboard']);
@@ -118,6 +124,7 @@ export class AuthService {
   logout(): void {
     this.currentUser.set(null);
     localStorage.removeItem('user');
+    localStorage.removeItem(PROFILE_USER_UUID_STORAGE_KEY);
     this.router.navigate(['/login']);
   }
 

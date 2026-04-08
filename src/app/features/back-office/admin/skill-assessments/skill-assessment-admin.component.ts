@@ -5,10 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import {
   AssessmentAdminApiService,
+  AssessmentSessionAdminRow,
   CategoryAdminRow,
   ChoiceAdminRow,
   PendingAssignmentRow,
   QuestionAdminRow,
+  SessionResultAdminDto,
 } from '../../service/assessment-admin-api.service';
 
 @Component({
@@ -41,21 +43,122 @@ export class SkillAssessmentAdminComponent implements OnInit {
   editingChoiceId: number | null = null;
 
   pending: PendingAssignmentRow[] = [];
+  /** Submitted assessments waiting for admin to publish score */
+  pendingRelease: AssessmentSessionAdminRow[] = [];
+  /** All completed attempts (history) */
+  completedSessions: AssessmentSessionAdminRow[] = [];
+
+  reviewOpen = false;
+  reviewLoading = false;
+  reviewDetail: SessionResultAdminDto | null = null;
+  /** Publish modal: session row being published */
+  publishTarget: AssessmentSessionAdminRow | null = null;
+  publishFeedback = '';
+  publishInternalNote = '';
   /** userId -> selected category ids for approval */
   approvalPicks: Record<string, number[]> = {};
 
+  /** Show create/edit category form panel */
+  showCategoryForm = false;
+
   ngOnInit(): void {
     this.refreshCategories();
-    this.refreshPending();
+    this.refreshPendingAssignments();
+    this.refreshPendingRelease();
+    this.refreshCompletedSessions();
   }
 
-  refreshPending(): void {
+  refreshPendingRelease(): void {
+    this.api.listSessionsPendingRelease().subscribe({
+      next: (rows) => {
+        this.pendingRelease = rows;
+      },
+      error: () => {
+        this.pendingRelease = [];
+      },
+    });
+  }
+
+  refreshCompletedSessions(): void {
+    this.api.listAllCompletedSessions().subscribe({
+      next: (rows) => {
+        this.completedSessions = rows;
+      },
+      error: () => {
+        this.completedSessions = [];
+      },
+    });
+  }
+
+  openReview(sessionId: number): void {
+    this.reviewOpen = true;
+    this.reviewLoading = true;
+    this.reviewDetail = null;
+    this.api.getSessionReview(sessionId).subscribe({
+      next: (detail) => {
+        this.reviewDetail = detail;
+        this.reviewLoading = false;
+      },
+      error: (e) => {
+        this.reviewLoading = false;
+        this.reviewOpen = false;
+        this.fail(e);
+      },
+    });
+  }
+
+  closeReview(): void {
+    this.reviewOpen = false;
+    this.reviewDetail = null;
+    this.reviewLoading = false;
+  }
+
+  openPublishModal(session: AssessmentSessionAdminRow): void {
+    this.publishTarget = session;
+    this.publishFeedback = '';
+    this.publishInternalNote = '';
+  }
+
+  closePublishModal(): void {
+    this.publishTarget = null;
+  }
+
+  openPublishFromReview(): void {
+    const s = this.reviewDetail?.session;
+    if (!s) return;
+    this.closeReview();
+    this.openPublishModal(s);
+  }
+
+  confirmPublish(): void {
+    if (!this.publishTarget) return;
+    const id = this.publishTarget.id;
+    this.loading = true;
+    this.apiError = null;
+    this.api
+      .releaseSessionResult(id, {
+        adminNote: this.publishInternalNote.trim() || undefined,
+        feedbackToCandidate: this.publishFeedback.trim() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.closePublishModal();
+          this.refreshPendingRelease();
+          this.refreshCompletedSessions();
+          this.loading = false;
+        },
+        error: (e) => this.fail(e),
+      });
+  }
+
+  /** Candidates waiting for category assignment (pending only). */
+  refreshPendingAssignments(): void {
     this.api.listPendingAssignments().subscribe({
       next: (rows) => {
         this.pending = rows;
       },
       error: () => {
-        this.pending = [];
+        /* keep previous list — do not clear on transient errors */
       },
     });
   }
@@ -86,7 +189,8 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.api.approveAssignment(userId, ids).subscribe({
       next: () => {
         delete this.approvalPicks[userId];
-        this.refreshPending();
+        this.pending = this.pending.filter((p) => p.userId !== userId);
+        this.refreshPendingAssignments();
         this.loading = false;
       },
       error: (e) => this.fail(e),
@@ -109,10 +213,53 @@ export class SkillAssessmentAdminComponent implements OnInit {
     });
   }
 
+  /** Loads default seeded categories into the DB if they are missing (repairs old DBs with only JAVA_OOP). */
+  seedDefaultBank(): void {
+    this.loading = true;
+    this.apiError = null;
+    this.api.seedDefaultBank().subscribe({
+      next: () => {
+        this.refreshCategories();
+      },
+      error: (e) => this.fail(e),
+    });
+  }
+
   selectCategory(id: number): void {
     this.selectedCategoryId = id;
     this.selectedQuestionId = null;
+    this.showCategoryForm = false;
+    this.resetChoiceForm();
     this.loadQuestions();
+  }
+
+  /** Category row selected in the table (for template clarity). */
+  get selectedCategory(): CategoryAdminRow | null {
+    if (this.selectedCategoryId == null) {
+      return null;
+    }
+    return this.categories.find((c) => c.id === this.selectedCategoryId) ?? null;
+  }
+
+  openNewCategoryForm(): void {
+    this.startNewCategory();
+    this.showCategoryForm = true;
+  }
+
+  cancelCategoryForm(): void {
+    this.showCategoryForm = false;
+    this.editingCategoryId = null;
+    this.catForm = { code: '', title: '', description: '' };
+  }
+
+  toggleQuestionExpand(questionId: number): void {
+    if (this.selectedQuestionId === questionId) {
+      this.selectedQuestionId = null;
+      this.resetChoiceForm();
+    } else {
+      this.selectedQuestionId = questionId;
+      this.resetChoiceForm();
+    }
   }
 
   loadQuestions(): void {
@@ -132,8 +279,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   }
 
   selectQuestion(id: number): void {
-    this.selectedQuestionId = this.selectedQuestionId === id ? null : id;
-    this.resetChoiceForm();
+    this.toggleQuestionExpand(id);
   }
 
   startNewCategory(): void {
@@ -148,6 +294,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
       title: c.title,
       description: c.description ?? '',
     };
+    this.showCategoryForm = true;
   }
 
   saveCategory(): void {
@@ -170,6 +317,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
       next: () => {
         this.editingCategoryId = null;
         this.catForm = { code: '', title: '', description: '' };
+        this.showCategoryForm = false;
         this.refreshCategories();
       },
       error: (e) => this.fail(e),
@@ -197,11 +345,14 @@ export class SkillAssessmentAdminComponent implements OnInit {
     if (this.selectedCategoryId == null) {
       return;
     }
+    this.selectedQuestionId = null;
     this.editingQuestionId = null;
     this.qForm = { prompt: '', points: 1, difficulty: 'MEDIUM', active: true, topic: '' };
+    this.resetChoiceForm();
   }
 
   editQuestion(q: QuestionAdminRow): void {
+    this.selectedQuestionId = q.id;
     this.editingQuestionId = q.id;
     this.qForm = {
       prompt: q.prompt,
@@ -210,6 +361,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
       active: q.active,
       topic: q.topic ?? '',
     };
+    this.resetChoiceForm();
   }
 
   saveQuestion(): void {
@@ -250,7 +402,13 @@ export class SkillAssessmentAdminComponent implements OnInit {
     }
     this.loading = true;
     this.api.deleteQuestion(q.id).subscribe({
-      next: () => this.loadQuestions(),
+      next: () => {
+        if (this.selectedQuestionId === q.id) {
+          this.selectedQuestionId = null;
+          this.resetChoiceForm();
+        }
+        this.loadQuestions();
+      },
       error: (e) => this.fail(e),
     });
   }

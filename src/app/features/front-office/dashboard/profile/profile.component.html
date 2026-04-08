@@ -274,13 +274,78 @@
 
       <!-- ══ ASSESSMENTS TAB ══ -->
       @if (activeTab() === 'assessments') {
-        <div class="tab-content">
+        <div class="tab-content tab-content--assessments">
           <section class="content-card">
-            <h3 class="content-card__title">Assessments</h3>
+            <h3 class="content-card__title">Skill assessments</h3>
             <p class="content-card__text">
-              Skill assessment results and history can be shown here when wired to MS-Assessment.
+              When you open this page, we save your assessment scores and reviewer feedback to your profile. Scores and
+              feedback appear after each attempt is finished and published by your administrator.
             </p>
           </section>
+
+          @if (assessmentSessions().length === 0) {
+            <section class="content-card">
+              <p class="content-card__text">
+                No attempts yet. Go to
+                <a routerLink="/dashboard/assessments">Skill assessments</a>
+                to start a category.
+              </p>
+            </section>
+          } @else {
+            <section class="content-card assess-viz">
+              <h3 class="content-card__title">Scores by category (best attempt)</h3>
+              <div class="assess-bars">
+                @for (row of skillBarRows(); track row.categoryTitle) {
+                  <div class="assess-bar-row">
+                    <span class="assess-bar-row__name">{{ row.categoryTitle }}</span>
+                    <div class="assess-bar-row__track">
+                      <div
+                        class="assess-bar-row__fill"
+                        [style.width.%]="row.score"
+                        [class.assess-bar-row__fill--hi]="row.score >= 70"
+                        [class.assess-bar-row__fill--mid]="row.score >= 50 && row.score < 70"
+                      ></div>
+                    </div>
+                    <span class="assess-bar-row__pct">{{ row.score }}%</span>
+                  </div>
+                }
+              </div>
+            </section>
+
+            <section class="content-card">
+              <h3 class="content-card__title">History</h3>
+              <ul class="assess-history">
+                @for (s of assessmentSessions(); track s.id) {
+                  <li class="assess-history__item">
+                    <div class="assess-history__main">
+                      <span class="assess-history__cat">{{ s.categoryTitle }}</span>
+                      <span class="assess-history__meta">{{ s.status }} · {{ s.startedAt | date : 'medium' }}</span>
+                      @if (sessionCompleted(s) && !sessionPublished(s)) {
+                        <span class="assess-history__pending">Awaiting admin publish</span>
+                      }
+                    </div>
+                    <div class="assess-history__right">
+                      @if (sessionCompleted(s) && sessionPublished(s) && s.scorePercent != null) {
+                        <span class="assess-history__score">{{ s.scorePercent }}%</span>
+                        <a
+                          class="assess-history__link"
+                          [routerLink]="['/dashboard/assessments/session', s.id, 'review']"
+                          [queryParams]="{ userId: s.userId }"
+                        >
+                          View results
+                        </a>
+                      } @else if (sessionCompleted(s) && !sessionPublished(s) && s.scorePercent != null) {
+                        <span class="assess-history__score assess-history__score--muted">{{ s.scorePercent }}%</span>
+                      }
+                    </div>
+                    @if (sessionCompleted(s) && sessionPublished(s) && s.adminFeedback) {
+                      <p class="assess-history__feedback">{{ s.adminFeedback }}</p>
+                    }
+                  </li>
+                }
+              </ul>
+            </section>
+          }
         </div>
       }
     </main>

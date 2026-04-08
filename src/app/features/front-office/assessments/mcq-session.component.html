@@ -20,8 +20,13 @@
       <h1 class="mcq-done__title">Assessment submitted</h1>
       @if (scorePercent() != null) {
         <p class="mcq-done__score">Score: <strong>{{ scorePercent() }}%</strong></p>
+      } @else {
+        <p class="mcq-done__hint mcq-done__hint--accent">
+          Your answers are scored. An administrator will publish your result — then you’ll see your score, any feedback, and the full question review on
+          <strong>Skill assessments</strong> and your <strong>Profile</strong>.
+        </p>
       }
-      <p class="mcq-done__hint">Your results are stored on your profile timeline. You can retake when your admin allows new attempts.</p>
+      <p class="mcq-done__hint">Each category allows only one attempt. After your score is published, you can open the results from Skill assessments.</p>
       <a routerLink="/dashboard/assessments" class="mcq-done__btn">Return to skill assessments</a>
     </section>
   } @else {

@@ -126,7 +126,17 @@ export class RegisterComponent {
           this.isLoading.set(false);
           setLocalDemoMode(false);
           if (u?.id) {
-            setProfileUserUuid(String(u.id));
+            const uid = String(u.id);
+            setProfileUserUuid(uid);
+            localStorage.setItem(
+              'user',
+              JSON.stringify({
+                id: uid,
+                email: this.email.trim(),
+                name: `${firstName} ${lastName}`,
+                role: this.selectedRole() === 'recruiter' ? 'recruiter' : 'user',
+              })
+            );
           }
           localStorage.setItem(
             ACCOUNT_ROLE_KEY,
@@ -167,6 +177,15 @@ export class RegisterComponent {
     localStorage.setItem(
       ACCOUNT_ROLE_KEY,
       this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate'
+    );
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        id,
+        email: this.email.trim(),
+        name: `${firstName} ${lastName}`,
+        role: this.selectedRole() === 'recruiter' ? 'recruiter' : 'user',
+      })
     );
     const profile: ProfileApiResponse = {
       userId: id,

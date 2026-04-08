@@ -6,7 +6,7 @@ import { StepSituationComponent } from './steps/step-situation.component';
 import { StepCareerGoalComponent } from './steps/step-career-goal.component';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import { ProfileApiService } from '../profile/profile-api.service';
-import { ACCOUNT_ROLE_KEY, getProfileUserUuid } from '../profile/profile-user-id';
+import { ACCOUNT_ROLE_KEY, getAssessmentUserId } from '../profile/profile-user-id';
 import { CandidateAssignmentApiService } from '../assessments/candidate-assignment-api.service';
 
 @Component({
@@ -99,7 +99,7 @@ export class OnboardingComponent implements OnInit {
             void this.router.navigate(['/dashboard']);
             return;
           }
-          const uid = getProfileUserUuid();
+          const uid = getAssessmentUserId();
           this.assignmentApi.register(uid, situation, careerPath).subscribe({
             next: () => {
               this.saving.set(false);

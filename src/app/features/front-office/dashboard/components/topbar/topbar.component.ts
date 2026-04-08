@@ -1,9 +1,10 @@
-import { Component, Input, signal, HostListener, computed } from '@angular/core';
+import { Component, Input, signal, HostListener, computed, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { filter } from 'rxjs/operators';
+import { AutheService } from '../../../auth/authe.service';
 
 @Component({
   selector: 'app-topbar',
@@ -33,7 +34,7 @@ export class TopbarComponent {
   private url = signal('');
   pageTitle = computed(() => this.pageTitles[this.url()] ?? '');
 
-  constructor(private router: Router) {
+  constructor(private router: Router, private authService: AutheService) {
     this.url.set(this.router.url);
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: NavigationEnd) => {
       this.url.set(e.urlAfterRedirects ?? e.url);
@@ -58,7 +59,9 @@ export class TopbarComponent {
 
   signOut(): void {
     this.avatarOpen.set(false);
-    console.log('Sign out');
+    this.authService.logout();
+    this.router.navigate(['/login']);
+    console.log('User sign out');
   }
 
   @HostListener('document:click', ['$event'])

@@ -1,6 +1,9 @@
 import { Routes } from '@angular/router';
 import { adminCanMatch } from './core/guards/admin.guard';
 import { onboardingCanMatch } from './core/guards/onboarding.guard';
+import { authGuard } from './core/guards/auth.guard';
+import { roleGuard } from './core/guards/role.guard';
+import { noAuthGuard } from './core/guards/no-auth.guard';
 
 export const routes: Routes = [
   {
@@ -11,6 +14,7 @@ export const routes: Routes = [
       ),
   },
   {
+    canActivate: [noAuthGuard],
     path: 'login',
     loadComponent: () =>
       import('./features/front-office/auth/login/login.component').then(
@@ -19,6 +23,7 @@ export const routes: Routes = [
   },
   {
     path: 'register',
+    canActivate: [noAuthGuard],
     loadComponent: () =>
       import('./features/front-office/auth/register/register.component').then(
         (m) => m.RegisterComponent
@@ -120,6 +125,8 @@ export const routes: Routes = [
   {
     path: 'admin',
     canMatch: [adminCanMatch],
+    canActivate: [roleGuard],
+    data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent
@@ -134,6 +141,8 @@ export const routes: Routes = [
       },
       {
         path: 'users',
+        canActivate: [roleGuard],
+        data: { requiredRoles: ['recruiter'] },
         loadComponent: () =>
           import('./features/back-office/admin/users/user-management.component').then(
             (m) => m.UserManagementComponent
@@ -203,6 +212,14 @@ export const routes: Routes = [
           ),
       },
     ],
+  },
+
+  {
+    path: 'access-denied',
+    loadComponent: () =>
+      import('./features/not-found/access-denied.component').then(
+        (m) => m.AccessDeniedComponent
+      ),
   },
 
   {

@@ -10,7 +10,7 @@ export interface ApiUser {
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'BANNED' | 'DELETED';
   role: {
     id: string;
-    name: 'ADMIN' | 'USER' | 'MANAGER';
+    name: 'ADMIN' | 'USER' | 'recruiter';
   };
   profile: {
     firstName: string;
@@ -32,7 +32,7 @@ export interface DisplayUser {
   email: string;
   avatar: string;
   role: 'Candidate' | 'Recruiter' | 'Admin';
-  plan: 'Free' | 'Premium' | 'Recruiter';
+  plan: 'Free' | 'Premium' | 'Recruiter' ;
   status: 'Active' | 'Suspended' | 'Pending' | 'Inactive';
   joined: string;
   lastActive: string;
@@ -45,12 +45,18 @@ export interface DisplayUser {
   avatarUrl: string;
 }
 
+export interface UserUpdateRequest {
+  email: string;
+  password?: string;
+  roleName: 'candidate' | 'recruiter';
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class UserManagementService {
   private http = inject(HttpClient);
-  private apiUrl = `http://localhost:8082/api/v1/users`;
+  private apiUrl = `http://localhost:8080/MS-USER/api/v1/users`;
 
   getAllUsers(): Observable<ApiUser[]> {
     return this.http.get<ApiUser[]>(this.apiUrl).pipe(
@@ -72,7 +78,7 @@ export class UserManagementService {
     
     let displayRole: 'Candidate' | 'Recruiter' | 'Admin' = 'Candidate';
     if (apiUser.role.name === 'ADMIN') displayRole = 'Admin';
-    else if (apiUser.role.name === 'MANAGER') displayRole = 'Recruiter';
+    else if (apiUser.role.name === 'recruiter') displayRole = 'Recruiter';
     else displayRole = 'Candidate';
     
     
@@ -127,6 +133,19 @@ export class UserManagementService {
       linkedinUrl: apiUser.profile.linkedinUrl,
       avatarUrl: apiUser.profile.avatarUrl
     };
+  }
+
+
+  public updateUser(id: string, data: UserUpdateRequest): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/${id}`, data).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  public deleteUser(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}/hard`).pipe(
+      catchError(this.handleError)
+    );
   }
 
   private handleError(error: any): Observable<never> {

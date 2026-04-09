@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LucideAngularModule } from 'lucide-angular';
 import { EventService } from '../../../../services/event.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { Review } from '../reviews/reviews.component';
 
 /* ════════════════════════════════════════════════════════════
    INTERFACES — exactement comme le backend
@@ -18,7 +19,8 @@ export interface EventTag {
 }
 
 export interface Event {
-  id:                   number;
+  reviews?: Review[];
+    id:                   number;
   title:                string;
   description:          string;
   type:                 EventType;

@@ -33,7 +33,13 @@ id!: number;
   updateEvent(id: number, event: any) {
     return this.http.put(`${this.apiUrl}/${id}`, event);
   }
-
+  registerToEvent(eventId: number, userId: number): Observable<string> {
+  return this.http.post(
+     `http://localhost:8081/api/events/${eventId}/register/${userId}`,
+    null,
+    { responseType: 'text' } // ✅ important
+  );
+}
    
 
 

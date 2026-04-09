@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-
+;
 import { HackathonSubmissionService } from './hackathon-submission.service';
 
 describe('HackathonSubmissionService', () => {
@@ -14,3 +14,4 @@ describe('HackathonSubmissionService', () => {
     expect(service).toBeTruthy();
   });
 });
+

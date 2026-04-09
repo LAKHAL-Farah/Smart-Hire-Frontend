@@ -23,12 +23,12 @@ export class SidebarComponent {
     { icon: 'activity', label: 'Assessment', route: '/dashboard/assessment' },
     { icon: 'clock', label: 'Roadmap', route: '/dashboard/roadmap' },
     { icon: 'book-open', label: 'Projects', route: '/dashboard/projects' },
+    { icon: 'book-open', label: 'Events', route: '/dashboard/events' },
   ];
 
   prepareItems: NavItem[] = [
-    { icon: 'message-square', label: 'Interview', route: '/dashboard/interview' },
-    { icon: 'file-text', label: 'CV Optimizer', route: '/dashboard/cv' },
-    { icon: 'user', label: 'Profile', route: '/dashboard/profile' },
+    { icon: 'activity', label: 'Submissions', route: '/dashboard/submissions' },
+    
   ];
 
   recruitItems: NavItem[] = [

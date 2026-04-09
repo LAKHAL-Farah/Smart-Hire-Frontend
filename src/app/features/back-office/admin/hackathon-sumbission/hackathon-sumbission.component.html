@@ -1,0 +1,305 @@
+<div class="hs">
+
+  <!-- ═══════ TOOLBAR ═══════ -->
+  <div class="toolbar">
+    <div class="toolbar__left">
+      <div class="search-box">
+        <lucide-icon [img]="Search" [size]="15"></lucide-icon>
+        <input type="text" placeholder="Search submissions..." [(ngModel)]="searchQuery" class="search-input" />
+      </div>
+      <select [(ngModel)]="statusFilter" class="filter-select">
+        <option value="All">All Statuses</option>
+        @for (s of statusOptions; track s) {
+          @if (s !== 'All') {
+            <option [value]="s">{{ s }}</option>
+          }
+        }
+      </select>
+      <select [(ngModel)]="eventFilter" class="filter-select">
+        <option value="All">All Events</option>
+        @for (id of uniqueEventIds; track id) {
+          <option [value]="id">Event #{{ id }}</option>
+        }
+      </select>
+    </div>
+    <div class="toolbar__right">
+      <button class="btn btn--primary btn--sm" (click)="openAddModal()">
+        <lucide-icon [img]="Plus" [size]="15"></lucide-icon>
+        Add Submission
+      </button>
+      <button class="btn btn--outline" (click)="exportCsv()">
+        <lucide-icon [img]="Download" [size]="15"></lucide-icon>
+        Export CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════ STATS ROW ═══════ -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <span class="stat-card__label">Total Submissions</span>
+      <span class="stat-card__value">{{ submissions.length }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__label">Pending</span>
+      <span class="stat-card__value stat-card__value--amber">{{ pendingCount }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__label">Accepted</span>
+      <span class="stat-card__value stat-card__value--green">{{ acceptedCount }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-card__label">Events Covered</span>
+      <span class="stat-card__value">{{ uniqueEventIds.length }}</span>
+    </div>
+  </div>
+
+  <!-- ═══════ LOADING / ERROR ═══════ -->
+  @if (loading) {
+    <div class="state-msg">
+      <lucide-icon [img]="Loader" [size]="20"></lucide-icon> Loading submissions...
+    </div>
+  }
+  @if (error) {
+    <div class="state-msg state-msg--error">{{ error }}</div>
+  }
+
+  <!-- ═══════ TABLE ═══════ -->
+  @if (!loading) {
+    <div class="table-wrap">
+      <table class="hs-table">
+        <thead>
+          <tr>
+            <th class="col-check">
+              <input type="checkbox" [checked]="allChecked" (change)="toggleAll()" />
+            </th>
+            <th>Submitter</th>
+            <th>Event</th>
+            <th>Domain</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Repo URL</th>
+            <th>Submitted At</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (sub of paginatedSubmissions; track sub.id) {
+            <tr [class.row-selected]="isSelected(sub.id!)" (click)="openDrawer(sub)">
+
+              <!-- Checkbox -->
+              <td class="col-check" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(sub.id!)" (change)="toggleRow(sub.id!)" />
+              </td>
+
+              <!-- Submitter -->
+              <td>
+                <div class="user-cell">
+                  <span class="user-avatar" [style.background]="avatarGradient(sub.userId)">
+                    U{{ sub.userId }}
+                  </span>
+                  <div class="user-info">
+                    <span class="user-name">User #{{ sub.userId }}</span>
+                    <span class="user-sub">Event #{{ sub.eventId }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Event -->
+              <td><span class="event-badge">Event #{{ sub.eventId }}</span></td>
+
+              <!-- Domain -->
+              <td>
+                @if (sub.event) {
+                  <span class="event-badge">{{ sub.event?.domain }}</span>
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+              </td>
+
+              <!-- Title -->
+              <td class="col-title">
+                <span class="title-text">{{ sub.title || '—' }}</span>
+              </td>
+
+              <!-- Status -->
+              <td>
+                <span class="status-badge" [ngClass]="statusClass(sub.status)">{{ sub.status }}</span>
+              </td>
+
+              <!-- Repo URL -->
+              <td class="col-repo">
+                @if (sub.repoUrl) {
+                  <a [href]="sub.repoUrl" target="_blank" class="repo-link" (click)="$event.stopPropagation()">
+                    {{ sub.repoUrl }}
+                  </a>
+                } @else {
+                  <span class="text-muted">—</span>
+                }
+              </td>
+
+              <!-- Submitted At -->
+              <td class="text-dim">{{ formatDate(sub.submittedAt) }}</td>
+
+              <!-- Actions -->
+              <td class="col-actions" (click)="$event.stopPropagation()">
+                <div class="actions-wrap">
+                  <button class="dots-btn" (click)="toggleMenu(sub.id!, $event)">
+                    <lucide-icon [img]="EllipsisVertical" [size]="16"></lucide-icon>
+                  </button>
+                  @if (openMenuId === sub.id) {
+                    <div class="action-menu">
+                      <button class="action-menu__item" (click)="openDrawer(sub); $event.stopPropagation()">View Details</button>
+                      <button class="action-menu__item" (click)="openEditModal(sub); $event.stopPropagation()">Edit</button>
+                      <button class="action-menu__item action-menu__item--danger" (click)="deleteSubmission(sub.id!); $event.stopPropagation()">Delete</button>
+                    </div>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+          @if (paginatedSubmissions.length === 0) {
+            <tr><td colspan="9" class="empty-state">No submissions found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ═══════ PAGINATION ═══════ -->
+  <div class="pagination">
+    <span class="pagination__info">
+      Showing {{ paginationStart }}–{{ paginationEnd }} of {{ filteredSubmissions.length }}
+    </span>
+    <div class="pagination__btns">
+      <button class="pg-btn" [disabled]="currentPage === 1" (click)="goPage(currentPage - 1)">
+        <lucide-icon [img]="ChevronLeft" [size]="14"></lucide-icon>
+      </button>
+      @for (p of pageNumbers; track p) {
+        <button class="pg-btn" [class.pg-active]="p === currentPage" (click)="goPage(p)">{{ p }}</button>
+      }
+      <button class="pg-btn" [disabled]="currentPage === totalPages" (click)="goPage(currentPage + 1)">
+        <lucide-icon [img]="ChevronRight" [size]="14"></lucide-icon>
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════ BULK BAR ═══════ -->
+  @if (selectedIds.size > 0) {
+    <div class="bulk-bar">
+      <span class="bulk-bar__count">{{ selectedIds.size }} submission{{ selectedIds.size === 1 ? '' : 's' }} selected</span>
+      <div class="bulk-bar__actions">
+        <button class="btn btn--danger btn--sm" (click)="deleteSelected()">Delete Selected</button>
+        <button class="btn btn--ghost btn--sm" (click)="clearSelection()">Clear</button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══════ DETAILS DRAWER ═══════ -->
+  @if (drawerOpen && drawerSubmission) {
+    <div class="drawer-overlay" (click)="closeDrawer()"></div>
+    <aside class="drawer">
+      <button class="drawer__close" (click)="closeDrawer()">
+        <lucide-icon [img]="X" [size]="20"></lucide-icon>
+      </button>
+      <div class="drawer__header">
+        <span class="user-avatar user-avatar--lg" [style.background]="avatarGradient(drawerSubmission.userId)">
+          U{{ drawerSubmission.userId }}
+        </span>
+        <h2 class="drawer__title">{{ drawerSubmission.title || 'Untitled Submission' }}</h2>
+        <span class="drawer__company">Event #{{ drawerSubmission.eventId }}</span>
+        <div class="drawer__pills">
+          <span class="status-badge" [ngClass]="statusClass(drawerSubmission.status)">{{ drawerSubmission.status }}</span>
+        </div>
+      </div>
+
+      <div class="drawer__section">
+        <h4 class="drawer__label">Details</h4>
+        <div class="drawer__row"><span>Submission ID</span><span>#{{ drawerSubmission.id }}</span></div>
+        <div class="drawer__row"><span>User ID</span><span>#{{ drawerSubmission.userId }}</span></div>
+        <div class="drawer__row"><span>Event ID</span><span>#{{ drawerSubmission.eventId }}</span></div>
+        <div class="drawer__row"><span>Status</span><span>{{ drawerSubmission.status }}</span></div>
+        <div class="drawer__row"><span>Submitted At</span><span>{{ formatDate(drawerSubmission.submittedAt) }}</span></div>
+        @if (drawerSubmission.repoUrl) {
+          <div class="drawer__row">
+            <span>Repo URL</span>
+            <a [href]="drawerSubmission.repoUrl" target="_blank" class="repo-link">Open Repo</a>
+          </div>
+        }
+      </div>
+
+      <div class="drawer__section">
+        <h4 class="drawer__label">Description</h4>
+        <p class="drawer__text">{{ drawerSubmission.description || 'No description provided.' }}</p>
+      </div>
+
+      <div class="drawer__actions">
+        <button class="btn btn--outline btn--full" (click)="openEditModal(drawerSubmission)">
+          <lucide-icon [img]="Pen" [size]="15"></lucide-icon>
+          Edit Submission
+        </button>
+        <button class="btn btn--danger btn--full" (click)="deleteSubmission(drawerSubmission.id!); closeDrawer()">
+          <lucide-icon [img]="Trash2" [size]="15"></lucide-icon>
+          Delete Submission
+        </button>
+      </div>
+    </aside>
+  }
+
+  <!-- ═══════ ADD / EDIT MODAL ═══════ -->
+  @if (modalOpen) {
+    <div class="drawer-overlay" (click)="closeModal()"></div>
+    <aside class="drawer">
+      <button class="drawer__close" (click)="closeModal()">
+        <lucide-icon [img]="X" [size]="20"></lucide-icon>
+      </button>
+      <div class="drawer__header">
+        <h2 class="drawer__title">{{ editingSubmission ? 'Edit Submission' : 'Add Submission' }}</h2>
+        <span class="drawer__company">{{ editingSubmission ? 'Update existing submission' : 'Submit a new entry' }}</span>
+      </div>
+
+      <div class="add-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>User ID</label>
+            <input class="form-input" type="number" [(ngModel)]="formSubmission.userId" placeholder="1" />
+          </div>
+          <div class="form-group">
+            <label>Event ID</label>
+            <input class="form-input" type="number" [(ngModel)]="formSubmission.eventId" placeholder="1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Title</label>
+          <input class="form-input" type="text" [(ngModel)]="formSubmission.title" placeholder="My awesome project" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea class="form-input form-textarea" [(ngModel)]="formSubmission.description" placeholder="Describe your submission..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Repo URL</label>
+          <input class="form-input" type="url" [(ngModel)]="formSubmission.repoUrl" placeholder="https://github.com/..." />
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select class="form-input filter-select" [(ngModel)]="formSubmission.status">
+            @for (s of statusOptions; track s) {
+              @if (s !== 'All') {
+                <option [value]="s">{{ s }}</option>
+              }
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="drawer__actions">
+        <button class="btn btn--primary btn--full" (click)="submitForm()">
+          {{ editingSubmission ? 'Save Changes' : 'Submit' }}
+        </button>
+        <button class="btn btn--outline btn--full" (click)="closeModal()">Cancel</button>
+      </div>
+    </aside>
+  }
+
+</div>

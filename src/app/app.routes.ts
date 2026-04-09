@@ -80,6 +80,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'events',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/events/events.component').then(
+            (m) => m.EventsComponent
+          ),
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./features/front-office/dashboard/settings/settings.component').then(
@@ -93,6 +100,14 @@ export const routes: Routes = [
             (m) => m.InterviewComponent
           ),
       },
+         {
+        path: 'submissions',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/hackathon-submissions/hackathon-submissions.component').then(
+            (m) => m.HackathonSubmissionsComponent
+          ),
+      },
+      
       {
         path: 'interview/session/:id',
         loadComponent: () =>
@@ -188,13 +203,29 @@ export const routes: Routes = [
             (m) => m.EventManagementComponent
           ),
       },
-        {
+       {
+        path: 'hackathons',
+        loadComponent: () =>
+          import('./features/back-office/admin/hackathon-sumbission/hackathon-sumbission.component').then(
+            (m) => m.HackathonSumbissionComponent
+          ),
+      },
+      
+      {
+        path: 'speakers',
+        loadComponent: () =>
+          import('./features/back-office/admin/event-speaker/event-speaker.component').then(
+            (m) => m.EventSpeakerComponent 
+          ),
+      },
+          {
         path: 'reviews',
         loadComponent: () =>
           import('./features/back-office/admin/reviews/reviews.component').then(
             (m) => m.ReviewsComponent 
           ),
       },
+      
       {
         path: 'settings',
         loadComponent: () =>

@@ -20,7 +20,7 @@ apiUrl = ' http://localhost:8081/api/reviews';
     return this.http.delete(`${this.apiUrl}/delete/${id}`);
   }
   updateReview(id: number, review: any) {
-    return this.http.put(`${this.apiUrl}/${id}`, review);
+    return this.http.put(`${this.apiUrl}/update/${id}`, review);
   }
 
   getReviewByEventId(eventId: number): Observable<any> {

@@ -30,6 +30,7 @@ export class TopbarComponent {
     '/dashboard/profile': 'Profile',
     '/dashboard/settings': 'Settings',
     '/dashboard/jobs': 'Jobs',
+    '/dashboard/events': 'events',
   };
 
   private url = signal('');

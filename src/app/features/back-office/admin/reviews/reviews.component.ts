@@ -84,7 +84,7 @@ formReview: Review = {
 
   ngOnInit(): void {
     this.loadReviews();
-    this.getReviewByEventId(1); // Example: load reviews for event ID 1 on init
+    this.getReviewByEventId(6); // Example: load reviews for event ID 1 on init
   }
 
   loadReviews(): void {

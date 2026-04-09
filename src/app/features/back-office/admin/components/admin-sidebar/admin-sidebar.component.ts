@@ -37,6 +37,13 @@ export class AdminSidebarComponent {
     { icon: 'clock', label: 'Hackathon ', route: '/admin/hackathons' },
   ];
 
+  contentEventItemsSpeaker: NavItem[] = [
+    { icon: 'user', label: 'Event Speaker', route: '/admin/speakers' },
+    { icon: 'calendar', label: 'Event Registration', route: '/admin/registrations' },
+    { icon: 'calendar', label: 'Event Tags', route: '/admin/tags' },
+
+   
+  ];
   systemItems: NavItem[] = [
     { icon: 'lightbulb', label: 'AI Monitor', route: '/admin/ai-monitor' },
     { icon: 'chart-bar', label: 'Platform Analytics', route: '/admin/analytics' },

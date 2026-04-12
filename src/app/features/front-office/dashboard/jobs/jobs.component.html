@@ -9,7 +9,7 @@
         <div class="filter-search">
           <lucide-icon name="search" [size]="16" class="filter-search__icon"></lucide-icon>
           <input class="filter-search__input" type="text" placeholder="Search jobs…"
-            [(ngModel)]="searchQuery" (input)="applySearch()"/>
+            [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" (input)="applySearch()"/>
         </div>
 
         <!-- Location Type -->
@@ -82,7 +82,7 @@
           <span class="filter-group__label">Tech Stack</span>
           <div class="tech-input-wrap">
             <input class="tech-input" type="text" placeholder="Type a skill…"
-              [(ngModel)]="techQuery"
+              [ngModel]="techQuery()" (ngModelChange)="techQuery.set($event)"
               (keydown.enter)="addTechTag()" />
           </div>
           @if (techSuggestions().length > 0) {
@@ -116,7 +116,7 @@
         <span class="job-list__count">{{ filteredJobs().length }} open positions</span>
         <div class="job-list__sort">
           <span class="job-list__sort-label">Sort by:</span>
-          <select class="job-list__sort-select" [(ngModel)]="sortOption">
+          <select class="job-list__sort-select" [ngModel]="sortOption()" (ngModelChange)="sortOption.set($event)">
             <option value="match">Best Match</option>
             <option value="recent">Most Recent</option>
             <option value="salary">Highest Salary</option>
@@ -183,7 +183,7 @@
               </div>
               <!-- Bottom row -->
               <div class="job-card__bottom">
-                <span class="job-card__date">{{ job.postedDate }}</span>
+                <span class="job-card__date">{{ getTimeAgo(job.postedDate)  }}</span>
                 <div class="job-card__btns">
                   <button class="btn-save" [class.btn-save--saved]="job.saved"
                     (click)="toggleSave(job, $event)">

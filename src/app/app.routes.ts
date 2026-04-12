@@ -73,6 +73,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'post-job',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/post-job/post-job.component').then(
+            (m) => m.PostJobComponent
+          ),
+      },
+      {
         path: 'profile',
         loadComponent: () =>
           import('./features/front-office/dashboard/profile/profile.component').then(
@@ -131,8 +138,8 @@ export const routes: Routes = [
 
   {
     path: 'admin',
-    canMatch: [adminCanMatch],
-    canActivate: [roleGuard],
+    //canMatch: [adminCanMatch],
+    //canActivate: [roleGuard],
     data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(

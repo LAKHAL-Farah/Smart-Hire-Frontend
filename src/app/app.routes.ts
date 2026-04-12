@@ -1,3 +1,4 @@
+import { EventsComponent } from './features/front-office/dashboard/events/events.component';
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [

@@ -40,7 +40,11 @@ id!: number;
     { responseType: 'text' } // ✅ important
   );
 }
-   
+  generateAiSummary(eventId: number): Observable<any> {
+  return this.http.post<any>(
+    `${this.apiUrl}/${eventId}/ai-summary`, {}
+  );
+}
 
 
 }

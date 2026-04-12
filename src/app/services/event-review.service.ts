@@ -23,8 +23,8 @@ apiUrl = ' http://localhost:8081/api/reviews';
     return this.http.put(`${this.apiUrl}/update/${id}`, review);
   }
 
-  getReviewByEventId(eventId: number): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/events/${eventId}`);
+  getReviewByEventId(reviewId:number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/events/${reviewId}`);
   }
 
 }

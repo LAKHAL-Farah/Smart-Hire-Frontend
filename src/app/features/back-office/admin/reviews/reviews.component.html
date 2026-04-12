@@ -114,7 +114,7 @@
               
          <td>
   <span *ngIf="review.event; else noEvent" class="event-badge">
-    {{ review.event?.domain }}
+    {{ review?.event?.domain }}
   </span>
 
   <ng-template #noEvent>

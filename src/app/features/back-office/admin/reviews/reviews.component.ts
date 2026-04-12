@@ -84,7 +84,7 @@ formReview: Review = {
 
   ngOnInit(): void {
     this.loadReviews();
-    this.getReviewByEventId(6); // Example: load reviews for event ID 1 on init
+    this.getReviewByEventId(8);
   }
 
   loadReviews(): void {
@@ -107,6 +107,7 @@ formReview: Review = {
 
   get filteredReviews(): Review[] {
     const q = this.searchQuery.toLowerCase();
+    console.log(this.reviews);
     return this.reviews.filter(r => {
       const matchSearch = !q ||
         r.comment.toLowerCase().includes(q) ||
@@ -286,7 +287,7 @@ formReview: Review = {
  getReviewByEventId(eventId: number): void {
   this.eventReviewService.getReviewByEventId(eventId).subscribe({
     next: (event: any) => {
-      this.reviews = event.reviews;
+      this.reviews = event.reviews ?? [];
       
       console.log('Reviews for event', eventId, this.reviews);
     }

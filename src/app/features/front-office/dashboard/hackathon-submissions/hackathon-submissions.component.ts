@@ -1,10 +1,8 @@
-import { Component, OnInit } from '@angular/core';
-import { HackathonSubmissionDTO } from '../../../../models/hackathon-submission.dto';
-import { HackathonSubmissionService } from '../../../../services/hackathon-submission.service';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import Swal from 'sweetalert2';
-
+import { HackathonSubmissionDTO } from '../../../../models/hackathon-submission.dto';
+import { HackathonSubmissionService } from '../../../../services/hackathon-submission.service';
 
 @Component({
   selector: 'app-hackathon-submissions',
@@ -13,179 +11,231 @@ import Swal from 'sweetalert2';
   templateUrl: './hackathon-submissions.component.html',
   styleUrls: ['./hackathon-submissions.component.scss']
 })
-export class HackathonSubmissionsComponent implements OnInit {
+export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
 
   submissions: HackathonSubmissionDTO[] = [];
-  loading = false;
-  error = '';
-  search = '';
+  loading  = false;
+  error    = '';
+  search   = '';
   activeFilter = 'all';
-  modalOpen = false;
-  editTarget: any|null = null;
-  deleteTarget: any|null = null;
+
+  // Modal create / edit
+  modalOpen  = false;
+  editTarget: HackathonSubmissionDTO | null = null;
+  saving     = false;
+  form: Partial<HackathonSubmissionDTO> = {};
+
+  // Modal delete
+  deleteTarget: HackathonSubmissionDTO | null = null;
   deleting = false;
+
+  // Toast
   toastVisible = false;
-  toastMsg = '';
-  toastError = false;
+  toastMsg     = '';
+  toastError   = false;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   filterTabs = [
-    { key: 'all', label: 'All' },
+    { key: 'all',       label: 'All'       },
     { key: 'submitted', label: 'Submitted' },
-    { key: 'pending', label: 'Pending' },
+    { key: 'pending',   label: 'Pending'   },
     { key: 'evaluated', label: 'Evaluated' },
-    { key: 'rejected', label: 'Rejected' },
+    { key: 'rejected',  label: 'Rejected'  },
   ];
 
-  form: Partial<HackathonSubmissionDTO> = {};
+  private statusColorMap: Record<string, string> = {
+    PENDING:   '#a78bfa',
+    SUBMITTED: '#4f9eff',
+    EVALUATED: '#34d399',
+    REJECTED:  '#f87171',
+    default:   '#94a3b8',
+  };
+
+  constructor(private svc: HackathonSubmissionService) {}
+
+  ngOnInit(): void {
+    this.loadSubmissions();
+  }
+
+  ngOnDestroy(): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+  }
+
+  // ── DATA ─────────────────────────────────────────────────────────────
+
+  loadSubmissions(): void {
+    this.loading = true;
+    this.error   = '';
+    this.svc.getSubmissions().subscribe({
+      next: data => {
+        this.submissions = data;
+        this.loading = false;
+      },
+      error: () => {
+        this.error   = 'Failed to load submissions.';
+        this.loading = false;
+      }
+    });
+  }
+
+  // ── COMPUTED ─────────────────────────────────────────────────────────
 
   get stats() {
     const evaluated = this.submissions.filter(s => s.status === 'EVALUATED');
     const avg = evaluated.length
-      ? evaluated.reduce((a, b) => a + (b.overallScore || 0), 0) / evaluated.length
+      ? evaluated.reduce((a, b) => a + (b.overallScore ?? 0), 0) / evaluated.length
       : null;
     return [
-      { label: 'Total', value: this.submissions.length },
-      { label: 'Evaluated', value: evaluated.length },
+      { label: 'Total',          value: this.submissions.length },
+      { label: 'Evaluated',      value: evaluated.length },
       { label: 'Pending review', value: this.submissions.filter(s => s.status === 'PENDING' || s.status === 'SUBMITTED').length },
-      { label: 'Avg score', value: avg != null ? avg.toFixed(1) + '/10' : '—' },
+      { label: 'Avg score',      value: avg != null ? avg.toFixed(1) + '/10' : '—' },
     ];
   }
 
-  get filteredSubmissions() {
-    const q = this.search.toLowerCase();
-    return this.submissions.filter(s => {
-   
-      const matchFilter = this.activeFilter === 'all' || s.status.toLowerCase() === this.activeFilter;
-      const matchSearch = !q || s.projectTitle.toLowerCase().includes(q) || (s.projectDescription || '').toLowerCase().includes(q);
-      return matchFilter && matchSearch;
-      console.log(this.submissions);
-    }).sort((a, b) => (a.ranking ?? 999) - (b.ranking ?? 999));
+  get filteredSubmissions(): HackathonSubmissionDTO[] {
+    const q = this.search.toLowerCase().trim();
+    return this.submissions
+      .filter(s => {
+        const matchFilter =
+          this.activeFilter === 'all' ||
+          s.status.toLowerCase() === this.activeFilter;
+        const matchSearch =
+          !q ||
+          s.projectTitle.toLowerCase().includes(q) ||
+          (s.projectDescription ?? '').toLowerCase().includes(q);
+        return matchFilter && matchSearch;
+      })
+      .sort((a, b) => (a.ranking ?? 999) - (b.ranking ?? 999));
   }
 
-  constructor(private svc: HackathonSubmissionService) {}
+  // ── HELPERS ──────────────────────────────────────────────────────────
 
-  ngOnInit() {
-    this.loadSubmissions();
+  statusColor(status: string): string {
+    return this.statusColorMap[status] ?? this.statusColorMap['default'];
   }
 
-  loadSubmissions() {
-    this.loading = true;
-    this.svc.getSubmissions().subscribe({
-      next: data => { this.submissions = data ; this.loading = false; },
-      error: () => { this.error = 'Failed to load submissions.'; this.loading = false; }
-    });
+  rankClass(rank: number | null | undefined): string {
+    if (!rank) return 'rank-default';
+    if (rank === 1) return 'rank-gold';
+    if (rank === 2) return 'rank-silver';
+    if (rank === 3) return 'rank-bronze';
+    return 'rank-default';
   }
 
-  statusColor(status: string) {
-    const map: Record<string, string> = {
-      PENDING: '#534AB7', SUBMITTED: '#185FA5', EVALUATED: '#3B6D11', REJECTED: '#A32D2D'
-    };
-    return map[status] || '#888780';
+  pct(score = 0, max = 10): number {
+    return Math.min(100, Math.round((score / max) * 100));
   }
 
-rankClass(rank: number | null | undefined): string {
-  if (!rank) return 'rank-default';
+  // ── MODAL CREATE / EDIT ───────────────────────────────────────────────
 
-  if (rank === 1) return 'rank-gold';
-  if (rank === 2) return 'rank-silver';
-  if (rank === 3) return 'rank-bronze';
-
-  return 'rank-default';
-}
-  openModal(sub?: HackathonSubmissionDTO, evalMode = false) {
-    this.editTarget = sub || null;
-    this.form = sub ? { ...sub } : { status: 'SUBMITTED' };
-    this.modalOpen = true;
+  openModal(sub?: HackathonSubmissionDTO, evalMode = false): void {
+    this.editTarget = sub ?? null;
+    this.form       = sub ? { ...sub } : { status: 'SUBMITTED' };
+    this.saving     = false;
+    this.modalOpen  = true;
   }
 
-  closeModal() { this.modalOpen = false; this.editTarget = null; }
-
-  saveSubmission() {
-    if (!this.form.projectTitle) { this.showToast('Project title is required', true); return; }
-    const formData = { ...this.form, projectDescription: this.form.projectDescription || '' } as any;
-    const call = this.editTarget
-      ? this.svc.updateSubmission(this.editTarget.idLong!, formData)
-      : this.svc.addSubmission(formData);
-    call.subscribe({
-      next: () => { this.closeModal(); this.loadSubmissions(); this.showToast('Submission saved'); },
-      error: () => this.showToast('Save failed', true)
-    });
+  closeModal(): void {
+    this.modalOpen  = false;
+    this.editTarget = null;
+    this.saving     = false;
   }
 
-
-
-
-deleteSubmission(id: number) {
-  if (id == null) {
-    this.showToast('Cannot delete: submission ID is missing', true);
-    return;
-  }
-  Swal.fire({
-    title: 'Are you sure?',
-    text: "This action cannot be undone!",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#e74c3c',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Yes, delete it!'
-  }).then((result:any) =>  {
-    if (result.isConfirmed) {
-      this.svc.deleteSubmission(id).subscribe({
-        next: () => {
-          this.loadSubmissions();
-          Swal.fire('Deleted!', 'Submission has been deleted.', 'success');
-        },
-        error: () => {
-          Swal.fire('Error!', 'Delete failed.', 'error');
-        }
-      });
+  saveSubmission(): void {
+    if (!this.form.projectTitle?.trim()) {
+      this.showToast('Project title is required.', true);
+      return;
     }
-  });
-}
-  confirmDelete(sub: any): void {
-  if (sub.idLong == null) {
-    this.showToast('Cannot delete: submission ID is missing', true);
-    return;
+
+    this.saving = true;
+    const payload = {
+      ...this.form,
+      projectDescription: this.form.projectDescription ?? '',
+    } as HackathonSubmissionDTO;
+
+    // Use idLong if available, fall back to id
+    const existingId = this.editTarget?.idLong ?? this.editTarget?.id;
+    const call$ = existingId
+      ? this.svc.updateSubmission(existingId, payload)
+      : this.svc.addSubmission(payload);
+
+    call$.subscribe({
+      next: () => {
+        this.closeModal();
+        this.loadSubmissions();
+        this.showToast(existingId ? 'Submission updated.' : 'Submission created.');
+      },
+      error: () => {
+        this.showToast('Save failed. Please try again.', true);
+        this.saving = false;
+      }
+    });
   }
-  this.deleteTarget = sub;
-}
 
-doDelete(): void {
-  if (!this.deleteTarget) return;
+  // ── DELETE ────────────────────────────────────────────────────────────
 
-  if (this.deleteTarget.idLong == null) {
-    this.showToast('Cannot delete: ID is undefined', true);
-    this.deleteTarget = null;
-    return;
+  /**
+   * Called from the card "Delete" button — opens the confirmation modal.
+   * Uses idLong when available, falls back to id.
+   */
+  deleteSubmission(id: number | undefined): void {
+    if (id == null) {
+      this.showToast('Cannot delete: submission ID is missing.', true);
+      return;
+    }
+    // Find the full object so the modal can show the title
+    const sub = this.submissions.find(s => (s.idLong ?? s.id) === id || s.id === id);
+    this.deleteTarget = sub ?? null;
   }
 
-  this.deleting = true;
-  this.svc.deleteSubmission(this.deleteTarget.idLong).subscribe({
-    next: () => {
+  confirmDelete(sub: HackathonSubmissionDTO): void {
+    const id = sub.idLong ?? sub.id;
+    if (id == null) {
+      this.showToast('Cannot delete: submission ID is missing.', true);
+      return;
+    }
+    this.deleteTarget = sub;
+  }
+
+  doDelete(): void {
+    if (!this.deleteTarget) return;
+
+    const id = this.deleteTarget.idLong ?? this.deleteTarget.id;
+    if (id == null) {
+      this.showToast('Cannot delete: ID is undefined.', true);
       this.deleteTarget = null;
-      this.deleting     = false;
-      this.loadSubmissions();
-      this.showToast('Submission deleted successfully');
-    },
-    error: (err) => {
-      this.deleting = false;
-      const msg = err.status === 400
-        ? 'Bad request: submission could not be deleted'
-        : err.status === 404
-        ? 'Submission not found on server'
-        : 'Delete failed — please try again';
-      this.showToast(msg, true);
+      return;
     }
-  });
-}
-formatScore(score?: number | null): string {
-  return score != null ? `${score.toFixed(2)} / 100` : '0 / 100';
-}
-  showToast(msg: string, isError = false) {
-    this.toastMsg = msg; this.toastError = isError; this.toastVisible = true;
-    setTimeout(() => this.toastVisible = false, 2500);
+
+    this.deleting = true;
+    this.svc.deleteSubmission(id).subscribe({
+      next: () => {
+        this.submissions  = this.submissions.filter(
+          s => (s.idLong ?? s.id) !== id
+        );
+        this.deleteTarget = null;
+        this.deleting     = false;
+        this.showToast('Submission deleted successfully.');
+      },
+      error: (err: any) => {
+        this.deleting = false;
+        const msg =
+          err.status === 404 ? 'Submission not found on server.' :
+          err.status === 400 ? 'Bad request: submission could not be deleted.' :
+          'Delete failed — please try again.';
+        this.showToast(msg, true);
+      }
+    });
   }
-  getStroke(score?: number | null): number {
-  return (score ?? 0) * 9.42;
-}
+
+  // ── TOAST ─────────────────────────────────────────────────────────────
+
+  showToast(msg: string, isError = false): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastMsg     = msg;
+    this.toastError   = isError;
+    this.toastVisible = true;
+    this.toastTimer   = setTimeout(() => { this.toastVisible = false; }, 3500);
+  }
 }

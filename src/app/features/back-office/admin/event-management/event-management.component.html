@@ -102,7 +102,7 @@
               <!-- Location badge -->
               <td>
                 <span class="lbadge" [ngClass]="getLocationClass(event.online, event.location)">
-                  {{ getLocationType(event.online, event.location) }}
+                 {{event.online ? 'Online' : (event.location || '—')}}
                 </span>
               </td>
 

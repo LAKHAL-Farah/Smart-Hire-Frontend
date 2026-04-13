@@ -2,7 +2,8 @@ import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
-import { JobService, Job } from '../../../../services/job.service';
+import { HttpErrorResponse } from '@angular/common/http';
+import { JobService, Job, JobApplication } from '../../../../services/job.service';
 
 
 @Component({
@@ -49,6 +50,14 @@ export class JobsComponent implements OnInit {
 
   /* ── Job data ── */
   allJobs = signal<Job[]>([]);
+
+  /* ── Apply modal state ── */
+  applyModalOpen = signal(false);
+  applyJobId = signal<number | null>(null);
+  resumeFile = signal<File | null>(null);
+  submitError = signal<string | null>(null);
+  isSubmitting = signal(false);
+  lastApplication = signal<JobApplication | null>(null);
 
   constructor(private jobService: JobService) {}
   ngOnInit(): void {
@@ -231,6 +240,78 @@ export class JobsComponent implements OnInit {
   toggleSave(job: Job, event: Event): void {
     event.stopPropagation();
     job.saved = !job.saved;
+  }
+
+  openApplyModal(jobId: number): void {
+    this.applyJobId.set(jobId);
+    this.resumeFile.set(null);
+    this.submitError.set(null);
+    this.lastApplication.set(null);
+    this.applyModalOpen.set(true);
+  }
+
+  closeApplyModal(): void {
+    this.applyModalOpen.set(false);
+    this.applyJobId.set(null);
+    this.resumeFile.set(null);
+    this.submitError.set(null);
+    this.isSubmitting.set(false);
+  }
+
+  onResumeSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    this.resumeFile.set(file);
+    this.submitError.set(null);
+  }
+
+  submitApplication(): void {
+    const jobId = this.applyJobId();
+    const file = this.resumeFile();
+    if (!jobId) {
+      this.submitError.set('Missing job id. Please retry.');
+      return;
+    }
+    if (!file) {
+      this.submitError.set('Please upload your resume first.');
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.submitError.set(null);
+    this.lastApplication.set(null);
+
+    this.jobService.applyToJob(jobId, file, 1).subscribe({
+      next: (app) => {
+        this.lastApplication.set(app);
+        this.isSubmitting.set(false);
+        // Keep modal open briefly to show success; user can close.
+      },
+      error: (err: unknown) => {
+        this.isSubmitting.set(false);
+        this.submitError.set(this.getApplyErrorMessage(err));
+      }
+    });
+  }
+
+  private getApplyErrorMessage(err: unknown): string {
+    if (err instanceof HttpErrorResponse) {
+      const backendError = (err.error && typeof err.error === 'object') ? (err.error as any).error : null;
+      const message = typeof backendError === 'string' && backendError.trim() ? backendError : null;
+
+      if (err.status === 409) {
+        return message ?? 'You already applied to this job.';
+      }
+      if (err.status === 400) {
+        return message ?? 'Invalid request. Please check your resume file.';
+      }
+      if (err.status === 0) {
+        return 'Cannot reach the Job service. Is MS_JOB running on http://localhost:8085?';
+      }
+      return message ?? 'Failed to submit application.';
+    }
+
+    return 'Failed to submit application.';
   }
 
   getMatchedSkills(job: Job): string[] {

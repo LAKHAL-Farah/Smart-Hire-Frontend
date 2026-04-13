@@ -36,12 +36,22 @@ export interface JobCreateDto {
   userId?: number;
 }
 
+export interface JobApplication {
+  id: number;
+  jobId: number;
+  userId: number;
+  resumeUrl: string;
+  status: string;
+  appliedAt: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class JobService {
 
   private apiUrl = 'http://localhost:8085/api/jobs';
+  private applicationsUrl = 'http://localhost:8085/api/applications';
 
   constructor(private http: HttpClient) {}
 
@@ -51,5 +61,14 @@ export class JobService {
 
   createJob(payload: JobCreateDto): Observable<Job> {
     return this.http.post<Job>(this.apiUrl, payload);
+  }
+
+  applyToJob(jobId: number, resume: File, userId = 1): Observable<JobApplication> {
+    const form = new FormData();
+    form.append('jobId', String(jobId));
+    form.append('userId', String(userId));
+    form.append('resume', resume);
+
+    return this.http.post<JobApplication>(this.applicationsUrl, form);
   }
 }

@@ -1,95 +1,199 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { ProfileApiResponse, ProfileApiService } from '../../profile/profile-api.service';
+import {
+  CvVersionDto,
+  ProfileOptimizationApiService,
+  ProfileOptimizationSnapshot,
+} from '../../profile/profile-optimization-api.service';
 
-/* ── Types ── */
-interface CvCard {
-  id: number;
-  title: string;
-  version: number;
-  date: string;
-  atsScore: number;
-  isDefault: boolean;
-}
-
-interface CvSection {
-  name: string;
-  score: number;
-  content: string;
-}
-
-interface Enhancement {
-  jobTitle: string;
-  date: string;
-  scoreBefore: number;
-  scoreAfter: number;
-}
-
-type TabId = 'preview' | 'sections' | 'enhancements';
+type CvTab = 'hub' | 'editor' | 'history';
 
 @Component({
   selector: 'app-cv-optimizer',
   standalone: true,
   imports: [CommonModule, FormsModule, LUCIDE_ICONS],
   templateUrl: './cv-optimizer.component.html',
-  styleUrl: './cv-optimizer.component.scss'
+  styleUrl: './cv-optimizer.component.scss',
 })
-export class CvOptimizerComponent {
-  /* ── State ── */
-  selectedCvId = signal(1);
-  activeTab = signal<TabId>('preview');
+export class CvOptimizerComponent implements OnInit {
+  private readonly profileApi = inject(ProfileApiService);
+  private readonly optimizationApi = inject(ProfileOptimizationApiService);
 
-  tabs: { id: TabId; label: string }[] = [
-    { id: 'preview', label: 'Preview' },
-    { id: 'sections', label: 'Sections' },
-    { id: 'enhancements', label: 'Enhancements' },
+  activeTab = signal<CvTab>('hub');
+  selectedCvId = signal<string | null>(null);
+  tabs: { id: CvTab; label: string }[] = [
+    { id: 'hub', label: 'CV Hub' },
+    { id: 'editor', label: 'Editor' },
+    { id: 'history', label: 'Version History' },
   ];
 
-  /* ── Mini ring math ── */
-  miniCircum = 2 * Math.PI * 20; // ≈ 125.66
+  profile = signal<ProfileApiResponse | null>(null);
+  snapshot = signal<ProfileOptimizationSnapshot | null>(null);
+  loading = signal(true);
+  busyUpload = signal(false);
+  busyTailor = signal(false);
+  error = signal<string | null>(null);
+  notice = signal<string | null>(null);
 
-  /* ── CV Cards ── */
-  cvCards: CvCard[] = [
-    { id: 1, title: 'Software Engineer CV', version: 3, date: 'Feb 20, 2026', atsScore: 82, isDefault: true },
-    { id: 2, title: 'Frontend Developer CV', version: 2, date: 'Jan 14, 2026', atsScore: 74, isDefault: false },
-    { id: 3, title: 'Full-Stack Resume', version: 1, date: 'Dec 5, 2025', atsScore: 45, isDefault: false },
-  ];
+  jobOfferTitle = 'Senior Full-stack Engineer';
+  jobOfferCompany = 'Target company';
+  jobOfferSourceUrl = '';
+  jobOfferText = '';
 
-  /* ── CV Sections (preview / edit) ── */
-  cvSections: CvSection[] = [
-    {
-      name: 'Summary', score: 78,
-      content: 'Passionate software engineer with 3+ years of experience building scalable web applications. Proficient in TypeScript, Angular, Node.js, and cloud infrastructure. Focused on delivering clean, tested code and improving developer experience across teams.'
-    },
-    {
-      name: 'Experience', score: 85,
-      content: 'Software Engineer — TechCorp (2023 – Present)\nBuilt and maintained microservices handling 50k+ requests/day. Led migration from monolith to event-driven architecture. Reduced CI/CD pipeline time by 40% through parallel test execution.\n\nJunior Developer — StartupXYZ (2021 – 2023)\nDeveloped RESTful APIs and React dashboards for internal tools. Implemented automated testing, increasing code coverage from 30% to 85%.'
-    },
-    {
-      name: 'Education', score: 90,
-      content: 'B.Sc. Computer Science — University of Technology (2017 – 2021)\nGraduated with honors. Coursework in algorithms, distributed systems, and software engineering. Senior thesis on real-time collaborative editing.'
-    },
-    {
-      name: 'Skills', score: 65,
-      content: 'Languages: TypeScript, JavaScript, Python, SQL\nFrameworks: Angular, React, Node.js, Express, NestJS\nTools: Docker, Kubernetes, GitHub Actions, AWS (EC2, S3, Lambda)\nDatabases: PostgreSQL, MongoDB, Redis'
-    },
-    {
-      name: 'Projects', score: 52,
-      content: 'SmartHire — AI-powered career platform built with Angular 18 and NestJS. Features include skill assessment engine, roadmap generator, and ATS-optimized CV builder.\n\nDevSync — Real-time collaborative code editor using WebSockets and OT algorithms. Supports 20+ concurrent users with sub-100ms latency.'
-    },
-  ];
+  selectedCv = computed(() => {
+    const data = this.snapshot();
+    if (!data) {
+      return null;
+    }
+    const selected = this.selectedCvId();
+    if (selected) {
+      return data.cvs.find((cv) => cv.id === selected) ?? null;
+    }
+    return data.cvs.find((cv) => cv.isActive) ?? data.cvs[0] ?? null;
+  });
 
-  /* ── Enhancements ── */
-  enhancements: Enhancement[] = [
-    { jobTitle: 'Senior Frontend Engineer — Spotify', date: 'Feb 18, 2026', scoreBefore: 68, scoreAfter: 82 },
-    { jobTitle: 'Full-Stack Developer — Stripe', date: 'Jan 28, 2026', scoreBefore: 55, scoreAfter: 74 },
-    { jobTitle: 'Backend Engineer — Datadog', date: 'Jan 10, 2026', scoreBefore: 48, scoreAfter: 67 },
-    { jobTitle: 'Software Engineer — Google', date: 'Dec 20, 2025', scoreBefore: 42, scoreAfter: 61 },
-  ];
+  versions = computed(() => {
+    const data = this.snapshot();
+    const cv = this.selectedCv();
+    if (!data || !cv) {
+      return [] as CvVersionDto[];
+    }
+    return data.versionsByCvId[cv.id] ?? [];
+  });
 
-  /* ── Actions ── */
-  onUploadNew(): void {
-    console.log('Upload new CV');
+  latestVersion = computed(() => this.versions()[0] ?? null);
+
+  versionSections = computed(() => {
+    const version = this.latestVersion();
+    const sections = version?.tailoredContent?.['sections'];
+    if (!Array.isArray(sections)) {
+      return [] as { label: string; content: string }[];
+    }
+    return sections.map((section) => {
+      const typed = section as { label?: string; content?: unknown };
+      const content = Array.isArray(typed.content) ? typed.content.join(', ') : String(typed.content ?? '');
+      return {
+        label: typed.label ?? 'Section',
+        content,
+      };
+    });
+  });
+
+  miniCircum = 2 * Math.PI * 20;
+
+  ngOnInit(): void {
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.profileApi.getProfile().subscribe({
+      next: (profile) => {
+        this.profile.set(profile);
+        this.refreshSnapshot(profile);
+      },
+      error: () => {
+        this.refreshSnapshot(null);
+      },
+    });
+  }
+
+  refreshSnapshot(profile: ProfileApiResponse | null): void {
+    this.optimizationApi
+      .getSnapshot(profile?.userId, {
+        linkedinUrl: profile?.linkedinUrl,
+        githubUrl: profile?.githubUrl,
+      })
+      .subscribe({
+        next: (snapshot) => {
+          this.snapshot.set(snapshot);
+          this.loading.set(false);
+          this.selectedCvId.set(this.selectedCvId() || snapshot.cvs[0]?.id || null);
+          this.jobOfferTitle = snapshot.latestJobOffer?.title ?? this.jobOfferTitle;
+          this.jobOfferCompany = snapshot.latestJobOffer?.company ?? this.jobOfferCompany;
+          this.jobOfferSourceUrl = snapshot.latestJobOffer?.sourceUrl ?? this.jobOfferSourceUrl;
+          this.jobOfferText = snapshot.latestJobOffer?.rawDescription ?? this.jobOfferText;
+        },
+        error: () => {
+          this.loading.set(false);
+          this.error.set('Could not load the CV Hub data. Check the M4 profile optimization service configuration.');
+        },
+      });
+  }
+
+  chooseCv(cvId: string): void {
+    this.selectedCvId.set(cvId);
+  }
+
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.busyUpload.set(true);
+    this.error.set(null);
+    this.notice.set(null);
+    this.optimizationApi.uploadCv(file, this.profile()?.userId).subscribe({
+      next: (response) => {
+        this.busyUpload.set(false);
+        this.notice.set(`Uploaded ${response.cv.originalFileName}. Parsing and ATS preview are now available.`);
+        this.selectedCvId.set(response.cv.id);
+        this.refreshSnapshot(this.profile());
+      },
+      error: () => {
+        this.busyUpload.set(false);
+        this.error.set('CV upload failed. Verify that the M4 backend endpoint /cv/upload is available.');
+      },
+    });
+    if (input) {
+      input.value = '';
+    }
+  }
+
+  tailorCv(): void {
+    const cv = this.selectedCv();
+    if (!cv || !this.jobOfferText.trim()) {
+      this.error.set('Select a CV and provide a target job description before tailoring.');
+      return;
+    }
+    this.busyTailor.set(true);
+    this.error.set(null);
+    this.notice.set(null);
+    this.optimizationApi
+      .tailorCv({
+        cvId: cv.id,
+        jobOfferTitle: this.jobOfferTitle,
+        company: this.jobOfferCompany,
+        sourceUrl: this.jobOfferSourceUrl || undefined,
+        jobOfferText: this.jobOfferText,
+      })
+      .subscribe({
+        next: () => {
+          this.busyTailor.set(false);
+          this.notice.set('A new tailored CV version was generated and added to version history.');
+          this.activeTab.set('history');
+          this.refreshSnapshot(this.profile());
+        },
+        error: () => {
+          this.busyTailor.set(false);
+          this.error.set('CV tailoring failed. Verify that the M4 backend endpoint /cv/tailor is available.');
+        },
+      });
+  }
+
+  scoreTone(score: number | null | undefined): 'high' | 'mid' | 'low' {
+    const value = score ?? 0;
+    if (value >= 80) {
+      return 'high';
+    }
+    if (value >= 60) {
+      return 'mid';
+    }
+    return 'low';
   }
 }

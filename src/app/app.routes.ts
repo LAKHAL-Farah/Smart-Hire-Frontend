@@ -61,9 +61,7 @@ export const routes: Routes = [
       {
         path: 'cv',
         loadComponent: () =>
-          import('./features/front-office/dashboard/cv-optimizer/cv-optimizer.component').then(
-            (m) => m.CvOptimizerComponent
-          ),
+          import('./features/front-office/dashboard/cv-optimizer').then((m) => m.CvOptimizerComponent),
       },
       {
         path: 'jobs',

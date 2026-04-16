@@ -17,12 +17,26 @@ export interface ProfileApiResponse {
   avatarUrl?: string;
   email?: string;
   onboardingJson?: string | null;
+  skillAssessmentJson?: string | null;
+}
+
+export interface SkillAssessmentSyncPayload {
+  attempts: {
+    sessionId: number;
+    categoryTitle: string;
+    categoryCode: string;
+    scorePercent: number | null;
+    completedAt: string | null;
+    scoreReleased: boolean;
+    adminFeedback: string | null;
+  }[];
 }
 
 export interface UserApiResponse {
   id: string;
   email: string;
   status?: string;
+  role?: { id?: string; name?: string };
 }
 
 export interface OnboardingCompletePayload {
@@ -74,6 +88,32 @@ export class ProfileApiService {
 
   getUserByEmail(email: string): Observable<UserApiResponse> {
     return this.http.get<UserApiResponse>(`${this.base}/users/email/${encodeURIComponent(email)}`);
+  }
+
+  /** Persists MCQ assessment snapshot on the profile (MS-User when available). */
+  syncSkillAssessments(userId: string, body: SkillAssessmentSyncPayload): Observable<ProfileApiResponse> {
+    const persistLocal = (): ProfileApiResponse => {
+      const prev = this.readLocalProfile(userId);
+      const merged: ProfileApiResponse = {
+        ...prev,
+        skillAssessmentJson: JSON.stringify({ attempts: body.attempts, syncedAt: new Date().toISOString() }),
+      };
+      this.writeLocalProfile(merged);
+      return merged;
+    };
+    if (isLocalDemoMode()) {
+      return of(persistLocal());
+    }
+    return this.http
+      .post<ProfileApiResponse>(`${this.base}/profiles/user/${userId}/skill-assessments/sync`, body)
+      .pipe(
+        catchError((err) => {
+          if (environment.localAuthFallback || err?.status === 404) {
+            return of(persistLocal());
+          }
+          return throwError(() => err);
+        })
+      );
   }
 
   createUserWithProfile(body: {

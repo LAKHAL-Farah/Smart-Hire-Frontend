@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../../../environments/environment';
 import { ProfileApiService, ProfileApiResponse } from '../../profile/profile-api.service';
-import { setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
+import { ACCOUNT_ROLE_KEY, setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { UserService } from '../user.service';
@@ -134,8 +134,22 @@ export class RegisterComponent {
           this.isLoading.set(false);
           setLocalDemoMode(false);
           if (u?.id) {
-            setProfileUserUuid(String(u.id));
+            const uid = String(u.id);
+            setProfileUserUuid(uid);
+            localStorage.setItem(
+              'user',
+              JSON.stringify({
+                id: uid,
+                email: this.email.trim(),
+                name: `${firstName} ${lastName}`,
+                role: this.selectedRole() === 'recruiter' ? 'recruiter' : 'user',
+              })
+            );
           }
+          localStorage.setItem(
+            ACCOUNT_ROLE_KEY,
+            this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate'
+          );
           void this.router.navigate(['/onboarding']);
         },
         error: () => {
@@ -166,6 +180,19 @@ export class RegisterComponent {
         firstName,
         lastName,
         role: this.selectedRole(),
+      })
+    );
+    localStorage.setItem(
+      ACCOUNT_ROLE_KEY,
+      this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate'
+    );
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        id,
+        email: this.email.trim(),
+        name: `${firstName} ${lastName}`,
+        role: this.selectedRole() === 'recruiter' ? 'recruiter' : 'user',
       })
     );
     const profile: ProfileApiResponse = {

@@ -10,7 +10,7 @@ import { catchError, map, retry } from 'rxjs/operators';
   })
   export class UserService {
 
-    private apiUrl = `http://localhost:8082/api/v1`;
+    private apiUrl = `http://localhost:8080/MS-USER/api/v1`;
 
     constructor(private http: HttpClient) { }
 

@@ -77,10 +77,10 @@ export class ProfileApiService {
   }
 
   createUserWithProfile(body: {
-    userRequest: { email: string; password: string; roleName: string };
-    profileRequest: { firstName: string; lastName: string };
-  }): Observable<UserApiResponse> {
-    return this.http.post<UserApiResponse>(`${this.base}/users`, body);
+    userRequest: any;
+    profileRequest: any;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.base}/users`, body);
   }
 
   private hasLocalProfileFor(id: string): boolean {

@@ -1,11 +1,33 @@
-<div class="mcq">
-  <a routerLink="/dashboard/assessments" class="mcq__back">
+<div class="mcq mcq-page">
+  <div class="mcq__ambient" aria-hidden="true"></div>
+  <a
+    href="/dashboard/assessments"
+    class="mcq__back"
+    [class.mcq__back--disabled]="forfeitLoading()"
+    (click)="onBackToAssessments($event)"
+  >
     <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
-    Back to assessments
+    @if (forfeitLoading()) {
+      Leaving…
+    } @else {
+      Back to assessments
+    }
   </a>
 
   @if (errorMsg(); as err) {
     <div class="mcq__alert" role="alert">{{ err }}</div>
+  }
+
+  @if (integrityViolation() && !submitted()) {
+    <div class="mcq__alert mcq__alert--warn" role="status">
+      <strong>Integrity warning:</strong> you left this assessment. Your final score will be <strong>0</strong> when you submit.
+    </div>
+  }
+
+  @if (timeUpIncomplete()) {
+    <div class="mcq__alert mcq__alert--time" role="alert">
+      <strong>Time’s up.</strong> Answer every question to submit — the server requires a complete attempt.
+    </div>
   }
 
   @if (loading() && !paper()) {
@@ -18,9 +40,15 @@
         <lucide-icon name="circle-check" [size]="40"></lucide-icon>
       </div>
       <h1 class="mcq-done__title">Assessment submitted</h1>
+      @if (integrityViolation()) {
+        <p class="mcq-done__hint mcq-done__hint--warn">
+          This attempt was flagged because you left the quiz screen during the test. Your score is recorded as
+          <strong>0%</strong>.
+        </p>
+      }
       @if (scorePercent() != null) {
         <p class="mcq-done__score">Score: <strong>{{ scorePercent() }}%</strong></p>
-      } @else {
+      } @else if (!integrityViolation()) {
         <p class="mcq-done__hint mcq-done__hint--accent">
           Your answers are scored. An administrator will publish your result — then you’ll see your score, any feedback, and the full question review on
           <strong>Skill assessments</strong> and your <strong>Profile</strong>.
@@ -32,14 +60,61 @@
   } @else {
     @if (paper(); as doc) {
       <header class="mcq__head">
+        <div class="mcq__head-top">
+          <span class="mcq__badge">Skill assessment</span>
+          <div class="mcq__progress-wrap">
+            <div class="mcq__progress-label">
+              <span>Progress</span>
+              <span class="mcq__progress-count"
+                >{{ answeredCount() }} / {{ doc.questions.length }}</span
+              >
+            </div>
+            <div class="mcq__progress-track" role="progressbar" [attr.aria-valuenow]="answeredCount()" [attr.aria-valuemax]="doc.questions.length" aria-label="Questions answered">
+              <div
+                class="mcq__progress-fill"
+                [style.width.%]="doc.questions.length ? (answeredCount() / doc.questions.length) * 100 : 0"
+              ></div>
+            </div>
+          </div>
+          <div
+            class="mcq__timer"
+            [class.mcq__timer--urgent]="remainingSec() <= 120 && remainingSec() > 0"
+            [class.mcq__timer--expired]="timeExpired()"
+            role="timer"
+            [attr.aria-label]="'Elapsed ' + formatClock(elapsedSec()) + ', ' + (timeExpired() ? 'time expired' : formatClock(remainingSec()) + ' remaining')"
+          >
+            <lucide-icon name="clock" [size]="18" class="mcq__timer-icon"></lucide-icon>
+            <div class="mcq__timer-body">
+              <span class="mcq__timer-row">
+                <span class="mcq__timer-k">Elapsed</span>
+                <span class="mcq__timer-v">{{ formatClock(elapsedSec()) }}</span>
+              </span>
+              <span class="mcq__timer-row">
+                <span class="mcq__timer-k">{{ timeExpired() ? 'Limit' : 'Left' }}</span>
+                <span class="mcq__timer-v">
+                  @if (!timeExpired()) {
+                    {{ formatClock(remainingSec()) }}
+                  } @else {
+                    0:00
+                  }
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
         <h1 class="mcq__title">{{ doc.categoryTitle }}</h1>
-        <p class="mcq__meta">{{ doc.questions.length }} questions</p>
+        <p class="mcq__meta">
+          <lucide-icon name="list-checks" [size]="14" class="mcq__meta-icon"></lucide-icon>
+          {{ doc.questions.length }} questions · select one answer per question ·
+          <span class="mcq__meta-hint">Time limit {{ formatClock(timeLimitSec()) }} (auto-submit when all answered)</span>
+        </p>
       </header>
 
       <ol class="mcq__list">
         @for (q of doc.questions; track trackByQ($index, q)) {
           <li class="mcq-q">
             <div class="mcq-q__top">
+              <span class="mcq-q__num">Q{{ $index + 1 }}</span>
               <span class="mcq-q__pts">{{ q.points }} pts</span>
               <span class="mcq-q__diff">{{ q.difficulty }}</span>
             </div>
@@ -73,5 +148,106 @@
         </button>
       </div>
     }
+  }
+
+  @if (integrityModalOpen()) {
+    <div
+      class="mcq-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mcq-integrity-title"
+      (click)="dismissIntegrityModal()"
+    >
+      <div class="mcq-modal" (click)="$event.stopPropagation()">
+        <div class="mcq-modal__glow" aria-hidden="true"></div>
+        <div class="mcq-modal__icon-wrap">
+          <lucide-icon name="triangle-alert" [size]="36" class="mcq-modal__icon"></lucide-icon>
+        </div>
+        <p class="mcq-modal__eyebrow">Proctoring</p>
+        <h2 id="mcq-integrity-title" class="mcq-modal__title">Leaving the assessment</h2>
+        <p class="mcq-modal__lead">
+          We detected that you moved away from this quiz — for example by switching tabs, minimizing the window, or
+          opening another application.
+        </p>
+        <div class="mcq-modal__panel">
+          <p class="mcq-modal__panel-title">What happens next</p>
+          <ul class="mcq-modal__list">
+            <li>This attempt is <strong>flagged</strong> for review.</li>
+            <li>Your <strong>final score will be 0%</strong> when you submit, regardless of your answers.</li>
+            <li>You can still finish and submit to close the session.</li>
+          </ul>
+        </div>
+        <p class="mcq-modal__hint">Stay on this page until you submit if you want your answers to count toward a normal score.</p>
+        <button type="button" class="mcq-modal__btn" (click)="dismissIntegrityModal()">I understand</button>
+      </div>
+    </div>
+  }
+
+  @if (quitModalOpen()) {
+    <div
+      class="mcq-modal-backdrop mcq-modal-backdrop--quit"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="mcq-quit-title"
+      aria-describedby="mcq-quit-desc"
+      (click)="dismissQuitModal()"
+    >
+      <div class="mcq-modal mcq-modal--quit" (click)="$event.stopPropagation()">
+        <div class="mcq-modal__glow mcq-modal__glow--quit" aria-hidden="true"></div>
+        <div class="mcq-modal__icon-wrap mcq-modal__icon-wrap--quit">
+          <lucide-icon name="log-out" [size]="34" class="mcq-modal__icon mcq-modal__icon--quit"></lucide-icon>
+        </div>
+        <p class="mcq-modal__eyebrow mcq-modal__eyebrow--quit">Leave quiz</p>
+        <h2 id="mcq-quit-title" class="mcq-modal__title">
+          @if (quitModalMode() === 'forfeit') {
+            End this attempt?
+          } @else {
+            Leave without closing your attempt?
+          }
+        </h2>
+        @if (paper(); as doc) {
+          <p class="mcq-modal__category">{{ doc.categoryTitle }}</p>
+        }
+        <p id="mcq-quit-desc" class="mcq-modal__lead mcq-modal__lead--quit">
+          @if (quitModalMode() === 'forfeit') {
+            You have not submitted your answers. Leaving now will <strong>close this category attempt</strong>, record
+            <strong>0%</strong>, and flag it like a proctoring violation. You <strong>cannot retake</strong> this category.
+            Your result is shown immediately — no admin publish step.
+          } @else {
+            We could not detect your SmartHire user id, so the server may <strong>not</strong> close this session. You
+            can still go back to assessments; sign in and return here if the attempt stays open.
+          }
+        </p>
+        @if (quitModalMode() === 'forfeit') {
+          <div class="mcq-modal__panel mcq-modal__panel--quit">
+            <p class="mcq-modal__panel-title">Summary</p>
+            <ul class="mcq-modal__list mcq-modal__list--quit">
+              <li>Score recorded as <strong>0%</strong></li>
+              <li>One attempt per category — <strong>used</strong></li>
+              <li>Visible to you right away on Skill assessments &amp; Profile</li>
+            </ul>
+          </div>
+        }
+        <div class="mcq-modal__actions">
+          <button type="button" class="mcq-modal__btn-secondary" (click)="dismissQuitModal()">
+            Stay on quiz
+          </button>
+          <button
+            type="button"
+            class="mcq-modal__btn-danger"
+            [disabled]="forfeitLoading()"
+            (click)="confirmQuitLeave()"
+          >
+            @if (forfeitLoading()) {
+              Closing…
+            } @else if (quitModalMode() === 'forfeit') {
+              Leave &amp; score 0%
+            } @else {
+              Leave anyway
+            }
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </div>

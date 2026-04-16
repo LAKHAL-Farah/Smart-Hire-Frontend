@@ -51,6 +51,10 @@ export interface AssessmentSessionAdminRow {
   notes: string | null;
   /** Candidate-facing message after publish (optional). */
   adminFeedback: string | null;
+  /** Resolved from MS-User for admin lists when lookup succeeds. */
+  candidateDisplayName?: string | null;
+  /** Candidate left the quiz UI during the attempt — score forced to 0. */
+  integrityViolation?: boolean;
 }
 
 /** One row in GET /admin/sessions/{id}/review */

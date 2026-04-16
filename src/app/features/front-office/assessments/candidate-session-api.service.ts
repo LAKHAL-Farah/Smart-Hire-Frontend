@@ -43,6 +43,8 @@ export interface SessionResponseDto {
   notes: string | null;
   /** Shown to the candidate after the admin publishes results (optional). */
   adminFeedback: string | null;
+  /** True if the candidate left the quiz (e.g. switched tab); final score is forced to 0 on submit. */
+  integrityViolation?: boolean;
 }
 
 export interface AnswerReviewItemDto {
@@ -98,12 +100,43 @@ export class CandidateSessionApiService {
     return assessmentApiBaseUrl();
   }
 
-  startSession(userId: string, categoryId: number): Observable<SessionResponseDto> {
-    return this.http.post<SessionResponseDto>(`${this.base()}/sessions`, { userId, categoryId });
+  /**
+   * Starts a session. Pass candidateDisplayName (e.g. from MS-User profile) so admins see a name without server-to-server lookup.
+   */
+  startSession(
+    userId: string,
+    categoryId: number,
+    candidateDisplayName?: string | null
+  ): Observable<SessionResponseDto> {
+    const body: { userId: string; categoryId: number; candidateDisplayName?: string | null } = {
+      userId,
+      categoryId,
+    };
+    const n = candidateDisplayName?.trim();
+    if (n) body.candidateDisplayName = n;
+    return this.http.post<SessionResponseDto>(`${this.base()}/sessions`, body);
   }
 
   getPaper(sessionId: number): Observable<QuestionPaperResponseDto> {
     return this.http.get<QuestionPaperResponseDto>(`${this.base()}/sessions/${sessionId}/paper`);
+  }
+
+  /** Call when the candidate leaves the quiz UI (e.g. tab hidden). Flags the session; submit scores 0. */
+  reportIntegrityViolation(sessionId: number, reason?: string): Observable<SessionResponseDto> {
+    const body = reason?.trim() ? { reason: reason.trim() } : {};
+    return this.http.post<SessionResponseDto>(
+      `${this.base()}/sessions/${sessionId}/integrity-violation`,
+      body
+    );
+  }
+
+  /**
+   * In-app back / return without submitting. Session closes at 0%, flagged, result published immediately.
+   */
+  forfeitSession(sessionId: number, userId: string): Observable<SessionResponseDto> {
+    return this.http.post<SessionResponseDto>(`${this.base()}/sessions/${sessionId}/forfeit`, {
+      userId: userId.trim(),
+    });
   }
 
   submit(

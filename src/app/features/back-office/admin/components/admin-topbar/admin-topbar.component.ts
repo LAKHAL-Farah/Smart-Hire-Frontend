@@ -1,33 +1,43 @@
-import { Component, signal, HostListener } from '@angular/core';
+import { Component, signal, HostListener, computed, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, NavigationEnd } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { Router, RouterLink } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { AutheService } from '../../../../front-office/auth/authe.service';
+import { AssessmentNotificationsService } from '../../../../../core/services/assessment-notifications.service';
 
 @Component({
   selector: 'app-admin-topbar',
   standalone: true,
-  imports: [CommonModule, FormsModule, LUCIDE_ICONS],
+  imports: [CommonModule, FormsModule, RouterLink, LUCIDE_ICONS],
   templateUrl: './admin-topbar.component.html',
   styleUrl: './admin-topbar.component.scss'
 })
-export class AdminTopbarComponent {
+export class AdminTopbarComponent implements OnInit, OnDestroy {
   searchQuery = '';
   userName = localStorage.getItem('userName') || 'Admin User';
   email = localStorage.getItem('email')  || 'Admim@gmail.com';
   notifOpen = signal(false);
   avatarOpen = signal(false);
 
+  private readonly assessmentNotif = inject(AssessmentNotificationsService);
+  private pollId: ReturnType<typeof setInterval> | null = null;
+
+  notifications = computed(() => this.assessmentNotif.adminItems());
+  notifCount = computed(() => this.assessmentNotif.adminCount());
+
   constructor(private router: Router, private authService: AutheService ){}
 
-  notifications = [
-    { text: 'API error rate spike — 4.2% in last 15 min', time: '2 min ago', color: '#ef4444' },
-    { text: 'New recruiter awaiting verification — TechCorp', time: '18 min ago', color: '#f59e0b' },
-    { text: 'Stripe webhook failure — payment #8841', time: '1 hour ago', color: '#ef4444' },
-    { text: 'AI model latency above threshold — 3.2s avg', time: '2 hours ago', color: '#f59e0b' },
-  ];
+  ngOnInit(): void {
+    this.assessmentNotif.refreshAdmin();
+    this.pollId = setInterval(() => this.assessmentNotif.refreshAdmin(), 8_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollId != null) {
+      clearInterval(this.pollId);
+    }
+  }
 
   toggleNotif(): void {
     this.avatarOpen.set(false);

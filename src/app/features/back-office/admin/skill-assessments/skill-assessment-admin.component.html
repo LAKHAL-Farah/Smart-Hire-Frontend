@@ -1,6 +1,11 @@
-<div class="saa">
+<div class="saa saa-page">
+  <div class="saa__ambient" aria-hidden="true"></div>
   <header class="saa__hero">
     <div class="saa__hero-text">
+      <span class="saa__eyebrow">
+        <lucide-icon name="shield-check" [size]="14" class="saa__eyebrow-icon"></lucide-icon>
+        Admin · Question bank
+      </span>
       <h1 class="saa__hero-title">Skill assessments</h1>
       <p class="saa__hero-sub">
         Build your question bank: pick a <strong>category</strong> in the table, then add <strong>questions</strong> and
@@ -75,12 +80,18 @@
                 @if (s.topicTag) {
                   <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span>
                 }
+                @if (s.candidateDisplayName) {
+                  <span class="saa-release__name">{{ s.candidateDisplayName }}</span>
+                }
                 <span class="saa-release__uid" title="MS-User id">{{ s.userId }}</span>
                 @if (s.completedAt) {
                   <span class="saa-release__when">Completed {{ s.completedAt | date : 'medium' }}</span>
                 }
               </div>
               <div class="saa-release__score">
+                @if (s.integrityViolation) {
+                  <span class="saa-chip saa-chip--warn" title="Left quiz during attempt">Integrity</span>
+                }
                 <span class="saa-release__score-val">{{ s.scorePercent ?? '—' }}%</span>
                 <span class="saa-release__score-lbl">score</span>
               </div>
@@ -127,12 +138,18 @@
               @if (s.topicTag) {
                 <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span>
               }
+              @if (s.candidateDisplayName) {
+                <span class="saa-history__name">{{ s.candidateDisplayName }}</span>
+              }
               <span class="saa-history__uid" title="User id">{{ s.userId }}</span>
               @if (s.completedAt) {
                 <span class="saa-history__when">{{ s.completedAt | date : 'medium' }}</span>
               }
             </div>
             <div class="saa-history__right">
+              @if (s.integrityViolation) {
+                <span class="saa-chip saa-chip--warn" title="Left quiz during attempt">Integrity</span>
+              }
               <span class="saa-history__score">{{ s.scorePercent ?? '—' }}%</span>
               @if (s.scoreReleased) {
                 <span class="saa-chip saa-chip--ok">Published</span>
@@ -481,6 +498,9 @@
           <div class="saa-modal__meta">
             <span class="saa-modal__badge">{{ reviewDetail!.session.categoryTitle }}</span>
             <span class="saa-modal__score">{{ reviewDetail!.session.scorePercent ?? '—' }}%</span>
+            @if (reviewDetail!.session.candidateDisplayName) {
+              <span class="saa-modal__name">{{ reviewDetail!.session.candidateDisplayName }}</span>
+            }
             <span class="saa-modal__uid" title="User id">{{ reviewDetail!.session.userId }}</span>
           </div>
           <ul class="saa-modal__answers">

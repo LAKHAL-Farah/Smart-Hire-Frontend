@@ -1,8 +1,8 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
+import { forkJoin, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import {
@@ -17,6 +17,10 @@ import {
 } from '../../assessments/candidate-session-api.service';
 import { CandidateAssignmentApiService } from '../../assessments/candidate-assignment-api.service';
 import { collectCandidateUserIdsForSessions } from '../../assessments/assessment-canonical-user';
+import {
+  SkillProfileApiService,
+  SkillProfileDto,
+} from '../../assessments/skill-profile-api.service';
 import { getAssessmentUserId } from '../../profile/profile-user-id';
 
 type ProfileTab = 'overview' | 'experience' | 'projects' | 'assessments';
@@ -34,7 +38,7 @@ interface OnboardingSnapshot {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, RouterLink, LUCIDE_ICONS],
+  imports: [CommonModule, NgTemplateOutlet, RouterLink, LUCIDE_ICONS],
   templateUrl: './profile.component.html',
   styleUrl: './profile.component.scss',
 })
@@ -42,6 +46,7 @@ export class ProfileComponent implements OnInit {
   private readonly profileApi = inject(ProfileApiService);
   private readonly sessionApi = inject(CandidateSessionApiService);
   private readonly assignmentApi = inject(CandidateAssignmentApiService);
+  private readonly skillProfileApi = inject(SkillProfileApiService);
 
   activeTab = signal<ProfileTab>('overview');
   tabs: { id: ProfileTab; label: string }[] = [
@@ -57,35 +62,10 @@ export class ProfileComponent implements OnInit {
   onboardingSnap = signal<OnboardingSnapshot | null>(null);
   /** Live from MS-Assessment — drives skill bars & readiness */
   assessmentSessions = signal<SessionResponseDto[]>([]);
+  /** Aggregated profile (published attempts); null if none or API unavailable */
+  skillProfile = signal<SkillProfileDto | null>(null);
 
   ringCircum = 2 * Math.PI * 42;
-
-  skillGroups = [
-    {
-      category: 'Frontend',
-      skills: [
-        { name: 'Angular', level: 88 },
-        { name: 'React', level: 72 },
-        { name: 'TypeScript', level: 90 },
-      ],
-    },
-    {
-      category: 'Backend',
-      skills: [
-        { name: 'Node.js', level: 82 },
-        { name: 'Python', level: 60 },
-        { name: 'PostgreSQL', level: 75 },
-      ],
-    },
-    {
-      category: 'DevOps',
-      skills: [
-        { name: 'Docker', level: 70 },
-        { name: 'AWS', level: 55 },
-        { name: 'CI/CD', level: 65 },
-      ],
-    },
-  ];
 
   badges = [
     { name: 'Early Adopter', icon: '🚀' },
@@ -202,11 +182,19 @@ export class ProfileComponent implements OnInit {
   displayLocation = computed(() => this.apiProfile()?.location?.trim() ?? '');
 
   skillGroupsForSidebar = computed(() => {
+    const sp = this.skillProfile();
+    if (sp?.domains?.length) {
+      const skills = sp.domains.map((d) => ({
+        name: d.title,
+        level: d.scorePercent,
+      }));
+      return [{ category: 'Skill profile', skills }];
+    }
     const sessions = this.assessmentSessions().filter(
       (s) => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null
     );
     if (sessions.length === 0) {
-      return this.skillGroups;
+      return [];
     }
     const bestByTitle = new Map<string, number>();
     for (const s of sessions) {
@@ -217,19 +205,31 @@ export class ProfileComponent implements OnInit {
     return [{ category: 'Skill assessments', skills }];
   });
 
-  readinessPct = computed(() => {
+  /** 0–100 from published assessments; null until at least one published score exists */
+  readinessPct = computed((): number | null => {
+    const sp = this.skillProfile();
+    if (sp != null && sp.overallScore != null) {
+      return sp.overallScore;
+    }
     const sessions = this.assessmentSessions().filter(
       (s) => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null
     );
     if (sessions.length === 0) {
-      return 72;
+      return null;
     }
     const sum = sessions.reduce((a, s) => a + (s.scorePercent ?? 0), 0);
     return Math.round(sum / sessions.length);
   });
 
+  /** Ring fill 0–100; use 0 when readiness is unknown */
+  readinessRingFill = computed(() => this.readinessPct() ?? 0);
+
   /** Best score per category for the bar chart */
   skillBarRows = computed(() => {
+    const sp = this.skillProfile();
+    if (sp?.domains?.length) {
+      return sp.domains.map((d) => ({ categoryTitle: d.title, score: d.scorePercent }));
+    }
     const sessions = this.assessmentSessions().filter(
       (s) => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null
     );
@@ -247,6 +247,120 @@ export class ProfileComponent implements OnInit {
     return '';
   });
 
+  /** Published scores available — drives Overview assessment blocks */
+  hasPublishedAssessmentData = computed(() => this.skillBarRows().length > 0);
+
+  /** Completed attempts waiting for admin publish */
+  pendingPublishCount = computed(() =>
+    this.assessmentSessions().filter(
+      (s) => isSessionCompleted(s) && !isSessionPublished(s)
+    ).length
+  );
+
+  /** At least one open (not submitted) attempt */
+  hasInProgressAssessment = computed(() =>
+    this.assessmentSessions().some((s) => !isSessionCompleted(s))
+  );
+
+  /** Radar grid rings (25% … 100%) */
+  readonly radarGridScales = [0.25, 0.5, 0.75, 1] as const;
+
+  /** ≥3 categories — radar is readable */
+  showSkillRadar = computed(() => this.skillBarRows().length >= 3);
+
+  skillRadarPolygon = computed((): string => {
+    const rows = this.skillBarRows();
+    const n = rows.length;
+    if (n < 3) return '';
+    const cx = 100,
+      cy = 100,
+      r = 70;
+    const angleStep = (2 * Math.PI) / n;
+    const scores = rows.map((x) => x.score / 100);
+    return scores
+      .map((s, i) => {
+        const angle = angleStep * i - Math.PI / 2;
+        const x = cx + r * s * Math.cos(angle);
+        const y = cy + r * s * Math.sin(angle);
+        return `${x},${y}`;
+      })
+      .join(' ');
+  });
+
+  skillRadarAxisPoints = computed(
+    (): {
+      label: string;
+      fullLabel: string;
+      x: number;
+      y: number;
+      lx: number;
+      ly: number;
+    }[] => {
+      const rows = this.skillBarRows();
+      const n = rows.length;
+      if (n < 3) return [];
+      const cx = 100,
+        cy = 100,
+        r = 70;
+      const angleStep = (2 * Math.PI) / n;
+      return rows.map((row, i) => {
+        const angle = angleStep * i - Math.PI / 2;
+        const short =
+          row.categoryTitle.length > 12
+            ? row.categoryTitle.slice(0, 11) + '…'
+            : row.categoryTitle;
+        return {
+          label: short,
+          fullLabel: row.categoryTitle,
+          x: cx + r * Math.cos(angle),
+          y: cy + r * Math.sin(angle),
+          lx: cx + (r + 18) * Math.cos(angle),
+          ly: cy + (r + 18) * Math.sin(angle),
+        };
+      });
+    }
+  );
+
+  /** Vertical bar chart (works for any number of categories) */
+  skillVerticalBars = computed(() => {
+    const rows = this.skillBarRows();
+    const n = rows.length;
+    if (n === 0) return [];
+    const bottom = 112;
+    const maxH = 88;
+    const w = 400;
+    const pad = 20;
+    const inner = w - pad * 2;
+    const gap = Math.min(12, inner / Math.max(n * 6, 12));
+    const barW = (inner - gap * (n - 1)) / n;
+    let x = pad;
+    return rows.map((row) => {
+      const h = (row.score / 100) * maxH;
+      const y = bottom - h;
+      const short =
+        row.categoryTitle.length > 10 ? row.categoryTitle.slice(0, 9) + '…' : row.categoryTitle;
+      const b = { x, y, w: barW, h, score: row.score, label: short, full: row.categoryTitle };
+      x += barW + gap;
+      return b;
+    });
+  });
+
+  getSkillRadarGridPolygon(scale: number): string {
+    const rows = this.skillBarRows();
+    const n = rows.length;
+    if (n < 3) return '';
+    const cx = 100,
+      cy = 100,
+      r = 70;
+    const angleStep = (2 * Math.PI) / n;
+    const pts: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const angle = angleStep * i - Math.PI / 2;
+      pts.push(`${cx + r * scale * Math.cos(angle)},${cy + r * scale * Math.sin(angle)}`);
+    }
+    return pts.join(' ');
+  }
+
   ngOnInit(): void {
     this.loadProfile();
   }
@@ -261,7 +375,11 @@ export class ProfileComponent implements OnInit {
       .pipe(
         switchMap((profile) => {
           if (!baseUid) {
-            return of({ profile, sessions: [] as SessionResponseDto[] });
+            return of({
+              profile,
+              sessions: [] as SessionResponseDto[],
+              skillProfile: null as SkillProfileDto | null,
+            });
           }
           return this.assignmentApi.getStatus(baseUid).pipe(
             catchError((err: unknown) => {
@@ -272,19 +390,24 @@ export class ProfileComponent implements OnInit {
             }),
             switchMap((plan) => {
               const ids = collectCandidateUserIdsForSessions(plan, baseUid);
-              return this.sessionApi.listForUserMergedDistinct(ids).pipe(
-                catchError(() => of([] as SessionResponseDto[])),
-                map((sessions) => ({ profile, sessions }))
-              );
+              return forkJoin({
+                sessions: this.sessionApi
+                  .listForUserMergedDistinct(ids)
+                  .pipe(catchError(() => of([] as SessionResponseDto[]))),
+                skillProfile: this.skillProfileApi
+                  .getForUser(baseUid)
+                  .pipe(catchError(() => of(null))),
+              }).pipe(map(({ sessions, skillProfile }) => ({ profile, sessions, skillProfile })));
             })
           );
         })
       )
       .subscribe({
-        next: ({ profile, sessions }) => {
+        next: ({ profile, sessions, skillProfile }) => {
           this.apiProfile.set(profile);
           this.onboardingSnap.set(this.parseOnboarding(profile.onboardingJson));
           this.assessmentSessions.set(sessions);
+          this.skillProfile.set(skillProfile);
           this.profileLoading.set(false);
           if (baseUid && sessions.length > 0) {
             const attempts = sessions

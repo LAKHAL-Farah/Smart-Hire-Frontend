@@ -112,6 +112,40 @@
   color: var(--text-primary);
 }
 
+.readiness-ring__na {
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 26px;
+}
+
+.readiness-ring--empty circle[stroke='#2ee8a5'] {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-card__hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.sidebar-skills-empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+
+  a {
+    color: var(--accent-teal);
+    font-weight: 600;
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
 /* Skills */
 .skill-group { display: flex; flex-direction: column; gap: 8px; }
 .skill-group__cat {
@@ -713,4 +747,301 @@
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.85);
   white-space: pre-wrap;
+}
+
+.content-card__subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 16px 0 8px;
+}
+
+.skill-profile-list {
+  margin: 0 0 12px;
+  padding-left: 1.2rem;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+
+  &--gaps {
+    color: rgba(255, 200, 120, 0.95);
+  }
+}
+
+/* Overview tab — assessment-aligned */
+.content-card--assessment-overview {
+  border: 1px solid rgba(46, 232, 165, 0.2);
+}
+
+.content-card--notice {
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+}
+
+.content-card--muted-extra {
+  opacity: 0.92;
+}
+
+.assess-bars--overview {
+  margin-top: 12px;
+}
+
+.overview-sp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .overview-sp-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.overview-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.overview-cta__btn {
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--accent-teal);
+  background: rgba(46, 232, 165, 0.12);
+  color: var(--accent-teal);
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(46, 232, 165, 0.2);
+  }
+}
+
+.overview-cta__link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-teal);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Skill charts (radar + vertical bars) */
+.content-card--skill-charts {
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(46, 232, 165, 0.14);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(46, 232, 165, 0.08), transparent 55%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.03) 0%, transparent 45%),
+    var(--bg-card, rgba(20, 22, 28, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 40px rgba(0, 0, 0, 0.2);
+
+  .content-card__title {
+    letter-spacing: -0.02em;
+  }
+}
+
+.profile-skill-charts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px 40px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.profile-skill-charts__col {
+  flex: 1 1 200px;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-skill-charts__col--full {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.profile-skill-charts__caption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Radar ─── */
+.profile-radar-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 12px 8px 16px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(46, 232, 165, 0.07) 0%, transparent 55%),
+    radial-gradient(circle at 50% 100%, rgba(59, 130, 246, 0.05) 0%, transparent 45%),
+    rgba(0, 0, 0, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.profile-radar-svg {
+  width: min(240px, 100%);
+  height: auto;
+  aspect-ratio: 1;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+}
+
+.profile-radar-vignette {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.04);
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.profile-radar-grid-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+
+  &--outer {
+    stroke: rgba(46, 232, 165, 0.18);
+    stroke-width: 1.25;
+  }
+}
+
+.profile-radar-axis {
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-radar-label {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 9px;
+  font-weight: 600;
+  fill: rgba(255, 255, 255, 0.52);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+}
+
+.profile-radar-area {
+  vector-effect: non-scaling-stroke;
+}
+
+/* ─── Bar chart ─── */
+.profile-vbar-wrap {
+  width: 100%;
+  overflow-x: auto;
+  padding: 8px 4px 4px;
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 28%),
+    rgba(0, 0, 0, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(46, 232, 165, 0.35) transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(46, 232, 165, 0.25);
+    border-radius: 4px;
+  }
+}
+
+.profile-vbar-svg {
+  width: 100%;
+  min-width: 300px;
+  height: auto;
+  min-height: 148px;
+  max-height: 180px;
+}
+
+.profile-vbar-grid-line {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+  vector-effect: non-scaling-stroke;
+
+  &--soft {
+    stroke: rgba(255, 255, 255, 0.045);
+    stroke-dasharray: none;
+  }
+}
+
+.profile-vbar-axis-label {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 8px;
+  font-weight: 600;
+  fill: rgba(255, 255, 255, 0.28);
+}
+
+.profile-vbar-baseline {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.profile-vbar-bar-group {
+  cursor: default;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+
+    .profile-vbar-bar {
+      stroke: rgba(130, 255, 220, 0.65);
+    }
+
+    .profile-vbar-value {
+      fill: #a8fff0;
+    }
+  }
+}
+
+.profile-vbar-bar {
+  transition: stroke 0.2s ease;
+}
+
+.profile-vbar-value {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 800;
+  fill: #2ee8a5;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+.profile-vbar-cat {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 9px;
+  font-weight: 600;
+  fill: rgba(255, 255, 255, 0.48);
+}
+
+.profile-skill-charts__hint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
 }

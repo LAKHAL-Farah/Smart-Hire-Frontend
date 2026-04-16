@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { AssessmentNotificationsService } from '../../../../core/services/assessment-notifications.service';
 import {
   AssessmentAdminApiService,
   AssessmentSessionAdminRow,
@@ -22,6 +23,7 @@ import {
 })
 export class SkillAssessmentAdminComponent implements OnInit {
   private readonly api = inject(AssessmentAdminApiService);
+  private readonly assessmentNotif = inject(AssessmentNotificationsService);
 
   loading = false;
   apiError: string | null = null;
@@ -66,6 +68,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.refreshPendingAssignments();
     this.refreshPendingRelease();
     this.refreshCompletedSessions();
+    this.assessmentNotif.refreshAdmin();
   }
 
   refreshPendingRelease(): void {
@@ -146,6 +149,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
           this.refreshPendingRelease();
           this.refreshCompletedSessions();
           this.loading = false;
+          this.assessmentNotif.refreshAdmin();
         },
         error: (e) => this.fail(e),
       });
@@ -192,6 +196,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
         this.pending = this.pending.filter((p) => p.userId !== userId);
         this.refreshPendingAssignments();
         this.loading = false;
+        this.assessmentNotif.refreshAdmin();
       },
       error: (e) => this.fail(e),
     });

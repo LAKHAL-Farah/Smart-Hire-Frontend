@@ -150,7 +150,11 @@ export class RegisterComponent {
             ACCOUNT_ROLE_KEY,
             this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate'
           );
-          void this.router.navigate(['/onboarding']);
+          // Route recruiters to admin dashboard, bypass onboarding
+          const navigationPath = this.selectedRole() === 'recruiter' 
+            ? ['/admin'] 
+            : ['/onboarding'];
+          void this.router.navigate(navigationPath);
         },
         error: () => {
           this.isLoading.set(false);
@@ -203,7 +207,11 @@ export class RegisterComponent {
       headline: '',
     };
     localStorage.setItem('smarthire_local_profile', JSON.stringify(profile));
-    void this.router.navigate(['/onboarding']);
+    // Route recruiters to admin dashboard, bypass onboarding
+    const navigationPath = this.selectedRole() === 'recruiter' 
+      ? ['/admin'] 
+      : ['/onboarding'];
+    void this.router.navigate(navigationPath);
   }
 
   oauthSignup(provider: string): void {

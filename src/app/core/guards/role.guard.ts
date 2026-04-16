@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, ActivatedRouteSnapshot, Router } from '@angular/router';
 import { AutheService } from '../../features/front-office/auth/authe.service';
+import { ACCOUNT_ROLE_KEY } from '../../features/front-office/profile/profile-user-id';
 
 /**
  * Guard to check if user has required role.
@@ -14,7 +15,7 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const auth = inject(AutheService);
   const router = inject(Router);
 
-  const userRole = localStorage.getItem('role');
+  const userRole = localStorage.getItem(ACCOUNT_ROLE_KEY);
   const requiredRoles = route.data['requiredRoles'] as string[] | undefined;
 
   if(! auth.isLoggedIn()) {

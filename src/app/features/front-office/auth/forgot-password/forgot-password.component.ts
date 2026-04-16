@@ -11,7 +11,7 @@ import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, AuthLeftPanelComponent, LUCIDE_ICONS],
   templateUrl: './forgot-password.component.html',
-  styleUrl: './forgot-password.component.scss'
+  styleUrls: ['./forgot-password.component.scss']
 })
 export class ForgotPasswordComponent {
   email = '';

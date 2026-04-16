@@ -7,6 +7,7 @@ import { ProfileApiService, ProfileApiResponse } from '../../profile/profile-api
 import { ACCOUNT_ROLE_KEY, setProfileUserUuid, setLocalDemoMode } from '../../profile/profile-user-id';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { UserService } from '../user.service';
 
 @Component({
   selector: 'app-register',
@@ -17,6 +18,7 @@ import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 })
 export class RegisterComponent {
   private readonly profileApi = inject(ProfileApiService);
+  private userService = inject(UserService)
   private readonly router = inject(Router);
 
   firstName = '';
@@ -108,21 +110,27 @@ export class RegisterComponent {
       return;
     }
 
-    this.isLoading.set(true);
-    const firstName = fn;
-    const lastName = ln;
 
-    this.profileApi
-      .createUserWithProfile({
-        userRequest: {
-          email: this.email.trim(),
+    console.log('Registering user with:');
+    this.isLoading.set(true);
+    
+   const userRequest= {
+          email: this.email,
           password: this.password,
           roleName: this.selectedRole() === 'recruiter' ? 'recruiter' : 'candidate',
-        },
-        profileRequest: { firstName, lastName },
-      })
+        };
+
+        
+        const profileRequest= { firstName: this.firstName, lastName: this.lastName, headline: this.headline, location: this.location, githubUrl: this.githubUrl, linkedinUrl: this.linkedinUrl };
+
+    this.userService
+      .createUser(
+        userRequest,
+        profileRequest
+      )
       .subscribe({
         next: (u) => {
+          console.log('Registered user:', u);
           this.isLoading.set(false);
           setLocalDemoMode(false);
           if (u?.id) {
@@ -147,7 +155,7 @@ export class RegisterComponent {
         error: () => {
           this.isLoading.set(false);
           if (environment.localAuthFallback) {
-            this.startLocalDemoRegistration(firstName, lastName);
+            this.startLocalDemoRegistration(this.firstName, this.lastName);
             return;
           }
           alert(

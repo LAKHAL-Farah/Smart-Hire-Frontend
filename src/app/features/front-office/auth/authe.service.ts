@@ -19,6 +19,7 @@ export class AutheService {
     }).pipe(
       tap(res => {
         localStorage.setItem('auth_token', res.Token);
+        localStorage.setItem('access_token', res.Token);
         localStorage.setItem('UserId', res.UserId);
         localStorage.setItem('userName', res.userName);
         localStorage.setItem('email', res.email);
@@ -33,6 +34,7 @@ export class AutheService {
 
   logout() {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('access_token');
     localStorage.removeItem('UserId');
     localStorage.removeItem('userName');
     localStorage.removeItem('email');

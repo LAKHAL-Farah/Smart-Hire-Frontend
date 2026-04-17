@@ -15,6 +15,10 @@ import { resolveRoadmapUserId } from '../roadmap-user-context';
 
 type UiStatus = 'LOCKED' | 'AVAILABLE' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
 
+interface NodeQuizStorageState {
+  passedByStep: Record<string, boolean>;
+}
+
 interface StepDetailModel {
   id: number;
   nodeId: number;
@@ -52,6 +56,7 @@ export class StepDetailComponent implements OnInit {
 
   readonly step = signal<StepDetailModel | null>(null);
   readonly resources = signal<StepResourceDto[]>([]);
+  readonly quizPassedForStep = signal(false);
 
   readonly resourceForm = this.fb.nonNullable.group({
     title: ['', [Validators.required, Validators.maxLength(120)]],
@@ -115,6 +120,21 @@ export class StepDetailComponent implements OnInit {
     const current = this.step();
     const userId = this.userId();
     if (!current || !userId || current.status === 'COMPLETED') {
+      return;
+    }
+
+    if (current.status === 'LOCKED') {
+      this.errorMessage.set('This node is locked. Complete required previous nodes first.');
+      return;
+    }
+
+    if (current.status !== 'AVAILABLE' && current.status !== 'IN_PROGRESS') {
+      this.errorMessage.set('This step is not available for completion right now.');
+      return;
+    }
+
+    if (!this.quizPassedForStep()) {
+      this.errorMessage.set('Pass the node quiz from the roadmap page before marking this step complete.');
       return;
     }
 
@@ -209,7 +229,7 @@ export class StepDetailComponent implements OnInit {
     this.errorMessage.set(null);
 
     this.roadmapApi
-      .getActiveRoadmap(this.userId()!)
+      .getUserRoadmap(this.userId()!)
       .pipe(
         switchMap((roadmap) => {
           this.roadmapId.set(roadmap.id);
@@ -222,16 +242,19 @@ export class StepDetailComponent implements OnInit {
           if (!resolvedStep) {
             this.step.set(null);
             this.resources.set([]);
+            this.quizPassedForStep.set(false);
             this.errorMessage.set('Step not found in your current roadmap.');
             return;
           }
 
           this.step.set(resolvedStep);
+          this.syncQuizGateForStep(resolvedStep);
           this.loadStepResources(resolvedStep.resourceStepId, resolvedStep.title);
         },
         error: () => {
           this.errorMessage.set('Unable to load step details from API.');
           this.resources.set([]);
+          this.quizPassedForStep.set(false);
         },
       });
   }
@@ -347,5 +370,61 @@ export class StepDetailComponent implements OnInit {
       return 'SKIPPED';
     }
     return 'LOCKED';
+  }
+
+  private syncQuizGateForStep(step: StepDetailModel | null): void {
+    if (!step) {
+      this.quizPassedForStep.set(false);
+      return;
+    }
+
+    if (step.status === 'COMPLETED' || step.status === 'SKIPPED') {
+      this.quizPassedForStep.set(true);
+      return;
+    }
+
+    const quizState = this.readQuizState();
+    this.quizPassedForStep.set(quizState.passedByStep[this.toStepKey(step.stepOrder)] === true);
+  }
+
+  private readQuizState(): NodeQuizStorageState {
+    const storageKey = this.quizStorageKey();
+    if (!storageKey || typeof localStorage === 'undefined') {
+      return { passedByStep: {} };
+    }
+
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) {
+        return { passedByStep: {} };
+      }
+
+      const parsed = JSON.parse(raw) as Partial<NodeQuizStorageState>;
+      const passedByStep = parsed.passedByStep;
+
+      if (!passedByStep || typeof passedByStep !== 'object') {
+        return { passedByStep: {} };
+      }
+
+      return {
+        passedByStep: passedByStep as Record<string, boolean>,
+      };
+    } catch {
+      return { passedByStep: {} };
+    }
+  }
+
+  private quizStorageKey(): string | null {
+    const userId = this.userId();
+    const roadmapId = this.roadmapId();
+    if (!userId || !roadmapId) {
+      return null;
+    }
+
+    return `smarthire-node-quiz:${userId}:${roadmapId}`;
+  }
+
+  private toStepKey(stepOrder: number): string {
+    return `step-${stepOrder}`;
   }
 }

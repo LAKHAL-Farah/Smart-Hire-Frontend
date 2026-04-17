@@ -1,10 +1,17 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { Component, computed, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { catchError, finalize, forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import {
+  NodeCourseContentDto,
+  NodeProjectLabDto,
+  NodeProjectValidationResponseDto,
+  NodeQuizResponseDto,
+  NodeTutorPromptResponseDto,
+  ProjectSubmissionDto,
+  ProjectSuggestionDto,
   RoadmapApiService,
   RoadmapResponse,
   RoadmapVisualResponse,
@@ -38,8 +45,38 @@ interface Step {
   resources: ResourceCard[];
   resourcesLoaded: boolean;
   resourcesLoading: boolean;
+  challenges: ChallengeCard[];
+  challengesLoading: boolean;
+  projectLab: NodeProjectLabDto | null;
+  projectLabLoading: boolean;
+  projectLabHistory: NodeProjectLabDto[];
+  projectLabHistoryLoading: boolean;
+  projectSolutionDraft: string;
+  projectValidation: NodeProjectValidationResponseDto | null;
+  projectValidationLoading: boolean;
+  tutorResponse: NodeTutorPromptResponseDto | null;
+  tutorLoading: boolean;
+  course: NodeCourseContentDto | null;
+  courseLoading: boolean;
+  courseHistory: NodeCourseContentDto[];
+  courseHistoryLoading: boolean;
   nodeId?: number;
   completionType: 'node' | 'step';
+}
+
+interface ChallengeCard {
+  id: number;
+  createdAt?: string;
+  title: string;
+  description: string;
+  estimatedDays: number;
+  difficulty: string;
+  techStack: string[];
+  repoUrlDraft: string;
+  submission: ProjectSubmissionDto | null;
+  submitting: boolean;
+  reviewLoading: boolean;
+  reviewText: string | null;
 }
 
 type FilterTab = 'all' | 'todo' | 'in-progress' | 'completed';
@@ -56,12 +93,14 @@ interface NodeQuizSession {
   stepNumber: number;
   stepTitle: string;
   questions: NodeQuizQuestion[];
+  source: 'ai' | 'local';
   activeQuestionIndex: number;
   selectedAnswers: Record<string, number | null>;
   passThreshold: number;
   submitted: boolean;
   scorePercent: number | null;
   passed: boolean;
+  badgeLabel: string | null;
   feedback: string | null;
 }
 
@@ -79,6 +118,17 @@ interface NodeQuizTemplate {
   distractors: string[];
 }
 
+interface RoadmapHubCard {
+  id: number;
+  title: string;
+  statusLabel: string;
+  statusTone: 'active' | 'completed' | 'paused' | 'other';
+  totalSteps: number;
+  completedSteps: number;
+  scorePercent: number;
+  startedLabel: string;
+}
+
 @Component({
   selector: 'app-roadmap',
   standalone: true,
@@ -89,8 +139,10 @@ interface NodeQuizTemplate {
 export class RoadmapComponent implements OnInit, OnDestroy {
   private readonly roadmapApi = inject(RoadmapApiService);
   private readonly document = inject(DOCUMENT);
+  private readonly router = inject(Router);
   private readonly quizPassThreshold = 70;
   private readonly quizQuestionCount = 5;
+  readonly maxSubmissionRetries = 3;
   private previousBodyOverflow: string | null = null;
 
   isLoading = signal(false);
@@ -100,6 +152,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
   activeResourceTab = signal<ResourcePanelTab>('resources');
   expandedStep = signal<number | null>(null);
   quizSession = signal<NodeQuizSession | null>(null);
+  tutorPromptDraft = signal('');
 
   private readonly quizPassedState = signal<Record<string, boolean>>({});
   private readonly quizScoresState = signal<Record<string, number>>({});
@@ -107,7 +160,10 @@ export class RoadmapComponent implements OnInit, OnDestroy {
   private readonly quizAttemptCountState = signal<Record<string, number>>({});
 
   private readonly activeRoadmap = signal<RoadmapResponse | null>(null);
+  private readonly roadmapCatalog = signal<RoadmapResponse[]>([]);
+  private readonly selectedRoadmapId = signal<number | null>(null);
   private readonly currentUserId = signal<number | null>(null);
+  private readonly userSubmissionsBySuggestion = signal<Record<number, ProjectSubmissionDto>>({});
   private readonly stepsState = signal<Step[]>([]);
 
   filterTabs: { label: string; value: FilterTab }[] = [
@@ -149,6 +205,38 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     return parts.length > 0
       ? parts.join(' · ')
       : 'Live roadmap data from backend';
+  });
+
+  roadmapCards = computed<RoadmapHubCard[]>(() => {
+    return this.roadmapCatalog().map((roadmap) => {
+      const totalSteps = Math.max(0, roadmap.totalSteps ?? roadmap.steps?.length ?? 0);
+      const completedSteps = Math.max(0, roadmap.completedSteps ?? 0);
+      const scorePercent =
+        totalSteps > 0 ? Math.round((Math.min(completedSteps, totalSteps) / totalSteps) * 100) : 0;
+
+      return {
+        id: roadmap.id,
+        title: roadmap.title || `Roadmap #${roadmap.id}`,
+        statusLabel: this.toRoadmapStatusLabel(roadmap.status),
+        statusTone: this.toRoadmapStatusTone(roadmap.status),
+        totalSteps,
+        completedSteps,
+        scorePercent,
+        startedLabel: this.formatRoadmapStartedAt(roadmap.createdAt),
+      };
+    });
+  });
+
+  roadmapHubStats = computed(() => {
+    const cards = this.roadmapCards();
+    const completed = cards.filter((card) => card.statusTone === 'completed').length;
+    const active = cards.filter((card) => card.statusTone === 'active').length;
+
+    return {
+      total: cards.length,
+      completed,
+      active,
+    };
   });
 
   miniPanelCareer = computed(() => {
@@ -326,6 +414,12 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const selected = this.stepsState().find((item) => item.number === stepNumber);
+    if (selected && this.isStepLocked(selected)) {
+      this.errorMessage.set('This node is locked. Complete required previous nodes first.');
+      return;
+    }
+
     const nextExpanded = this.expandedStep() === stepNumber ? null : stepNumber;
     this.expandedStep.set(nextExpanded);
     this.activeResourceTab.set('resources');
@@ -337,6 +431,10 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     const step = this.stepsState().find((item) => item.number === nextExpanded);
     if (step) {
       this.loadStepResources(step);
+      this.loadChallengeHistory(step);
+      this.loadNodeProjectLabHistory(step);
+      this.loadNodeCourseHistory(step);
+      this.tutorPromptDraft.set('');
     }
   }
 
@@ -366,6 +464,117 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     this.expandedStep.set(target.number);
     this.activeResourceTab.set('resources');
     this.loadStepResources(target);
+    this.loadChallengeHistory(target);
+    this.loadNodeProjectLabHistory(target);
+    this.loadNodeCourseHistory(target);
+    this.tutorPromptDraft.set('');
+  }
+
+  isRoadmapSelected(roadmapId: number): boolean {
+    return this.selectedRoadmapId() === roadmapId;
+  }
+
+  openRoadmap(roadmapId: number): void {
+    if (this.selectedRoadmapId() === roadmapId || this.isLoading()) {
+      return;
+    }
+
+    if (this.quizSession()) {
+      this.errorMessage.set('Finish or close the current quiz session before switching roadmaps.');
+      return;
+    }
+
+    this.loadRoadmap(roadmapId);
+  }
+
+  openCourseWorkspace(
+    step: Step,
+    refresh = false,
+    historyId?: number,
+    generatedAt?: string
+  ): void {
+    this.openWorkspaceTab(step, 'course', {
+      refresh: refresh ? 1 : undefined,
+      historyId,
+      generatedAt,
+    });
+  }
+
+  openProjectLabWorkspace(
+    step: Step,
+    refresh = false,
+    historyId?: number,
+    generatedAt?: string
+  ): void {
+    this.openWorkspaceTab(step, 'lab', {
+      refresh: refresh ? 1 : undefined,
+      historyId,
+      generatedAt,
+    });
+  }
+
+  openChallengeWorkspace(
+    step: Step,
+    challengeId?: number,
+    generate = false
+  ): void {
+    this.openWorkspaceTab(step, 'challenge', {
+      challengeId,
+      generate: generate ? 1 : undefined,
+    });
+  }
+
+  private openWorkspaceTab(
+    step: Step,
+    mode: 'course' | 'lab' | 'challenge',
+    extras: Record<string, string | number | undefined> = {}
+  ): void {
+    const roadmapId = this.activeRoadmap()?.id;
+    const nodeId = step.nodeId;
+    const userId = this.currentUserId() ?? resolveRoadmapUserId();
+
+    if (!roadmapId || !nodeId || !userId) {
+      this.errorMessage.set('Workspace context is unavailable. Please refresh and try again.');
+      return;
+    }
+
+    if (!this.currentUserId()) {
+      this.currentUserId.set(userId);
+    }
+
+    const queryParams: Record<string, string | number> = {
+      mode,
+      roadmapId,
+      userId,
+      nodeId,
+      stepOrder: step.number,
+      stepTitle: step.title,
+    };
+
+    Object.entries(extras).forEach(([key, value]) => {
+      const normalized = typeof value === 'string' ? value.trim() : value;
+      if (normalized == null || normalized === '') {
+        return;
+      }
+      queryParams[key] = normalized;
+    });
+
+    const url = this.router.serializeUrl(
+      this.router.createUrlTree(['/dashboard/roadmap/workspace'], {
+        queryParams,
+      })
+    );
+
+    const view = this.document.defaultView;
+    if (!view) {
+      return;
+    }
+
+    const target = url.startsWith('http')
+      ? url
+      : `${view.location.origin}${url.startsWith('/') ? url : `/${url}`}`;
+
+    view.open(target, '_blank', 'noopener');
   }
 
   markComplete(step: Step): void {
@@ -409,7 +618,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
             return;
           }
 
-          this.loadRoadmap();
+          this.loadRoadmap(this.selectedRoadmapId() ?? undefined);
         },
         error: (err: HttpErrorResponse) => {
           const backendMessage =
@@ -486,30 +695,65 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     );
   }
 
-  private loadRoadmap(): void {
-    const userId = resolveRoadmapUserId();
-    if (!userId) {
+  private loadRoadmap(preferredRoadmapId?: number): void {
+    const resolvedUserId = this.currentUserId() ?? resolveRoadmapUserId();
+    if (!resolvedUserId) {
       this.errorMessage.set('No authenticated user found. Please sign in again.');
       return;
     }
 
-    this.currentUserId.set(userId);
+    this.currentUserId.set(resolvedUserId);
+    this.loadUserProjectSubmissions(resolvedUserId);
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
+    const persistedRoadmapId = this.readSelectedRoadmapId(resolvedUserId);
+    const candidateRoadmapId =
+      preferredRoadmapId ?? this.selectedRoadmapId() ?? persistedRoadmapId;
+
     this.roadmapApi
-      .getActiveRoadmap(userId)
+      .getUserRoadmaps(resolvedUserId)
       .pipe(
-        switchMap((roadmap) => {
-          this.activeRoadmap.set(roadmap);
-          return this.roadmapApi.getRoadmapGraph(roadmap.id).pipe(
-            catchError(() => of(null as RoadmapVisualResponse | null))
+        switchMap((roadmaps) => {
+          const sortedRoadmaps = this.sortRoadmapsForHub(roadmaps ?? []);
+          this.roadmapCatalog.set(sortedRoadmaps);
+
+          if (sortedRoadmaps.length === 0) {
+            this.activeRoadmap.set(null);
+            this.selectedRoadmapId.set(null);
+            this.stepsState.set([]);
+            this.syncQuizGateState([]);
+            return of({
+              roadmap: null as RoadmapResponse | null,
+              graph: null as RoadmapVisualResponse | null,
+            });
+          }
+
+          const selectedRoadmap = this.resolveRoadmapSelection(
+            sortedRoadmaps,
+            candidateRoadmapId
+          );
+
+          this.activeRoadmap.set(selectedRoadmap);
+          this.selectedRoadmapId.set(selectedRoadmap.id);
+          this.persistSelectedRoadmapId(resolvedUserId, selectedRoadmap.id);
+
+          return this.roadmapApi.getRoadmapGraph(selectedRoadmap.id).pipe(
+            map((graph) => ({ roadmap: selectedRoadmap, graph })),
+            catchError(() =>
+              of({ roadmap: selectedRoadmap, graph: null as RoadmapVisualResponse | null })
+            )
           );
         }),
         finalize(() => this.isLoading.set(false))
       )
       .subscribe({
-        next: (graph) => {
+        next: ({ roadmap, graph }) => {
+          if (!roadmap) {
+            this.errorMessage.set('No roadmap found for this user yet.');
+            return;
+          }
+
           const visualSteps =
             graph && (graph.nodes?.length ?? 0) > 0
               ? this.mapVisualRoadmapToSteps(graph)
@@ -517,20 +761,22 @@ export class RoadmapComponent implements OnInit, OnDestroy {
 
           if (visualSteps.length > 0) {
             this.stepsState.set(visualSteps);
+            this.syncQuizGateState(visualSteps);
             this.expandInProgressStep();
             return;
           }
 
-          const fallback = this.mapCrudRoadmapToSteps(this.activeRoadmap());
+          const fallback = this.mapCrudRoadmapToSteps(roadmap);
           this.stepsState.set(fallback);
           this.syncQuizGateState(fallback);
           this.expandInProgressStep();
 
           if (fallback.length === 0) {
-            this.errorMessage.set('Active roadmap has no steps to display yet.');
+            this.errorMessage.set('Selected roadmap has no steps to display yet.');
           }
         },
         error: () => {
+          this.roadmapCatalog.set([]);
           this.stepsState.set([]);
           this.syncQuizGateState([]);
           this.errorMessage.set('Could not load roadmap data from backend.');
@@ -613,6 +859,21 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         resources: [],
         resourcesLoaded: false,
         resourcesLoading: false,
+        challenges: [],
+        challengesLoading: false,
+        projectLab: null,
+        projectLabLoading: false,
+        projectLabHistory: [],
+        projectLabHistoryLoading: false,
+        projectSolutionDraft: '',
+        projectValidation: null,
+        projectValidationLoading: false,
+        tutorResponse: null,
+        tutorLoading: false,
+        course: null,
+        courseLoading: false,
+        courseHistory: [],
+        courseHistoryLoading: false,
         nodeId: node.id,
         completionType: 'node',
       }));
@@ -636,6 +897,21 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         resources: [],
         resourcesLoaded: false,
         resourcesLoading: false,
+        challenges: [],
+        challengesLoading: false,
+        projectLab: null,
+        projectLabLoading: false,
+        projectLabHistory: [],
+        projectLabHistoryLoading: false,
+        projectSolutionDraft: '',
+        projectValidation: null,
+        projectValidationLoading: false,
+        tutorResponse: null,
+        tutorLoading: false,
+        course: null,
+        courseLoading: false,
+        courseHistory: [],
+        courseHistoryLoading: false,
         nodeId: step.id,
         completionType: 'step',
       }));
@@ -655,25 +931,36 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const questions = this.buildNodeQuiz(step).slice(0, this.quizQuestionCount);
-    const selectedAnswers: Record<string, number | null> = {};
-    questions.forEach((question) => {
-      selectedAnswers[question.id] = null;
-    });
+    if (this.isStepLocked(step)) {
+      this.errorMessage.set('This node is locked. Complete required previous nodes first.');
+      return;
+    }
 
-    this.quizSession.set({
-      stepNumber: step.number,
-      stepTitle: step.title,
-      questions,
-      activeQuestionIndex: 0,
-      selectedAnswers,
-      passThreshold: this.quizPassThreshold,
-      submitted: false,
-      scorePercent: null,
-      passed: false,
-      feedback: null,
-    });
-    this.lockExamMode();
+    const userId = this.currentUserId();
+    if (!step.nodeId || !userId) {
+      const fallbackQuestions = this.buildNodeQuiz(step).slice(0, this.quizQuestionCount);
+      this.openQuizSession(step, fallbackQuestions, 'local');
+      return;
+    }
+
+    this.isLoading.set(true);
+    this.roadmapApi
+      .getNodeQuiz(step.nodeId, userId, this.quizQuestionCount)
+      .pipe(
+        map((payload) => this.mapBackendQuizQuestions(payload)),
+        catchError(() => of(this.buildNodeQuiz(step).slice(0, this.quizQuestionCount))),
+        finalize(() => this.isLoading.set(false))
+      )
+      .subscribe((questions) => {
+        const source: 'ai' | 'local' =
+          questions.length > 0 && questions[0].id.startsWith('ai-') ? 'ai' : 'local';
+
+        this.openQuizSession(
+          step,
+          questions.length > 0 ? questions : this.buildNodeQuiz(step).slice(0, this.quizQuestionCount),
+          source
+        );
+      });
   }
 
   selectQuizAnswer(questionId: string, optionIndex: number): void {
@@ -785,6 +1072,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       submitted: true,
       scorePercent,
       passed,
+      badgeLabel: passed ? this.computeQuizBadge(scorePercent) : null,
       feedback: passed
         ? `Passed with ${scorePercent}%. You can now mark this node complete.`
         : `Score ${scorePercent}%. Minimum required is ${session.passThreshold}%. Retake to unlock completion.`,
@@ -817,6 +1105,688 @@ export class RoadmapComponent implements OnInit, OnDestroy {
 
   quizChoiceLabel(index: number): string {
     return String.fromCharCode(65 + index);
+  }
+
+  getTutorPrompts(step: Step): string[] {
+    return [
+      `Explain ${step.title} in beginner terms with a practical example.`,
+      `What are the top mistakes in ${step.title} and how can I avoid them?`,
+      `Give me a 3-day practice plan to become confident in ${step.title}.`,
+    ];
+  }
+
+  triggerTutorPrompt(step: Step, prompt: string): void {
+    const userId = this.currentUserId();
+    if (!userId || !step.nodeId) {
+      this.errorMessage.set('AI tutor is unavailable for this node right now.');
+      return;
+    }
+
+    const normalizedPrompt = (prompt || '').trim();
+    if (!normalizedPrompt) {
+      this.errorMessage.set('Please enter a prompt for the AI tutor.');
+      return;
+    }
+
+    this.patchStep(step.number, {
+      tutorLoading: true,
+    });
+
+    this.roadmapApi
+      .askNodeTutor(step.nodeId, userId, {
+        prompt: normalizedPrompt,
+      })
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { tutorLoading: false });
+        })
+      )
+      .subscribe({
+        next: (response) => {
+          this.patchStep(step.number, {
+            tutorResponse: response,
+          });
+        },
+        error: () => {
+          this.patchStep(step.number, {
+            tutorResponse: this.buildLocalTutorResponse(step, normalizedPrompt),
+          });
+        },
+      });
+  }
+
+  submitCustomTutorPrompt(step: Step): void {
+    const prompt = this.tutorPromptDraft().trim();
+    if (!prompt) {
+      this.errorMessage.set('Write a tutor question first.');
+      return;
+    }
+
+    this.triggerTutorPrompt(step, prompt);
+  }
+
+  generateCodingChallenges(step: Step): void {
+    const roadmapId = this.activeRoadmap()?.id;
+    if (!roadmapId) {
+      this.errorMessage.set('Roadmap context is unavailable. Please refresh and try again.');
+      return;
+    }
+
+    this.patchStep(step.number, { challengesLoading: true });
+
+    this.roadmapApi
+      .generateProjectSuggestionsByRoadmapStep(
+        roadmapId,
+        step.number,
+        step.title,
+        this.resolveChallengeLevel(step)
+      )
+      .pipe(
+        switchMap((generated) =>
+          this.roadmapApi.getProjectSuggestionsByRoadmapStep(roadmapId, step.number).pipe(
+            map((history) => (history.length > 0 ? history : generated)),
+            catchError(() => of(generated))
+          )
+        ),
+        finalize(() => {
+          this.patchStep(step.number, { challengesLoading: false });
+        })
+      )
+      .subscribe({
+        next: (suggestions) => {
+          this.patchStep(step.number, {
+            challenges: this.toChallengeCards(suggestions, step.challenges),
+          });
+        },
+        error: () => {
+          this.errorMessage.set('Could not generate coding challenges right now. Please try again.');
+        },
+      });
+  }
+
+  loadChallengeHistory(step: Step): void {
+    const roadmapId = this.activeRoadmap()?.id;
+    if (!roadmapId || step.challengesLoading) {
+      return;
+    }
+
+    this.patchStep(step.number, { challengesLoading: true });
+
+    this.roadmapApi
+      .getProjectSuggestionsByRoadmapStep(roadmapId, step.number)
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { challengesLoading: false });
+        })
+      )
+      .subscribe({
+        next: (suggestions) => {
+          if (!suggestions || suggestions.length === 0) {
+            return;
+          }
+
+          this.patchStep(step.number, {
+            challenges: this.toChallengeCards(suggestions, step.challenges),
+          });
+        },
+        error: () => {},
+      });
+  }
+
+  setChallengeRepoUrl(step: Step, challenge: ChallengeCard, value: string): void {
+    this.patchChallenge(step.number, challenge.id, { repoUrlDraft: value });
+  }
+
+  canSubmitChallenge(challenge: ChallengeCard): boolean {
+    if (!challenge.submission) {
+      return true;
+    }
+    return challenge.submission.retryCount < this.maxSubmissionRetries;
+  }
+
+  formatSubmissionStatus(status: string | undefined): string {
+    const normalized = (status || 'PENDING_REVIEW').toLowerCase().replace(/_/g, ' ');
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
+  hasChallengeScores(challenge: ChallengeCard): boolean {
+    const submission = challenge.submission;
+    if (!submission) {
+      return false;
+    }
+
+    return [
+      submission.score,
+      submission.readmeScore,
+      submission.structureScore,
+      submission.testScore,
+      submission.ciScore,
+    ].some((value) => typeof value === 'number');
+  }
+
+  submitChallengeProject(step: Step, challenge: ChallengeCard): void {
+    const userId = this.currentUserId();
+    if (!userId) {
+      this.errorMessage.set('No authenticated user found. Please sign in again.');
+      return;
+    }
+
+    if (!this.canSubmitChallenge(challenge)) {
+      this.errorMessage.set('Retry limit reached for this challenge submission.');
+      return;
+    }
+
+    const repoUrl = (challenge.repoUrlDraft || challenge.submission?.repoUrl || '').trim();
+    if (!repoUrl) {
+      this.errorMessage.set('Please provide a repository URL before submitting this project.');
+      return;
+    }
+
+    const request$ = challenge.submission
+      ? this.roadmapApi.retryProjectSubmission(challenge.submission.id, { repoUrl })
+      : this.roadmapApi.submitProject({
+          userId,
+          projectSuggestionId: challenge.id,
+          repoUrl,
+        });
+
+    this.patchChallenge(step.number, challenge.id, { submitting: true });
+
+    request$
+      .pipe(
+        finalize(() => {
+          this.patchChallenge(step.number, challenge.id, { submitting: false });
+        })
+      )
+      .subscribe({
+        next: (submission) => {
+          this.userSubmissionsBySuggestion.update((state) => ({
+            ...state,
+            [challenge.id]: submission,
+          }));
+
+          const updatedChallenge: ChallengeCard = {
+            ...challenge,
+            submission,
+            repoUrlDraft: submission.repoUrl || repoUrl,
+            reviewText: submission.aiFeedback || challenge.reviewText,
+          };
+
+          this.patchChallenge(step.number, challenge.id, {
+            submission,
+            repoUrlDraft: submission.repoUrl || repoUrl,
+            reviewText: submission.aiFeedback || challenge.reviewText,
+          });
+
+          if (!(submission.aiFeedback || '').trim()) {
+            this.loadChallengeReview(step, updatedChallenge);
+          }
+        },
+        error: (err: HttpErrorResponse) => {
+          const message =
+            (typeof err.error === 'string' ? err.error : err.error?.message) ||
+            err.message ||
+            'Could not submit this challenge right now.';
+          this.errorMessage.set(message);
+        },
+      });
+  }
+
+  loadChallengeReview(step: Step, challenge: ChallengeCard): void {
+    const submission = challenge.submission;
+    if (!submission?.id) {
+      this.errorMessage.set('Submit a project first before requesting AI review.');
+      return;
+    }
+
+    this.patchChallenge(step.number, challenge.id, { reviewLoading: true });
+
+    this.roadmapApi
+      .getProjectSubmissionReview(submission.id)
+      .pipe(
+        finalize(() => {
+          this.patchChallenge(step.number, challenge.id, { reviewLoading: false });
+        })
+      )
+      .subscribe({
+        next: (payload) => {
+          const review = (payload.review || '').trim();
+          const updatedSubmission: ProjectSubmissionDto = {
+            ...submission,
+            status: payload.status || submission.status,
+            score: payload.score ?? submission.score,
+            readmeScore: payload.readmeScore ?? submission.readmeScore,
+            structureScore: payload.structureScore ?? submission.structureScore,
+            testScore: payload.testScore ?? submission.testScore,
+            ciScore: payload.ciScore ?? submission.ciScore,
+            recommendations: payload.recommendations ?? submission.recommendations,
+            reviewedAt: payload.reviewedAt || submission.reviewedAt,
+            aiFeedback: review || submission.aiFeedback,
+          };
+
+          this.userSubmissionsBySuggestion.update((state) => ({
+            ...state,
+            [challenge.id]: updatedSubmission,
+          }));
+
+          this.patchChallenge(step.number, challenge.id, {
+            submission: updatedSubmission,
+            reviewText: review || 'No AI review available yet for this submission.',
+          });
+        },
+        error: (err: HttpErrorResponse) => {
+          const message =
+            (typeof err.error === 'string' ? err.error : err.error?.message) ||
+            err.message ||
+            'Could not load AI review right now.';
+          this.errorMessage.set(message);
+        },
+      });
+  }
+
+  generateNodeProjectLab(step: Step): void {
+    const userId = this.currentUserId();
+    if (!userId || !step.nodeId) {
+      this.errorMessage.set('Node project lab is unavailable for this step right now.');
+      return;
+    }
+
+    this.patchStep(step.number, { projectLabLoading: true });
+
+    this.roadmapApi
+      .getNodeProjectLab(step.nodeId, userId)
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { projectLabLoading: false });
+        })
+      )
+      .subscribe({
+        next: (projectLab) => {
+          const history = [projectLab, ...(step.projectLabHistory || [])].filter(
+            (entry, index, all) =>
+              all.findIndex((candidate) => this.sameProjectLabHistoryEntry(candidate, entry)) === index
+          );
+
+          this.patchStep(step.number, {
+            projectLab,
+            projectLabHistory: history,
+            projectSolutionDraft: projectLab.starterCode || '',
+            projectValidation: null,
+          });
+        },
+        error: (err: HttpErrorResponse) => {
+          const message =
+            (typeof err.error === 'string' ? err.error : err.error?.message) ||
+            err.message ||
+            'Could not generate a node project lab right now.';
+          this.errorMessage.set(message);
+        },
+      });
+  }
+
+  loadNodeProjectLabHistory(step: Step): void {
+    const userId = this.currentUserId();
+    if (!userId || !step.nodeId || step.projectLabHistoryLoading) {
+      return;
+    }
+
+    this.patchStep(step.number, { projectLabHistoryLoading: true });
+
+    this.roadmapApi
+      .getNodeProjectLabHistory(step.nodeId, userId)
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { projectLabHistoryLoading: false });
+        })
+      )
+      .subscribe({
+        next: (history) => {
+          if (!history || history.length === 0) {
+            return;
+          }
+
+          const activeProject = step.projectLab || history[0];
+          this.patchStep(step.number, {
+            projectLab: activeProject,
+            projectLabHistory: history,
+            projectSolutionDraft: step.projectSolutionDraft || activeProject.starterCode || '',
+          });
+        },
+        error: () => {},
+      });
+  }
+
+  restoreProjectLabFromHistory(step: Step, projectLab: NodeProjectLabDto): void {
+    this.patchStep(step.number, {
+      projectLab,
+      projectSolutionDraft: projectLab.starterCode || '',
+      projectValidation: null,
+    });
+  }
+
+  setProjectSolutionDraft(step: Step, code: string): void {
+    this.patchStep(step.number, {
+      projectSolutionDraft: code,
+    });
+  }
+
+  validateNodeProjectSolution(step: Step): void {
+    const userId = this.currentUserId();
+    if (!userId || !step.nodeId) {
+      this.errorMessage.set('Node project validation is unavailable for this step right now.');
+      return;
+    }
+
+    if (!step.projectLab) {
+      this.errorMessage.set('Generate the node project lab first.');
+      return;
+    }
+
+    const code = (step.projectSolutionDraft || '').trim();
+    if (!code) {
+      this.errorMessage.set('Please write or paste your solution code before validation.');
+      return;
+    }
+
+    this.patchStep(step.number, { projectValidationLoading: true });
+
+    this.roadmapApi
+      .validateNodeProject(step.nodeId, userId, {
+        projectTitle: step.projectLab.projectTitle,
+        language: step.projectLab.language,
+        acceptanceCriteria: step.projectLab.acceptanceCriteria,
+        code,
+      })
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { projectValidationLoading: false });
+        })
+      )
+      .subscribe({
+        next: (validation) => {
+          this.patchStep(step.number, { projectValidation: validation });
+        },
+        error: (err: HttpErrorResponse) => {
+          const message =
+            (typeof err.error === 'string' ? err.error : err.error?.message) ||
+            err.message ||
+            'Could not validate your node project right now.';
+          this.errorMessage.set(message);
+        },
+      });
+  }
+
+  loadNodeCourse(step: Step, refresh = false): void {
+    const userId = this.currentUserId();
+    if (!userId || !step.nodeId) {
+      this.errorMessage.set('Node course is unavailable for this step right now.');
+      return;
+    }
+
+    this.patchStep(step.number, { courseLoading: true });
+
+    this.roadmapApi
+      .getNodeCourse(step.nodeId, userId, refresh)
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { courseLoading: false });
+        })
+      )
+      .subscribe({
+        next: (course) => {
+          const normalizedCourse = this.normalizeCoursePayload(course);
+
+          const history = [normalizedCourse, ...(step.courseHistory || [])].filter(
+            (entry, index, all) =>
+              all.findIndex(
+                (candidate) =>
+                  (candidate.historyId && entry.historyId && candidate.historyId === entry.historyId) ||
+                  (!!candidate.generatedAt && candidate.generatedAt === entry.generatedAt)
+              ) === index
+          );
+
+          this.patchStep(step.number, {
+            course: normalizedCourse,
+            courseHistory: history,
+          });
+        },
+        error: (err: HttpErrorResponse) => {
+          const message =
+            (typeof err.error === 'string' ? err.error : err.error?.message) ||
+            err.message ||
+            'Could not load the node course right now.';
+          this.errorMessage.set(message);
+        },
+      });
+  }
+
+  loadNodeCourseHistory(step: Step): void {
+    const userId = this.currentUserId();
+    if (!userId || !step.nodeId || step.courseHistoryLoading) {
+      return;
+    }
+
+    this.patchStep(step.number, { courseHistoryLoading: true });
+
+    this.roadmapApi
+      .getNodeCourseHistory(step.nodeId, userId)
+      .pipe(
+        finalize(() => {
+          this.patchStep(step.number, { courseHistoryLoading: false });
+        })
+      )
+      .subscribe({
+        next: (history) => {
+          if (!history || history.length === 0) {
+            return;
+          }
+
+          const normalizedHistory = history.map((entry) => this.normalizeCoursePayload(entry));
+
+          this.patchStep(step.number, {
+            course: step.course || normalizedHistory[0],
+            courseHistory: normalizedHistory,
+          });
+        },
+        error: () => {},
+      });
+  }
+
+  restoreNodeCourseFromHistory(step: Step, course: NodeCourseContentDto): void {
+    this.patchStep(step.number, {
+      course,
+    });
+  }
+
+  private openQuizSession(
+    step: Step,
+    questions: NodeQuizQuestion[],
+    source: 'ai' | 'local'
+  ): void {
+    const selectedAnswers: Record<string, number | null> = {};
+    questions.forEach((question) => {
+      selectedAnswers[question.id] = null;
+    });
+
+    this.quizSession.set({
+      stepNumber: step.number,
+      stepTitle: step.title,
+      questions,
+      source,
+      activeQuestionIndex: 0,
+      selectedAnswers,
+      passThreshold: this.quizPassThreshold,
+      submitted: false,
+      scorePercent: null,
+      passed: false,
+      badgeLabel: null,
+      feedback: null,
+    });
+
+    this.lockExamMode();
+  }
+
+  private mapBackendQuizQuestions(payload: NodeQuizResponseDto): NodeQuizQuestion[] {
+    if (!payload?.questions || payload.questions.length === 0) {
+      return [];
+    }
+
+    return payload.questions
+      .map((question, index) => {
+        const options = (question.options || [])
+          .map((option) => (option || '').trim())
+          .filter((option) => option.length > 0)
+          .slice(0, 4);
+
+        if (options.length < 2) {
+          return null;
+        }
+
+        const correctIndex = Number.isInteger(question.correctIndex)
+          ? Math.max(0, Math.min(options.length - 1, question.correctIndex))
+          : 0;
+
+        const id = question.id?.trim() || `ai-${Date.now()}-${index + 1}`;
+        const prompt = question.prompt?.trim() || `Question ${index + 1}`;
+
+        return {
+          id: id.startsWith('ai-') ? id : `ai-${id}`,
+          prompt,
+          options,
+          correctIndex,
+        } as NodeQuizQuestion;
+      })
+      .filter((question): question is NodeQuizQuestion => question !== null)
+      .slice(0, this.quizQuestionCount);
+  }
+
+  private computeQuizBadge(scorePercent: number): string {
+    if (scorePercent >= 95) {
+      return 'Elite Master Badge';
+    }
+    if (scorePercent >= 85) {
+      return 'Proficiency Badge';
+    }
+    return 'Qualified Badge';
+  }
+
+  private toChallengeCards(
+    suggestions: ProjectSuggestionDto[],
+    existingChallenges: ChallengeCard[] = []
+  ): ChallengeCard[] {
+    const existingById = new Map(existingChallenges.map((challenge) => [challenge.id, challenge]));
+    const submissionsBySuggestion = this.userSubmissionsBySuggestion();
+
+    const sortedSuggestions = [...(suggestions || [])].sort((left, right) => {
+      const rightRaw = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+      const leftRaw = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+      const rightTs = Number.isFinite(rightRaw) ? rightRaw : 0;
+      const leftTs = Number.isFinite(leftRaw) ? leftRaw : 0;
+      if (rightTs !== leftTs) {
+        return rightTs - leftTs;
+      }
+      return (right.id || 0) - (left.id || 0);
+    });
+
+    return sortedSuggestions.map((suggestion) => {
+      const existing = existingById.get(suggestion.id);
+      const submission = submissionsBySuggestion[suggestion.id] || existing?.submission || null;
+      const repoUrlDraft = existing?.repoUrlDraft || submission?.repoUrl || '';
+
+      return {
+        id: suggestion.id,
+        createdAt: suggestion.createdAt,
+        title: suggestion.title,
+        description: suggestion.description,
+        estimatedDays: suggestion.estimatedDays,
+        difficulty: suggestion.difficulty,
+        techStack: suggestion.techStack || [],
+        repoUrlDraft,
+        submission,
+        submitting: existing?.submitting ?? false,
+        reviewLoading: existing?.reviewLoading ?? false,
+        reviewText: existing?.reviewText || submission?.aiFeedback || null,
+      };
+    });
+  }
+
+  private loadUserProjectSubmissions(userId: number): void {
+    this.roadmapApi
+      .getUserProjectSubmissions(userId)
+      .pipe(catchError(() => of([] as ProjectSubmissionDto[])))
+      .subscribe((submissions) => {
+        const bySuggestion: Record<number, ProjectSubmissionDto> = {};
+
+        for (const submission of submissions || []) {
+          if (!submission?.projectSuggestionId) {
+            continue;
+          }
+
+          const current = bySuggestion[submission.projectSuggestionId];
+          if (!current) {
+            bySuggestion[submission.projectSuggestionId] = submission;
+            continue;
+          }
+
+          const currentTime = current.submittedAt ? new Date(current.submittedAt).getTime() : 0;
+          const nextTime = submission.submittedAt ? new Date(submission.submittedAt).getTime() : 0;
+          if (nextTime >= currentTime) {
+            bySuggestion[submission.projectSuggestionId] = submission;
+          }
+        }
+
+        this.userSubmissionsBySuggestion.set(bySuggestion);
+
+        this.stepsState.update((steps) =>
+          steps.map((step) => ({
+            ...step,
+            challenges: step.challenges.map((challenge) => {
+              const submission = bySuggestion[challenge.id] || challenge.submission;
+              return {
+                ...challenge,
+                submission,
+                repoUrlDraft: challenge.repoUrlDraft || submission?.repoUrl || '',
+                reviewText: challenge.reviewText || submission?.aiFeedback || null,
+              };
+            }),
+          }))
+        );
+      });
+  }
+
+  private patchChallenge(
+    stepNumber: number,
+    challengeId: number,
+    patch: Partial<ChallengeCard>
+  ): void {
+    this.patchStep(stepNumber, {
+      challenges: (this.stepsState().find((step) => step.number === stepNumber)?.challenges || []).map(
+        (challenge) =>
+          challenge.id === challengeId
+            ? {
+                ...challenge,
+                ...patch,
+              }
+            : challenge
+      ),
+    });
+  }
+
+  private resolveChallengeLevel(step: Step): string {
+    const roadmapDifficulty = (this.activeRoadmap()?.difficulty || '').toUpperCase();
+    if (roadmapDifficulty.includes('BEGINNER')) {
+      return 'BEGINNER';
+    }
+    if (roadmapDifficulty.includes('ADVANCED')) {
+      return 'ADVANCED';
+    }
+
+    const backendStatus = this.normalizeBackendStatus(step.backendStatus);
+    if (backendStatus === 'LOCKED' || backendStatus === 'AVAILABLE') {
+      return 'BEGINNER';
+    }
+
+    return 'INTERMEDIATE';
   }
 
   private toResourceCards(
@@ -1381,6 +2351,67 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     this.previousBodyOverflow = null;
   }
 
+  private sameProjectLabHistoryEntry(left: NodeProjectLabDto, right: NodeProjectLabDto): boolean {
+    if (left.historyId && right.historyId) {
+      return left.historyId === right.historyId;
+    }
+
+    const leftGeneratedAt = left.generatedAt || '';
+    const rightGeneratedAt = right.generatedAt || '';
+    if (leftGeneratedAt && rightGeneratedAt) {
+      return leftGeneratedAt === rightGeneratedAt;
+    }
+
+    return left.projectTitle === right.projectTitle && left.language === right.language;
+  }
+
+  private buildLocalTutorResponse(step: Step, prompt: string): NodeTutorPromptResponseDto {
+    return {
+      nodeId: step.nodeId || 0,
+      nodeTitle: step.title,
+      prompt,
+      answer:
+        `Focus on one practical slice of ${step.title} first. Build a tiny example, test it with edge cases, and ` +
+        'refactor only after it works end-to-end.',
+      keyTakeaways: [
+        'Start small and executable.',
+        'Validate assumptions early.',
+        'Document one lesson learned before moving on.',
+      ],
+      nextActions: [
+        `Build a 20-30 minute mini exercise for ${step.title}.`,
+        'Write one test or check for expected output.',
+        'List one common mistake and how you will prevent it.',
+      ],
+      aiGenerated: false,
+      respondedAt: new Date().toISOString(),
+    };
+  }
+
+  private normalizeCoursePayload(course: NodeCourseContentDto): NodeCourseContentDto {
+    return {
+      ...course,
+      courseTitle: course.courseTitle || `${course.nodeTitle || 'Node'} Course`,
+      intro: course.intro || 'Practical node course.',
+      difficulty: course.difficulty || 'BEGINNER',
+      lessons: (course.lessons || []).map((lesson) => ({
+        ...lesson,
+        sectionTitle: lesson.sectionTitle || 'Lesson',
+        explanation: lesson.explanation || 'Practice this concept with a small example.',
+        miniExample: lesson.miniExample || '',
+        codeSnippet: lesson.codeSnippet || '',
+        commonPitfalls: lesson.commonPitfalls || [],
+        practiceTasks: lesson.practiceTasks || [],
+      })),
+      checkpoints: (course.checkpoints || []).map((checkpoint) => ({
+        question: checkpoint.question || 'Checkpoint question',
+        answerHint: checkpoint.answerHint || 'Use a practical explanation.',
+      })),
+      cheatSheet: course.cheatSheet || [],
+      nextNodeFocus: course.nextNodeFocus || '',
+    };
+  }
+
   private fallbackResourceTitle(origin: ResourceCard['origin']): string {
     return origin === 'ai' ? 'AI suggested resource' : 'Roadmap resource';
   }
@@ -1455,6 +2486,11 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     return status === 'AVAILABLE' || status === 'IN_PROGRESS';
   }
 
+  isStepLocked(step: Step): boolean {
+    const status = this.normalizeBackendStatus(step.backendStatus || step.status);
+    return status === 'LOCKED';
+  }
+
   private normalizeBackendStatus(status: string | undefined): string {
     return (status || '').toUpperCase().trim();
   }
@@ -1473,6 +2509,128 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     }
 
     return error.message || '';
+  }
+
+  private sortRoadmapsForHub(roadmaps: RoadmapResponse[]): RoadmapResponse[] {
+    return [...roadmaps].sort((left, right) => {
+      const statusDelta = this.roadmapStatusRank(right.status) - this.roadmapStatusRank(left.status);
+      if (statusDelta !== 0) {
+        return statusDelta;
+      }
+
+      const rightDate = this.roadmapRecencyTimestamp(right);
+      const leftDate = this.roadmapRecencyTimestamp(left);
+      if (rightDate !== leftDate) {
+        return rightDate - leftDate;
+      }
+
+      return (right.id ?? 0) - (left.id ?? 0);
+    });
+  }
+
+  private resolveRoadmapSelection(
+    roadmaps: RoadmapResponse[],
+    preferredRoadmapId: number | null
+  ): RoadmapResponse {
+    if (preferredRoadmapId != null) {
+      const matched = roadmaps.find((roadmap) => roadmap.id === preferredRoadmapId);
+      if (matched) {
+        return matched;
+      }
+    }
+
+    return roadmaps[0];
+  }
+
+  private roadmapStatusRank(status: string | undefined): number {
+    const normalized = (status || '').toUpperCase();
+    if (normalized === 'ACTIVE') return 5;
+    if (normalized === 'COMPLETED') return 4;
+    if (normalized === 'PAUSED') return 3;
+    if (normalized === 'GENERATING') return 2;
+    if (normalized === 'ARCHIVED') return 1;
+    return 0;
+  }
+
+  private roadmapRecencyTimestamp(roadmap: RoadmapResponse): number {
+    const source = roadmap.createdAt;
+    if (!source) {
+      return 0;
+    }
+
+    const parsed = new Date(source).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private toRoadmapStatusLabel(status: string | undefined): string {
+    const normalized = (status || '').toUpperCase();
+    if (!normalized) {
+      return 'Unknown';
+    }
+
+    return normalized
+      .split('_')
+      .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  private toRoadmapStatusTone(
+    status: string | undefined
+  ): 'active' | 'completed' | 'paused' | 'other' {
+    const normalized = (status || '').toUpperCase();
+    if (normalized === 'ACTIVE' || normalized === 'GENERATING') {
+      return 'active';
+    }
+    if (normalized === 'COMPLETED') {
+      return 'completed';
+    }
+    if (normalized === 'PAUSED') {
+      return 'paused';
+    }
+    return 'other';
+  }
+
+  private formatRoadmapStartedAt(value: string | undefined): string {
+    if (!value) {
+      return 'Start date unknown';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'Start date unknown';
+    }
+
+    return `Started ${parsed.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })}`;
+  }
+
+  private readSelectedRoadmapId(userId: number): number | null {
+    try {
+      const raw = window.localStorage.getItem(this.selectedRoadmapStorageKey(userId));
+      if (!raw) {
+        return null;
+      }
+
+      const candidate = Number(raw);
+      return Number.isFinite(candidate) && candidate > 0 ? candidate : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private persistSelectedRoadmapId(userId: number, roadmapId: number): void {
+    try {
+      window.localStorage.setItem(this.selectedRoadmapStorageKey(userId), String(roadmapId));
+    } catch {
+      // Ignore storage failures in restricted browsing contexts.
+    }
+  }
+
+  private selectedRoadmapStorageKey(userId: number): string {
+    return `smarthire-selected-roadmap:${userId}`;
   }
 
   private mapStatus(status: string | undefined): Step['status'] {

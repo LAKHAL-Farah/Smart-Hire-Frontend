@@ -100,7 +100,7 @@ export class DashboardHomeComponent implements OnInit {
     this.errorMessage = null;
 
     this.roadmapApi
-      .getActiveRoadmap(userId)
+      .getUserRoadmap(userId)
       .pipe(
         switchMap((roadmap) =>
           forkJoin({

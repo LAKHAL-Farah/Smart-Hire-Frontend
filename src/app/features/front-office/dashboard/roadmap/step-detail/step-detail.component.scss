@@ -156,6 +156,18 @@ h1 {
   opacity: 0.65;
 }
 
+.lock-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.quiz-hint {
+  margin: 0;
+  font-size: 13px;
+  color: #93c5fd;
+}
+
 .resources-card {
   display: grid;
   gap: 16px;

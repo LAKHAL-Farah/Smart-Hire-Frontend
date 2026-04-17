@@ -81,7 +81,7 @@ export class ProgressAnalyticsComponent implements OnInit {
     this.errorMessage.set(null);
 
     this.roadmapApi
-      .getActiveRoadmap(userId)
+      .getUserRoadmap(userId)
       .pipe(
         switchMap((roadmap) => {
           this.roadmapId.set(roadmap.id);

@@ -1,6 +1,9 @@
-import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, OnInit, signal } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
+import { InterviewAnswerResultDto, InterviewSessionDto, RoadmapApiService } from '../../../../../services/roadmap-api.service';
+import { resolveRoadmapUserId } from '../../roadmap/roadmap-user-context';
 
 /* ── Types ── */
 interface DimensionScore {
@@ -33,176 +36,191 @@ interface RecommendedAction {
   templateUrl: './interview-report.component.html',
   styleUrl: './interview-report.component.scss'
 })
-export class InterviewReportComponent {
-  /* ── Report header ── */
-  sessionDate = 'February 27, 2026';
-  sessionType = 'Practice';
-  questionType = 'Technical';
-  careerPath = 'Backend Engineer';
-  duration = '18 min 42 sec';
-  finalScore = 7.8;
-  percentile = 68;
+export class InterviewReportComponent implements OnInit {
+  private readonly roadmapApi = inject(RoadmapApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
-  /* ── Dimension scores ── */
+  loading = true;
+  errorMessage: string | null = null;
+
+  sessionDate = 'N/A';
+  sessionType = 'Session';
+  questionType = 'Interview';
+  careerPath = 'Career Path';
+  duration = 'N/A';
+  finalScore = 0;
+  percentile = 50;
+
   dimensions: DimensionScore[] = [
-    { label: 'Content', score: 8.2, outOf: 10, color: '#2ee8a5' },
-    { label: 'Clarity', score: 7.4, outOf: 10, color: '#3b82f6' },
-    { label: 'Confidence', score: 6.8, outOf: 10, color: '#10b981' },
-    { label: 'Tone', score: 7.8, outOf: 10, color: '#8b5cf6' },
-    { label: 'Non-verbal', score: 5.5, outOf: 10, color: '#f59e0b' },
+    { label: 'Content', score: 0, outOf: 10, color: '#2ee8a5' },
+    { label: 'Clarity', score: 0, outOf: 10, color: '#3b82f6' },
+    { label: 'Confidence', score: 0, outOf: 10, color: '#10b981' },
+    { label: 'Tone', score: 0, outOf: 10, color: '#8b5cf6' },
+    { label: 'Non-verbal', score: 0, outOf: 10, color: '#f59e0b' },
   ];
 
-  /* ── Radar chart ── */
   radarPoints = this.computeRadar();
 
-  /* ── AI Analysis ── */
-  strengths = [
-    'Demonstrated strong understanding of data structure fundamentals with practical examples',
-    'Responses showed clear logical progression and well-structured arguments',
-    'Effective use of technical vocabulary appropriate for a Backend Engineer role',
-    'Good at breaking down complex problems into smaller, manageable parts',
-  ];
-
-  areasToImprove = [
-    'Could improve confidence when discussing system design topics — more practice with scale problems recommended',
-    'Non-verbal communication needs attention — maintain more consistent eye contact',
-    'Some answers lacked depth in edge case analysis',
-  ];
-
-  recommendations: RecommendedAction[] = [
-    { icon: '🎯', title: 'Complete 3 more practice sessions focusing on vocal confidence', description: 'Your Confidence score was below average — targeted practice will help.' },
-    { icon: '📚', title: 'Review System Design fundamentals on the Roadmap', description: 'Questions about scaling showed gaps in knowledge.' },
-    { icon: '🎥', title: 'Enable video recording in your next session', description: 'Non-verbal analysis requires camera — this will help improve posture and expression.' },
-  ];
+  strengths: string[] = [];
+  areasToImprove: string[] = [];
+  recommendations: RecommendedAction[] = [];
 
   /* ── Question-by-question ── */
   expandedQuestion = signal<number | null>(null);
 
-  questions: QuestionReview[] = [
-    {
-      number: 1,
-      text: 'Explain the difference between a stack and a queue. When would you choose one over the other?',
-      answer: 'A stack follows Last-In-First-Out (LIFO) principle while a queue follows First-In-First-Out (FIFO). Stacks are ideal for undo operations, expression parsing, and backtracking algorithms. Queues are perfect for task scheduling, BFS traversal, and message buffering. In backend systems, I would use a queue for processing async jobs and a stack for managing recursive operations.',
-      dimensions: [
-        { label: 'Content', score: 90, color: '#2ee8a5' },
-        { label: 'Clarity', score: 82, color: '#3b82f6' },
-        { label: 'Confidence', score: 75, color: '#10b981' },
-        { label: 'Tone', score: 80, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 60, color: '#f59e0b' },
-      ],
-      feedback: 'Strong answer with good real-world examples. The comparison was clear and the mention of backend-specific use cases showed practical understanding.',
-      strengths: ['Clear LIFO/FIFO comparison', 'Good real-world examples'],
-      improvements: ['Could mention thread-safety considerations'],
-    },
-    {
-      number: 2,
-      text: 'Tell me about a time you had to resolve a conflict within your team.',
-      answer: 'During a sprint at my previous internship, two team members disagreed about the database architecture. I organized a meeting where each person presented their approach with pros and cons. I facilitated the discussion by focusing on our project requirements rather than personal preferences. We ended up combining the best aspects of both proposals.',
-      dimensions: [
-        { label: 'Content', score: 78, color: '#2ee8a5' },
-        { label: 'Clarity', score: 85, color: '#3b82f6' },
-        { label: 'Confidence', score: 70, color: '#10b981' },
-        { label: 'Tone', score: 82, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 55, color: '#f59e0b' },
-      ],
-      feedback: 'Good use of the STAR method implicitly. The response demonstrated leadership qualities and a collaborative mindset.',
-      strengths: ['Structured response with clear outcome', 'Showed leadership initiative'],
-      improvements: ['Add more specifics about the technical decision', 'Quantify the outcome if possible'],
-    },
-    {
-      number: 3,
-      text: 'How would you design a rate limiter for an API that handles 10,000 requests per second?',
-      answer: 'I would implement a token bucket algorithm backed by Redis for distributed rate limiting. Each client gets a bucket with a configurable capacity and refill rate. On each request, we check the token count, decrement if available, or return a 429 status. For the 10K RPS scale, Redis MULTI/EXEC ensures atomicity. I would also add sliding window logging as a secondary mechanism.',
-      dimensions: [
-        { label: 'Content', score: 88, color: '#2ee8a5' },
-        { label: 'Clarity', score: 72, color: '#3b82f6' },
-        { label: 'Confidence', score: 65, color: '#10b981' },
-        { label: 'Tone', score: 74, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 50, color: '#f59e0b' },
-      ],
-      feedback: 'Excellent technical depth. The mention of token bucket with Redis shows practical experience. Consider discussing failover scenarios.',
-      strengths: ['Strong algorithm choice with justification', 'Mentioned distributed concerns'],
-      improvements: ['Discuss failover and edge cases', 'Could draw a diagram to improve clarity'],
-    },
-    {
-      number: 4,
-      text: 'Walk me through how you would optimize a slow database query that involves multiple JOINs.',
-      answer: 'First, I would use EXPLAIN ANALYZE to identify the query plan and bottlenecks. Common fixes include adding indexes on JOIN columns and WHERE clauses, reducing SELECT to only needed columns, and considering denormalization for frequently accessed data. If JOINs are too expensive, I might use materialized views or break the query into smaller subqueries with application-level joining.',
-      dimensions: [
-        { label: 'Content', score: 85, color: '#2ee8a5' },
-        { label: 'Clarity', score: 78, color: '#3b82f6' },
-        { label: 'Confidence', score: 72, color: '#10b981' },
-        { label: 'Tone', score: 76, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 52, color: '#f59e0b' },
-      ],
-      feedback: 'Systematic approach starting with EXPLAIN ANALYZE is the right call. Good range of optimization strategies mentioned.',
-      strengths: ['Methodical debugging approach', 'Multiple optimization strategies'],
-      improvements: ['Mention query caching strategies', 'Discuss monitoring tools for ongoing optimization'],
-    },
-    {
-      number: 5,
-      text: 'Describe a situation where you had to learn a new technology quickly to meet a deadline.',
-      answer: 'When our team was assigned a real-time dashboard project, I had to learn WebSockets and Socket.io within a week. I started with official documentation, built a small proof-of-concept in the first two days, then iterated on the actual implementation. I also pair-programmed with a senior dev for the complex parts. We delivered on time and the feature became one of our most-used.',
-      dimensions: [
-        { label: 'Content', score: 80, color: '#2ee8a5' },
-        { label: 'Clarity', score: 88, color: '#3b82f6' },
-        { label: 'Confidence', score: 74, color: '#10b981' },
-        { label: 'Tone', score: 82, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 58, color: '#f59e0b' },
-      ],
-      feedback: 'Great narrative structure with a clear timeline. Showed resourcefulness by mentioning pair programming.',
-      strengths: ['Clear timeline and milestones', 'Demonstrated adaptability and collaboration'],
-      improvements: ['Mention how you validated your learning', 'Could discuss challenges faced during the learning process'],
-    },
-    {
-      number: 6,
-      text: 'What is the difference between horizontal and vertical scaling?',
-      answer: 'Vertical scaling means adding more power to a single machine — more CPU, RAM, or storage. Horizontal scaling means adding more machines to distribute the load. Vertical is simpler but has hardware limits and single point of failure. Horizontal offers better fault tolerance and theoretically unlimited scale but requires load balancing and data consistency strategies. For a 10K RPS API, horizontal scaling with load balancers is typically the better approach.',
-      dimensions: [
-        { label: 'Content', score: 82, color: '#2ee8a5' },
-        { label: 'Clarity', score: 80, color: '#3b82f6' },
-        { label: 'Confidence', score: 68, color: '#10b981' },
-        { label: 'Tone', score: 78, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 54, color: '#f59e0b' },
-      ],
-      feedback: 'Solid comparison with good mention of trade-offs. Connecting it back to the earlier rate limiter question showed good contextual awareness.',
-      strengths: ['Clear comparison with trade-offs', 'Connected to practical context'],
-      improvements: ['Mention specific tools or services for each approach'],
-    },
-    {
-      number: 7,
-      text: 'How do you handle disagreements about technical decisions with senior engineers?',
-      answer: 'I approach it with data and respect. First, I try to understand their perspective fully before presenting mine. If I disagree, I prepare evidence — benchmarks, documentation, or proof-of-concepts — to support my position. Ultimately, if the senior engineer still disagrees after hearing my points, I respect the decision while documenting my concerns. I have learned that experience often sees things I might miss.',
-      dimensions: [
-        { label: 'Content', score: 76, color: '#2ee8a5' },
-        { label: 'Clarity', score: 82, color: '#3b82f6' },
-        { label: 'Confidence', score: 64, color: '#10b981' },
-        { label: 'Tone', score: 80, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 52, color: '#f59e0b' },
-      ],
-      feedback: 'Mature and professional approach. The emphasis on data-driven arguments and respect for experience is excellent.',
-      strengths: ['Professional and mature approach', 'Data-driven decision making'],
-      improvements: ['Could give a specific example to strengthen the answer'],
-    },
-    {
-      number: 8,
-      text: 'Implement a function that detects a cycle in a linked list.',
-      answer: 'I would use Floyd\'s cycle detection algorithm — two pointers, slow and fast. Slow moves one node at a time, fast moves two. If there is a cycle, they will eventually meet. If fast reaches null, there is no cycle. Time complexity is O(n) and space is O(1), which is optimal. For finding the cycle start, once detected, reset one pointer to head and advance both by one — they meet at the cycle start.',
-      dimensions: [
-        { label: 'Content', score: 92, color: '#2ee8a5' },
-        { label: 'Clarity', score: 76, color: '#3b82f6' },
-        { label: 'Confidence', score: 70, color: '#10b981' },
-        { label: 'Tone', score: 74, color: '#8b5cf6' },
-        { label: 'Non-verbal', score: 48, color: '#f59e0b' },
-      ],
-      feedback: 'Excellent algorithmic knowledge. Bonus points for explaining the cycle start detection. Could improve by writing pseudocode.',
-      strengths: ['Optimal algorithm choice', 'Explained complexity and follow-up'],
-      improvements: ['Write pseudocode or actual code', 'Discuss alternative approaches briefly'],
-    },
-  ];
+  questions: QuestionReview[] = [];
+
+  ngOnInit(): void {
+    const sessionIdParam = this.route.snapshot.paramMap.get('id');
+    const sessionId = sessionIdParam ? Number(sessionIdParam) : NaN;
+    if (!Number.isFinite(sessionId) || sessionId <= 0) {
+      this.loading = false;
+      this.errorMessage = 'Invalid interview session id.';
+      return;
+    }
+
+    const userId = resolveRoadmapUserId();
+    if (!userId) {
+      this.loading = false;
+      this.errorMessage = 'No authenticated user found. Please sign in again.';
+      return;
+    }
+
+    this.roadmapApi.getInterviewSessions(userId).subscribe({
+      next: (sessions) => {
+        const session = sessions.find((item) => item.id === sessionId);
+        if (session) {
+          this.applySessionMetadata(session);
+        }
+        this.loadScore(sessionId);
+      },
+      error: () => {
+        this.loadScore(sessionId);
+      },
+    });
+  }
 
   toggleQuestion(n: number): void {
     this.expandedQuestion.update(v => v === n ? null : n);
+  }
+
+  retakeSession(): void {
+    void this.router.navigate(['/dashboard/interview']);
+  }
+
+  private loadScore(sessionId: number): void {
+    this.roadmapApi.getInterviewScore(sessionId).subscribe({
+      next: (result) => {
+        const score = this.normalizeScore(result.finalScore);
+        this.finalScore = score;
+        this.percentile = this.computePercentile(score);
+
+        this.dimensions = this.buildDimensionScores(score);
+        this.radarPoints = this.computeRadar();
+
+        this.questions = (result.answers || []).map((answer, index) => this.mapAnswer(index + 1, answer));
+        this.strengths = this.questions.flatMap((q) => q.strengths).slice(0, 4);
+        this.areasToImprove = this.questions.flatMap((q) => q.improvements).slice(0, 4);
+        this.recommendations = this.buildRecommendations(this.areasToImprove);
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+        this.errorMessage = 'Could not load report data from backend.';
+      },
+    });
+  }
+
+  private applySessionMetadata(session: InterviewSessionDto): void {
+    this.sessionDate = session.startedAt
+      ? new Date(session.startedAt).toLocaleDateString('en-US', {
+          month: 'long',
+          day: '2-digit',
+          year: 'numeric',
+        })
+      : 'N/A';
+    this.sessionType = (session.status || '').toUpperCase() === 'COMPLETED' ? 'Completed' : 'In Progress';
+    this.questionType = session.difficulty || 'Interview';
+    this.careerPath = session.careerPath || 'Career Path';
+
+    if (session.startedAt && session.completedAt) {
+      const start = new Date(session.startedAt).getTime();
+      const end = new Date(session.completedAt).getTime();
+      this.duration = this.formatDuration(Math.max(0, end - start));
+    }
+  }
+
+  private mapAnswer(number: number, answer: InterviewAnswerResultDto): QuestionReview {
+    const score = this.normalizeScore(answer.score);
+    const dims = this.buildQuestionDimensions(score);
+    const feedback = this.extractFeedback(answer.evaluation);
+
+    return {
+      number,
+      text: answer.questionText || `Question ${number}`,
+      answer: answer.userAnswer || 'No answer captured.',
+      dimensions: dims,
+      feedback: feedback || answer.evaluation || 'No evaluation available.',
+      strengths: feedback ? [feedback] : [],
+      improvements: score < 7 ? ['Improve depth and precision in your response.'] : [],
+    };
+  }
+
+  private buildDimensionScores(score: number): DimensionScore[] {
+    return [
+      { label: 'Content', score, outOf: 10, color: '#2ee8a5' },
+      { label: 'Clarity', score: Math.max(0, score - 0.3), outOf: 10, color: '#3b82f6' },
+      { label: 'Confidence', score: Math.max(0, score - 0.6), outOf: 10, color: '#10b981' },
+      { label: 'Tone', score: Math.max(0, score - 0.2), outOf: 10, color: '#8b5cf6' },
+      { label: 'Non-verbal', score: Math.max(0, score - 1.0), outOf: 10, color: '#f59e0b' },
+    ];
+  }
+
+  private buildQuestionDimensions(score: number): { label: string; score: number; color: string }[] {
+    const percent = Math.round((score / 10) * 100);
+    return [
+      { label: 'Content', score: percent, color: '#2ee8a5' },
+      { label: 'Clarity', score: Math.max(0, percent - 4), color: '#3b82f6' },
+      { label: 'Confidence', score: Math.max(0, percent - 8), color: '#10b981' },
+      { label: 'Tone', score: Math.max(0, percent - 2), color: '#8b5cf6' },
+      { label: 'Non-verbal', score: Math.max(0, percent - 12), color: '#f59e0b' },
+    ];
+  }
+
+  private buildRecommendations(improvements: string[]): RecommendedAction[] {
+    return improvements.slice(0, 3).map((item, index) => ({
+      icon: index === 0 ? '🎯' : index === 1 ? '📚' : '🔁',
+      title: `Next action ${index + 1}`,
+      description: item,
+    }));
+  }
+
+  private extractFeedback(evaluation: string | undefined): string {
+    if (!evaluation) {
+      return '';
+    }
+    const marker = 'Feedback:';
+    const idx = evaluation.indexOf(marker);
+    return idx === -1 ? evaluation : evaluation.substring(idx + marker.length).trim();
+  }
+
+  private normalizeScore(score: number | undefined): number {
+    if (typeof score !== 'number') {
+      return 0;
+    }
+    return Number(Math.max(0, Math.min(10, score)).toFixed(1));
+  }
+
+  private computePercentile(score: number): number {
+    return Math.max(1, Math.min(99, Math.round(score * 10)));
+  }
+
+  private formatDuration(ms: number): string {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes} min ${seconds} sec`;
   }
 
   private computeRadar(): string {

@@ -72,6 +72,156 @@ export interface RoadmapVisualResponse {
   edges: RoadmapEdgeDto[];
 }
 
+export interface NodeQuizQuestionDto {
+  id: string;
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+}
+
+export interface NodeQuizResponseDto {
+  nodeId: number;
+  nodeTitle: string;
+  passThreshold: number;
+  aiGenerated: boolean;
+  questions: NodeQuizQuestionDto[];
+}
+
+export interface NodeProjectLabDto {
+  historyId?: number;
+  nodeId: number;
+  nodeTitle: string;
+  projectTitle: string;
+  scenario: string;
+  language: string;
+  estimatedHours: number;
+  passThreshold: number;
+  aiGenerated: boolean;
+  userStories: string[];
+  acceptanceCriteria: string[];
+  stretchGoals: string[];
+  starterCode: string;
+  generatedAt?: string;
+}
+
+export interface NodeTutorPromptRequestDto {
+  prompt: string;
+}
+
+export interface NodeTutorPromptResponseDto {
+  nodeId: number;
+  nodeTitle: string;
+  prompt: string;
+  answer: string;
+  keyTakeaways: string[];
+  nextActions: string[];
+  aiGenerated: boolean;
+  respondedAt?: string;
+}
+
+export interface NodeCourseLessonDto {
+  sectionTitle: string;
+  explanation: string;
+  miniExample: string;
+  codeSnippet: string;
+  commonPitfalls: string[];
+  practiceTasks: string[];
+}
+
+export interface NodeCourseCheckpointDto {
+  question: string;
+  answerHint: string;
+}
+
+export interface NodeCourseContentDto {
+  historyId?: number;
+  nodeId: number;
+  nodeTitle: string;
+  courseTitle: string;
+  intro: string;
+  difficulty: string;
+  technologies?: string;
+  aiGenerated: boolean;
+  generatedAt?: string;
+  lessons: NodeCourseLessonDto[];
+  checkpoints: NodeCourseCheckpointDto[];
+  cheatSheet: string[];
+  nextNodeFocus: string;
+}
+
+export interface NodeProjectValidationRequestDto {
+  projectTitle?: string;
+  language?: string;
+  code: string;
+  acceptanceCriteria?: string[];
+}
+
+export interface NodeProjectValidationResponseDto {
+  nodeId: number;
+  projectTitle: string;
+  passThreshold: number;
+  scorePercent: number;
+  passed: boolean;
+  aiGenerated: boolean;
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  nextSteps: string[];
+}
+
+export interface ProjectSuggestionDto {
+  id: number;
+  stepId: number;
+  title: string;
+  description: string;
+  difficulty: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+  githubTopics: string[];
+  techStack: string[];
+  estimatedDays: number;
+  alignedCareerPath?: string;
+  createdAt?: string;
+}
+
+export interface ProjectSubmissionDto {
+  id: number;
+  userId: number;
+  projectSuggestionId: number;
+  repoUrl: string;
+  status: string;
+  score?: number;
+  aiFeedback?: string;
+  readmeScore?: number;
+  structureScore?: number;
+  testScore?: number;
+  ciScore?: number;
+  recommendations?: string[];
+  retryCount: number;
+  submittedAt?: string;
+  reviewedAt?: string;
+}
+
+export interface ProjectSubmitRequestDto {
+  userId: number;
+  projectSuggestionId: number;
+  repoUrl: string;
+}
+
+export interface RetrySubmissionRequestDto {
+  repoUrl: string;
+}
+
+export interface ProjectReviewResponseDto {
+  review: string;
+  status?: string;
+  score?: number;
+  readmeScore?: number;
+  structureScore?: number;
+  testScore?: number;
+  ciScore?: number;
+  recommendations?: string[];
+  reviewedAt?: string;
+}
+
 export interface ProgressSummaryDto {
   roadmapId: number;
   totalSteps: number;
@@ -198,6 +348,44 @@ export interface AssessmentResultDto {
   answers: string;
 }
 
+export interface InterviewSessionDto {
+  id: number;
+  userId: number;
+  careerPath: string;
+  difficulty: string;
+  status: string;
+  startedAt?: string;
+  completedAt?: string;
+  finalScore?: number;
+  totalQuestions?: number;
+  answeredQuestions?: number;
+}
+
+export interface InterviewQuestionDto {
+  id?: number;
+  question?: string;
+  text?: string;
+  order?: number;
+  total?: number;
+}
+
+export interface InterviewAnswerResultDto {
+  evaluation: string;
+  score?: number;
+  completed: boolean;
+  questionText?: string;
+  userAnswer?: string;
+}
+
+export interface InterviewResultDto {
+  sessionId: number;
+  status: string;
+  finalScore?: number;
+  totalQuestions: number;
+  answeredQuestions: number;
+  answers: InterviewAnswerResultDto[];
+}
+
 export interface CareerPathOptionDto {
   id: number;
   title: string;
@@ -225,8 +413,16 @@ export class RoadmapApiService {
   private assessmentUrl = (environment.apiUrls.assessment || environment.assessmentApiUrl).replace(/\/$/, '');
 
   // Roadmap CRUD
-  getActiveRoadmap(userId: number): Observable<RoadmapResponse> {
+  getUserRoadmap(userId: number): Observable<RoadmapResponse> {
     return this.http.get<RoadmapResponse>(`${this.roadmapApiUrl}/roadmaps/user/${userId}`);
+  }
+
+  getActiveRoadmap(userId: number): Observable<RoadmapResponse> {
+    return this.http.get<RoadmapResponse>(`${this.roadmapApiUrl}/roadmaps/user/${userId}/active`);
+  }
+
+  getUserRoadmaps(userId: number): Observable<RoadmapResponse[]> {
+    return this.http.get<RoadmapResponse[]>(`${this.roadmapApiUrl}/roadmaps/user/${userId}/all`);
   }
 
   getRoadmapById(id: number): Observable<RoadmapResponse> {
@@ -240,6 +436,74 @@ export class RoadmapApiService {
 
   getRoadmapGraph(roadmapId: number): Observable<RoadmapVisualResponse> {
     return this.http.get<RoadmapVisualResponse>(`${this.roadmapApiUrl}/roadmaps/visual/${roadmapId}/graph`);
+  }
+
+  getNodeQuiz(nodeId: number, userId: number, questionCount = 5): Observable<NodeQuizResponseDto> {
+    const params = new HttpParams()
+      .set('userId', String(userId))
+      .set('questionCount', String(questionCount));
+
+    return this.http.get<NodeQuizResponseDto>(`${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/quiz`, {
+      params,
+    });
+  }
+
+  getNodeProjectLab(nodeId: number, userId: number): Observable<NodeProjectLabDto> {
+    const params = new HttpParams().set('userId', String(userId));
+    return this.http.get<NodeProjectLabDto>(
+      `${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/project-lab`,
+      { params }
+    );
+  }
+
+  getNodeProjectLabHistory(nodeId: number, userId: number): Observable<NodeProjectLabDto[]> {
+    const params = new HttpParams().set('userId', String(userId));
+    return this.http.get<NodeProjectLabDto[]>(
+      `${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/project-lab/history`,
+      { params }
+    );
+  }
+
+  validateNodeProject(
+    nodeId: number,
+    userId: number,
+    payload: NodeProjectValidationRequestDto
+  ): Observable<NodeProjectValidationResponseDto> {
+    const params = new HttpParams().set('userId', String(userId));
+    return this.http.post<NodeProjectValidationResponseDto>(
+      `${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/project-lab/validate`,
+      payload,
+      { params }
+    );
+  }
+
+  askNodeTutor(
+    nodeId: number,
+    userId: number,
+    payload: NodeTutorPromptRequestDto
+  ): Observable<NodeTutorPromptResponseDto> {
+    const params = new HttpParams().set('userId', String(userId));
+    return this.http.post<NodeTutorPromptResponseDto>(
+      `${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/tutor`,
+      payload,
+      { params }
+    );
+  }
+
+  getNodeCourse(nodeId: number, userId: number, refresh = false): Observable<NodeCourseContentDto> {
+    const params = new HttpParams().set('userId', String(userId)).set('refresh', String(refresh));
+    return this.http.get<NodeCourseContentDto>(
+      `${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/course`,
+      { params }
+    );
+  }
+
+  getNodeCourseHistory(nodeId: number, userId: number): Observable<NodeCourseContentDto[]> {
+    const params = new HttpParams().set('userId', String(userId));
+    return this.http.get<NodeCourseContentDto[]>(
+      `${this.roadmapApiUrl}/roadmaps/visual/nodes/${nodeId}/course/history`,
+      { params }
+    );
   }
 
   startNode(nodeId: number, userId: number): Observable<RoadmapVisualResponse> {
@@ -264,6 +528,52 @@ export class RoadmapApiService {
 
   getRoadmapStepsByRoadmapId(roadmapId: number): Observable<StepResponse[]> {
     return this.http.get<StepResponse[]>(`${this.roadmapApiUrl}/roadmap-steps/roadmap/${roadmapId}`);
+  }
+
+  generateProjectSuggestionsByRoadmapStep(
+    roadmapId: number,
+    stepOrder: number,
+    domain: string,
+    level = 'INTERMEDIATE'
+  ): Observable<ProjectSuggestionDto[]> {
+    const params = new HttpParams().set('domain', domain).set('level', level);
+    return this.http.post<ProjectSuggestionDto[]>(
+      `${this.roadmapApiUrl}/project-suggestions/generate/roadmap/${roadmapId}/step/${stepOrder}`,
+      null,
+      { params }
+    );
+  }
+
+  getProjectSuggestionsByRoadmapStep(
+    roadmapId: number,
+    stepOrder: number
+  ): Observable<ProjectSuggestionDto[]> {
+    return this.http.get<ProjectSuggestionDto[]>(
+      `${this.roadmapApiUrl}/project-suggestions/roadmap/${roadmapId}/step/${stepOrder}`
+    );
+  }
+
+  submitProject(payload: ProjectSubmitRequestDto): Observable<ProjectSubmissionDto> {
+    return this.http.post<ProjectSubmissionDto>(`${this.roadmapApiUrl}/projects/submit`, payload);
+  }
+
+  retryProjectSubmission(submissionId: number, payload: RetrySubmissionRequestDto): Observable<ProjectSubmissionDto> {
+    return this.http.post<ProjectSubmissionDto>(
+      `${this.roadmapApiUrl}/projects/submissions/${submissionId}/retry`,
+      payload
+    );
+  }
+
+  getProjectSubmissionReview(submissionId: number): Observable<ProjectReviewResponseDto> {
+    return this.http.get<ProjectReviewResponseDto>(
+      `${this.roadmapApiUrl}/projects/submissions/${submissionId}/review`
+    );
+  }
+
+  getUserProjectSubmissions(userId: number): Observable<ProjectSubmissionDto[]> {
+    return this.http.get<ProjectSubmissionDto[]>(
+      `${this.roadmapApiUrl}/projects/submissions/user/${userId}`
+    );
   }
 
   // Assessment
@@ -291,6 +601,37 @@ export class RoadmapApiService {
   // Routed through assessment service.
   getLatestAssessment(userId: number): Observable<AssessmentResultDto> {
     return this.http.get<AssessmentResultDto>(`${this.assessmentUrl}/results/${userId}`);
+  }
+
+  // Interview
+  createInterviewSession(
+    userId: number,
+    careerPath: string,
+    difficulty: string
+  ): Observable<InterviewSessionDto> {
+    const params = new HttpParams()
+      .set('userId', String(userId))
+      .set('careerPath', careerPath)
+      .set('difficulty', difficulty);
+    return this.http.post<InterviewSessionDto>(`${this.roadmapApiUrl}/interview/session`, null, { params });
+  }
+
+  getInterviewSessions(userId: number): Observable<InterviewSessionDto[]> {
+    return this.http.get<InterviewSessionDto[]>(`${this.roadmapApiUrl}/interview/user/${userId}/sessions`);
+  }
+
+  getInterviewQuestion(sessionId: number): Observable<InterviewQuestionDto> {
+    return this.http.get<InterviewQuestionDto>(`${this.roadmapApiUrl}/interview/session/${sessionId}/question`);
+  }
+
+  submitInterviewAnswer(sessionId: number, answer: string): Observable<InterviewAnswerResultDto> {
+    return this.http.post<InterviewAnswerResultDto>(`${this.roadmapApiUrl}/interview/session/${sessionId}/answer`, {
+      answer,
+    });
+  }
+
+  getInterviewScore(sessionId: number): Observable<InterviewResultDto> {
+    return this.http.get<InterviewResultDto>(`${this.roadmapApiUrl}/interview/session/${sessionId}/score`);
   }
 
   getPublishedCareerPaths(): Observable<CareerPathOptionDto[]> {

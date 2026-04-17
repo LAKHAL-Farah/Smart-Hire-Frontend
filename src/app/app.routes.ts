@@ -66,6 +66,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'roadmap/workspace',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/workspace/roadmap-workspace.component').then(
+            (m) => m.RoadmapWorkspaceComponent
+          ),
+      },
+      {
         path: 'roadmap/step/:stepId',
         loadComponent: () =>
           import('./features/front-office/dashboard/roadmap/step-detail/step-detail.component').then(

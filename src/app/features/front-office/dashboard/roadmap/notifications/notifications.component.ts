@@ -128,7 +128,7 @@ export class NotificationsComponent implements OnInit {
     this.errorMessage.set(null);
 
     this.roadmapApi
-      .getActiveRoadmap(userId)
+      .getUserRoadmap(userId)
       .pipe(
         catchError(() => of(null)),
         switchMap((roadmap) => {

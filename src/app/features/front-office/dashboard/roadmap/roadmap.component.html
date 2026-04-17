@@ -6,12 +6,56 @@
       <p class="scope-header__sub">{{ roadmapSubtitle() }}</p>
     </div>
     <div class="scope-header__actions">
-      <a class="btn-ghost" routerLink="/dashboard/roadmap/progress">Progress</a>
-      <a class="btn-ghost" routerLink="/dashboard/roadmap/milestones">Milestones</a>
-      <a class="btn-ghost" routerLink="/dashboard/roadmap/notifications">Notifications</a>
-      <a class="btn-primary-grad" routerLink="/dashboard/roadmap/replan">Replan Wizard</a>
+      <a class="btn-ghost" aria-label="Open roadmap progress view" routerLink="/dashboard/roadmap/progress">Progress</a>
+      <a class="btn-ghost" aria-label="Open roadmap milestones" routerLink="/dashboard/roadmap/milestones">Milestones</a>
+      <a class="btn-ghost" aria-label="Open roadmap notifications" routerLink="/dashboard/roadmap/notifications">Notifications</a>
+      <a class="btn-primary-grad" aria-label="Open roadmap replan wizard" routerLink="/dashboard/roadmap/replan">Replan Wizard</a>
     </div>
   </section>
+
+  @if (roadmapCards().length > 0) {
+    <section class="roadmap-hub" aria-label="Roadmap hub">
+      <div class="roadmap-hub__head">
+        <div>
+          <p class="roadmap-hub__eyebrow">Roadmap Hub</p>
+          <h2>All your roadmaps in one compact view</h2>
+        </div>
+        <p class="roadmap-hub__summary">
+          {{ roadmapHubStats().total }} total · {{ roadmapHubStats().completed }} completed · {{ roadmapHubStats().active }} active
+        </p>
+      </div>
+
+      <div class="roadmap-hub__grid">
+        @for (roadmap of roadmapCards(); track roadmap.id) {
+          <button
+            type="button"
+            class="roadmap-hub-card"
+            [class.roadmap-hub-card--active]="isRoadmapSelected(roadmap.id)"
+            [attr.aria-pressed]="isRoadmapSelected(roadmap.id)"
+            [attr.aria-label]="'Open ' + roadmap.title + ' roadmap'"
+            (click)="openRoadmap(roadmap.id)">
+            <div class="roadmap-hub-card__head">
+              <h3>{{ roadmap.title }}</h3>
+              <span
+                class="roadmap-hub-card__status"
+                [class.roadmap-hub-card__status--active]="roadmap.statusTone === 'active'"
+                [class.roadmap-hub-card__status--completed]="roadmap.statusTone === 'completed'"
+                [class.roadmap-hub-card__status--paused]="roadmap.statusTone === 'paused'"
+                [class.roadmap-hub-card__status--other]="roadmap.statusTone === 'other'">
+                {{ roadmap.statusLabel }}
+              </span>
+            </div>
+
+            <div class="roadmap-hub-card__meta">
+              <span>{{ roadmap.completedSteps }} / {{ roadmap.totalSteps }} steps</span>
+              <span>Score {{ roadmap.scorePercent }}%</span>
+              <span>{{ roadmap.startedLabel }}</span>
+            </div>
+          </button>
+        }
+      </div>
+    </section>
+  }
 
   <section class="scope-progress">
     <div class="scope-progress__meta">
@@ -25,11 +69,14 @@
   </section>
 
   <section class="scope-filters">
-    <div class="filter-tabs">
+    <div class="filter-tabs" role="tablist" aria-label="Roadmap node filters">
       @for (tab of filterTabs; track tab.value) {
         <button
           class="filter-tab"
+          role="tab"
+          [attr.aria-selected]="activeFilter() === tab.value"
           [class.filter-tab--active]="activeFilter() === tab.value"
+          [attr.aria-label]="'Filter nodes by ' + tab.label"
           (click)="activeFilter.set(tab.value)">
           {{ tab.label }}
         </button>
@@ -61,6 +108,15 @@
                 [class.orbit-node--active]="expandedStep() === step.number"
                 [class.orbit-node--done]="step.status === 'done'"
                 [class.orbit-node--progress]="step.status === 'in-progress'"
+                [class.orbit-node--locked]="isStepLocked(step)"
+                [attr.aria-label]="
+                  step.title +
+                  ', ' +
+                  (step.status === 'done' ? 'completed' : step.status === 'in-progress' ? 'in progress' : isStepLocked(step) ? 'locked' : 'pending') +
+                  ', estimated ' +
+                  step.estimatedTime
+                "
+                [attr.title]="step.title + ' • ' + step.estimatedTime"
                 (click)="toggleStep(step.number)"
               >
                 <span class="orbit-node__pin">
@@ -70,6 +126,10 @@
                 </span>
                 <span class="orbit-node__tag">{{ step.number }}</span>
                 <span class="orbit-node__title">{{ step.title }}</span>
+                <span class="orbit-node__meta">
+                  {{ step.status === 'done' ? 'Done' : step.status === 'in-progress' ? 'In progress' : isStepLocked(step) ? 'Locked' : 'Pending' }}
+                  • {{ step.estimatedTime }}
+                </span>
               </button>
             </div>
           }
@@ -88,6 +148,8 @@
           <span><i class="dot dot--next"></i> Next: {{ nextThreeSteps().length }}</span>
         </div>
 
+        <p class="scope-legend__hint">Tip: Select a node to view details, then use Prev/Next for faster navigation.</p>
+
         @if (quizSession(); as quiz) {
           <section class="quiz-lock" role="dialog" aria-modal="true" aria-label="Node quiz exam mode">
             <div class="quiz-lock__shell">
@@ -99,7 +161,9 @@
                     Complete all questions. Passing score: {{ quiz.passThreshold }}%.
                   </p>
                 </div>
-                <span class="quiz-lock__badge">Node checkpoint</span>
+                <span class="quiz-lock__badge">
+                  {{ quiz.source === 'ai' ? 'AI-generated checkpoint' : 'Node checkpoint' }}
+                </span>
               </div>
 
               @if (!quiz.submitted) {
@@ -177,6 +241,9 @@
               } @else {
                 <div class="quiz-result" [class.quiz-result--pass]="quiz.passed" [class.quiz-result--fail]="!quiz.passed">
                   <p class="quiz-result__score">{{ quiz.scorePercent }}%</p>
+                  @if (quiz.badgeLabel) {
+                    <p class="quiz-result__badge">{{ quiz.badgeLabel }}</p>
+                  }
                   <p class="quiz-result__text">{{ quiz.feedback }}</p>
                 </div>
 
@@ -198,6 +265,22 @@
         <section class="scope-panel__summary">
           <h3>{{ miniPanelCareer() }}</h3>
           <p>{{ completionEstimate() }}</p>
+
+          <div class="scope-panel__stat-grid">
+            <article class="scope-panel__stat-card">
+              <span>Completed</span>
+              <strong>{{ completedCount }}</strong>
+            </article>
+            <article class="scope-panel__stat-card">
+              <span>Remaining</span>
+              <strong>{{ steps.length - completedCount }}</strong>
+            </article>
+            <article class="scope-panel__stat-card">
+              <span>Next Up</span>
+              <strong>{{ nextThreeSteps().length }}</strong>
+            </article>
+          </div>
+
           <div class="scope-panel__ring-wrap">
             <svg width="96" height="96" viewBox="0 0 100 100">
               <defs>
@@ -255,6 +338,8 @@
                 <button
                   type="button"
                   class="scope-panel__tab"
+                  role="tab"
+                  [attr.aria-selected]="activeResourceTab() === 'resources'"
                   [class.scope-panel__tab--active]="activeResourceTab() === 'resources'"
                   (click)="activeResourceTab.set('resources')"
                 >
@@ -263,6 +348,8 @@
                 <button
                   type="button"
                   class="scope-panel__tab"
+                  role="tab"
+                  [attr.aria-selected]="activeResourceTab() === 'ai-tutor'"
                   [class.scope-panel__tab--active]="activeResourceTab() === 'ai-tutor'"
                   (click)="activeResourceTab.set('ai-tutor')"
                 >
@@ -328,10 +415,74 @@
                 </div>
               } @else {
                 <div class="scope-tutor">
-                  <p class="scope-tutor__title">Personalized AI tutor prompts</p>
-                  <p class="scope-tutor__prompt">Explain {{ step.title }} in beginner terms with a practical example.</p>
-                  <p class="scope-tutor__prompt">What are the top mistakes in {{ step.title }} and how to avoid them?</p>
-                  <p class="scope-tutor__prompt">Give me a 3-day plan to master {{ step.title }}.</p>
+                  <div class="scope-tutor__head">
+                    <p class="scope-tutor__title">Personalized AI tutor prompts</p>
+                    @if (step.tutorLoading) {
+                      <span class="scope-tutor__status">Thinking...</span>
+                    }
+                  </div>
+
+                  <div class="scope-tutor__prompt-grid">
+                    @for (prompt of getTutorPrompts(step); track prompt) {
+                      <button
+                        type="button"
+                        class="scope-tutor__prompt-btn"
+                        [disabled]="step.tutorLoading"
+                        (click)="triggerTutorPrompt(step, prompt)">
+                        {{ prompt }}
+                      </button>
+                    }
+                  </div>
+
+                  <div class="scope-tutor__custom">
+                    <input
+                      type="text"
+                      class="scope-tutor__input"
+                      placeholder="Ask your own question about this node..."
+                      [value]="tutorPromptDraft()"
+                      (input)="tutorPromptDraft.set($any($event.target).value)" />
+                    <button
+                      type="button"
+                      class="scope-tutor__ask-btn"
+                      [disabled]="step.tutorLoading"
+                      (click)="submitCustomTutorPrompt(step)">
+                      {{ step.tutorLoading ? 'Thinking...' : 'Ask Tutor' }}
+                    </button>
+                  </div>
+
+                  @if (step.tutorResponse; as tutorResponse) {
+                    <article class="scope-tutor-response">
+                      <p class="scope-tutor-response__meta">
+                        {{ tutorResponse.aiGenerated ? 'AI tutor response' : 'Guided response' }}
+                        @if (tutorResponse.respondedAt) {
+                          • {{ tutorResponse.respondedAt | date:'medium' }}
+                        }
+                      </p>
+                      <p class="scope-tutor-response__answer">{{ tutorResponse.answer }}</p>
+
+                      @if (tutorResponse.keyTakeaways.length > 0) {
+                        <div class="scope-tutor-response__block">
+                          <h6>Key takeaways</h6>
+                          <ul>
+                            @for (item of tutorResponse.keyTakeaways; track item) {
+                              <li>{{ item }}</li>
+                            }
+                          </ul>
+                        </div>
+                      }
+
+                      @if (tutorResponse.nextActions.length > 0) {
+                        <div class="scope-tutor-response__block">
+                          <h6>Next actions</h6>
+                          <ul>
+                            @for (item of tutorResponse.nextActions; track item) {
+                              <li>{{ item }}</li>
+                            }
+                          </ul>
+                        </div>
+                      }
+                    </article>
+                  }
                 </div>
 
                 <div class="scope-resources">
@@ -363,6 +514,183 @@
                     </div>
                   }
                 </div>
+
+                <div class="scope-course">
+                  <div class="scope-course__head">
+                    <p class="scope-course__title">Node Course Studio</p>
+                    <div class="scope-course__actions">
+                      <button
+                        type="button"
+                        class="btn-course"
+                        (click)="openCourseWorkspace(step, false)">
+                        Open Interactive Tab
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-course btn-course--ghost"
+                        (click)="openCourseWorkspace(step, true)">
+                        Regenerate In New Tab
+                      </button>
+                    </div>
+                  </div>
+
+                  @if (step.courseHistoryLoading) {
+                    <p class="scope-course__state">Loading course trace...</p>
+                  }
+
+                  @if (step.courseHistory.length === 0 && !step.courseHistoryLoading) {
+                    <p class="scope-course__state">No saved course version yet. Open the interactive tab to generate one.</p>
+                  } @else if (step.courseHistory.length > 0) {
+                    <div class="scope-course-history">
+                      <p class="scope-course-history__title">Saved course versions</p>
+                      <div class="scope-course-history__list">
+                        @for (version of step.courseHistory; track version.historyId || version.generatedAt || $index) {
+                          <button
+                            type="button"
+                            class="scope-course-history__item"
+                            [class.scope-course-history__item--active]="(step.course?.historyId || step.course?.generatedAt) === (version.historyId || version.generatedAt)"
+                            (click)="openCourseWorkspace(step, false, version.historyId, version.generatedAt || '')">
+                            <strong>{{ version.generatedAt ? (version.generatedAt | date:'short') : 'Saved version' }}</strong>
+                            <small>{{ version.aiGenerated ? 'AI' : 'Fallback' }}</small>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <div class="scope-challenges">
+                  <div class="scope-challenges__head">
+                    <p class="scope-challenges__title">Coding Challenge Studio</p>
+                    <div class="scope-challenges__actions">
+                      <button
+                        type="button"
+                        class="btn-generate-challenge btn-generate-challenge--ghost"
+                        [disabled]="step.challengesLoading"
+                        (click)="loadChallengeHistory(step)">
+                        Refresh Trace
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-generate-challenge"
+                        [disabled]="step.challengesLoading"
+                        (click)="openChallengeWorkspace(step, undefined, true)">
+                        Generate In New Tab
+                      </button>
+                    </div>
+                  </div>
+
+                  @if (step.challengesLoading) {
+                    <p class="scope-challenges__state">Loading challenge trace...</p>
+                  } @else if (step.challenges.length === 0) {
+                    <p class="scope-challenges__state">No challenge yet. Generate one and it opens directly in a dedicated tab.</p>
+                  } @else {
+                    <div class="scope-challenges__list">
+                      @for (challenge of step.challenges; track challenge.id) {
+                        <article class="scope-challenge-card">
+                          <div class="scope-challenge-card__meta">
+                            <span>{{ challenge.difficulty }}</span>
+                            <span>~{{ challenge.estimatedDays }}d</span>
+                            @if (challenge.createdAt) {
+                              <span>{{ challenge.createdAt | date:'short' }}</span>
+                            }
+                          </div>
+                          <h5>{{ challenge.title }}</h5>
+                          <p>{{ challenge.description }}</p>
+                          @if (challenge.techStack.length > 0) {
+                            <div class="scope-challenge-card__stack">
+                              @for (tech of challenge.techStack; track tech) {
+                                <span>{{ tech }}</span>
+                              }
+                            </div>
+                          }
+
+                          <div class="scope-challenge-card__actions">
+                            <button
+                              type="button"
+                              class="challenge-action-btn"
+                              (click)="openChallengeWorkspace(step, challenge.id)">
+                              Open In Challenge Tab
+                            </button>
+                          </div>
+                        </article>
+                      }
+                    </div>
+                  }
+                </div>
+
+                <div class="scope-project-lab">
+                  <div class="scope-project-lab__head">
+                    <p class="scope-project-lab__title">Node Project Lab</p>
+                    <button
+                      type="button"
+                      class="btn-project-lab"
+                      [disabled]="step.projectLabLoading"
+                      (click)="openProjectLabWorkspace(step, !step.projectLab)">
+                      {{
+                        step.projectLabLoading
+                          ? 'Loading...'
+                          : (step.projectLab ? 'Open Lab Tab' : 'Generate In New Tab')
+                      }}
+                    </button>
+                  </div>
+
+                  @if (step.projectLabLoading) {
+                    <p class="scope-project-lab__state">Loading mini-project trace...</p>
+                  } @else if (!step.projectLab) {
+                    <p class="scope-project-lab__state">Generate and open this node project lab in a dedicated interactive tab.</p>
+                  } @else {
+                    <article class="project-lab-card">
+                      <div class="project-lab-card__meta">
+                        <h5>{{ step.projectLab.projectTitle }}</h5>
+                        <div class="project-lab-card__chips">
+                          <span>{{ step.projectLab.language }}</span>
+                          <span>~{{ step.projectLab.estimatedHours }}h</span>
+                          <span>{{ step.projectLab.aiGenerated ? 'AI-generated lab' : 'Guided fallback lab' }}</span>
+                          @if (step.projectLab.generatedAt) {
+                            <span>{{ step.projectLab.generatedAt | date:'medium' }}</span>
+                          }
+                        </div>
+                      </div>
+
+                      <p class="project-lab-card__scenario">{{ step.projectLab.scenario }}</p>
+
+                      <div class="project-lab-card__actions">
+                        <button
+                          type="button"
+                          class="btn-project-validate"
+                          (click)="openProjectLabWorkspace(step, false, step.projectLab.historyId, step.projectLab.generatedAt || '')">
+                          Open Interactive Lab Tab
+                        </button>
+                      </div>
+                    </article>
+
+                    @if (step.projectLabHistoryLoading) {
+                      <p class="scope-project-lab__state">Loading mini-project history...</p>
+                    }
+
+                    @if (step.projectLabHistory.length > 0) {
+                      <div class="scope-project-lab-history">
+                        <p class="scope-project-lab-history__title">Mini-project trace</p>
+                        <div class="scope-project-lab-history__list">
+                          @for (version of step.projectLabHistory; track version.historyId || version.generatedAt || $index) {
+                            <button
+                              type="button"
+                              class="scope-project-lab-history__item"
+                              [class.scope-project-lab-history__item--active]="(step.projectLab.historyId || step.projectLab.generatedAt) === (version.historyId || version.generatedAt)"
+                              (click)="openProjectLabWorkspace(step, false, version.historyId, version.generatedAt || '')">
+                              <strong>{{ version.projectTitle }}</strong>
+                              <small>
+                                {{ version.generatedAt ? (version.generatedAt | date:'short') : 'Saved version' }}
+                                • {{ version.aiGenerated ? 'AI' : 'Fallback' }}
+                              </small>
+                            </button>
+                          }
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
               }
 
               <div class="scope-quiz-gate" *ngIf="step.status !== 'done'">
@@ -390,7 +718,8 @@
                 <button
                   type="button"
                   class="btn-node-quiz"
-                  (click)="startNodeQuiz(step)">
+                  (click)="startNodeQuiz(step)"
+                  [disabled]="isStepLocked(step)">
                   {{ hasQuizPassed(step.number) ? 'Retake Node Quiz' : 'Start Node Quiz' }}
                 </button>
               </div>
@@ -430,5 +759,5 @@
     </section>
   }
 
-  <p class="scope-error" *ngIf="errorMessage() as error">{{ error }}</p>
+  <p class="scope-error" aria-live="polite" *ngIf="errorMessage() as error">{{ error }}</p>
 </div>

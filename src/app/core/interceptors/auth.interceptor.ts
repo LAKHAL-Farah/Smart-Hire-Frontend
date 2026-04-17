@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import { catchError, throwError } from 'rxjs';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem('access_token') || localStorage.getItem('auth_token');
 
   let authReq = req;
   if (token) {
@@ -16,6 +16,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     catchError((error) => {
       if (error.status === 401) {
         localStorage.removeItem('access_token');
+        localStorage.removeItem('auth_token');
         window.location.href = '/login';
       }
       return throwError(() => error);

@@ -43,11 +43,32 @@
       <button
         class="complete-btn"
         type="button"
-        [disabled]="completing() || currentStep.status === 'COMPLETED'"
+        [disabled]="completing() || currentStep.status === 'COMPLETED' || currentStep.status === 'LOCKED' || !quizPassedForStep()"
         (click)="markComplete()"
       >
-        {{ currentStep.status === 'COMPLETED' ? 'Already Completed' : (completing() ? 'Completing...' : 'Mark Step as Complete') }}
+        {{
+          currentStep.status === 'COMPLETED'
+            ? 'Already Completed'
+            : currentStep.status === 'LOCKED'
+              ? 'Locked - complete prerequisites'
+              : !quizPassedForStep()
+                ? 'Pass quiz to unlock completion'
+                : (completing() ? 'Completing...' : 'Mark Step as Complete')
+        }}
       </button>
+      <p class="lock-hint" *ngIf="currentStep.status === 'LOCKED'">
+        This node is locked. Complete required previous nodes to unlock it.
+      </p>
+      <p
+        class="quiz-hint"
+        *ngIf="
+          currentStep.status !== 'LOCKED' &&
+          currentStep.status !== 'COMPLETED' &&
+          currentStep.status !== 'SKIPPED' &&
+          !quizPassedForStep()
+        ">
+        Pass the node quiz in roadmap view to unlock completion for this step.
+      </p>
     </section>
 
     <section class="card resources-card">

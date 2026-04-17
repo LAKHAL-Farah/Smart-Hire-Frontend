@@ -1,3 +1,22 @@
+@if (loading) {
+<div class="report">
+  <div class="report-header">
+    <div class="report-header__left">
+      <h1 class="report-header__title">Session Report</h1>
+      <p class="report-header__meta">Loading report from backend...</p>
+    </div>
+  </div>
+</div>
+} @else if (errorMessage) {
+<div class="report">
+  <div class="report-header">
+    <div class="report-header__left">
+      <h1 class="report-header__title">Session Report</h1>
+      <p class="report-header__meta">{{ errorMessage }}</p>
+    </div>
+  </div>
+</div>
+} @else {
 <div class="report">
   <!-- ── Page Header ── -->
   <div class="report-header">
@@ -5,7 +24,7 @@
       <h1 class="report-header__title">Session Report</h1>
       <p class="report-header__meta">{{ sessionDate }} · {{ sessionType }} · {{ questionType }}</p>
     </div>
-    <button class="btn-ghost">Retake This Session</button>
+    <button class="btn-ghost" (click)="retakeSession()">Retake This Session</button>
   </div>
 
   <!-- ═══════ TOP CARD — Score + Ranking ═══════ -->
@@ -181,3 +200,4 @@
     </div>
   </div>
 </div>
+}

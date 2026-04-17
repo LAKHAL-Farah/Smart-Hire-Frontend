@@ -1,3 +1,11 @@
+@if (loading) {
+  <section class="state-banner">Loading dashboard insights from roadmap service...</section>
+}
+
+@if (!loading && errorMessage) {
+  <section class="state-banner state-banner--error">{{ errorMessage }}</section>
+}
+
 <!-- ════════ READINESS SCORE ════════ -->
 <section class="readiness">
   <div class="readiness__ring-wrap">
@@ -20,7 +28,7 @@
   </div>
   <div class="readiness__info">
     <h2 class="readiness__title">Career Readiness Score</h2>
-    <p class="readiness__ai">Based on your skill assessments, interview practice, and roadmap progress, you are <strong>above average</strong> for your target role.</p>
+    <p class="readiness__ai">Based on your roadmap progress, streak, and live activity, you are <strong>{{ readinessBand }}</strong> for your target role.</p>
     <div class="readiness__links">
       <a class="readiness__link" href="javascript:void(0)">View full report</a>
       <a class="readiness__link" href="javascript:void(0)">Improve score</a>
@@ -58,15 +66,19 @@
         <button class="card__header-btn">View All</button>
       </div>
       <div class="recs">
-        @for (r of recommendations; track r.title) {
-          <div class="rec">
-            <span class="rec__badge" [style.background]="r.badgeColor">{{ r.priority }}</span>
-            <div class="rec__body">
-              <span class="rec__title">{{ r.title }}</span>
-              <span class="rec__desc">{{ r.desc }}</span>
+        @if (recommendations.length === 0) {
+          <p class="empty-message">No recommendation events available yet.</p>
+        } @else {
+          @for (r of recommendations; track r.title + r.time) {
+            <div class="rec">
+              <span class="rec__badge" [style.background]="r.badgeColor">{{ r.priority }}</span>
+              <div class="rec__body">
+                <span class="rec__title">{{ r.title }}</span>
+                <span class="rec__desc">{{ r.desc }}</span>
+              </div>
+              <span class="rec__time">{{ r.time }}</span>
             </div>
-            <span class="rec__time">{{ r.time }}</span>
-          </div>
+          }
         }
       </div>
     </div>
@@ -80,16 +92,20 @@
         </h3>
       </div>
       <div class="skills">
-        @for (sk of skills; track sk.name) {
-          <div class="skill-row">
-            <div class="skill-row__meta">
-              <span class="skill-row__name">{{ sk.name }}</span>
-              <span class="skill-row__pct">{{ sk.pct }}%</span>
+        @if (skills.length === 0) {
+          <p class="empty-message">No technology mapping found in current roadmap steps.</p>
+        } @else {
+          @for (sk of skills; track sk.name) {
+            <div class="skill-row">
+              <div class="skill-row__meta">
+                <span class="skill-row__name">{{ sk.name }}</span>
+                <span class="skill-row__pct">{{ sk.pct }}%</span>
+              </div>
+              <div class="skill-row__track">
+                <div class="skill-row__fill" [style.width.%]="sk.pct" [style.background]="sk.color"></div>
+              </div>
             </div>
-            <div class="skill-row__track">
-              <div class="skill-row__fill" [style.width.%]="sk.pct" [style.background]="sk.color"></div>
-            </div>
-          </div>
+          }
         }
       </div>
     </div>
@@ -106,15 +122,19 @@
         </h3>
       </div>
       <div class="steps">
-        @for (st of upcomingSteps; track st.text) {
-          <label class="step-item">
-            <input type="checkbox" [checked]="st.done" (change)="st.done = !st.done" />
-            <span class="step-item__check"></span>
-            <div class="step-item__body">
-              <span class="step-item__text" [class.step-item__text--done]="st.done">{{ st.text }}</span>
-              <span class="step-item__due">{{ st.due }}</span>
-            </div>
-          </label>
+        @if (upcomingSteps.length === 0) {
+          <p class="empty-message">No roadmap steps available yet.</p>
+        } @else {
+          @for (st of upcomingSteps; track st.id) {
+            <label class="step-item">
+              <input type="checkbox" [checked]="st.done" disabled />
+              <span class="step-item__check"></span>
+              <div class="step-item__body">
+                <span class="step-item__text" [class.step-item__text--done]="st.done">{{ st.text }}</span>
+                <span class="step-item__due">{{ st.due }}</span>
+              </div>
+            </label>
+          }
         }
       </div>
     </div>
@@ -151,12 +171,16 @@
         </h3>
       </div>
       <div class="activity">
-        @for (a of activities; track a.text) {
-          <div class="activity-row">
-            <span class="activity-row__dot" [style.background]="a.color"></span>
-            <span class="activity-row__text">{{ a.text }}</span>
-            <span class="activity-row__time">{{ a.time }}</span>
-          </div>
+        @if (activities.length === 0) {
+          <p class="empty-message">No activity events received yet.</p>
+        } @else {
+          @for (a of activities; track a.text + a.time) {
+            <div class="activity-row">
+              <span class="activity-row__dot" [style.background]="a.color"></span>
+              <span class="activity-row__text">{{ a.text }}</span>
+              <span class="activity-row__time">{{ a.time }}</span>
+            </div>
+          }
         }
       </div>
     </div>

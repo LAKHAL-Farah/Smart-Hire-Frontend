@@ -75,6 +75,62 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'roadmap/visual',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/roadmap.component').then(
+            (m) => m.RoadmapComponent
+          ),
+      },
+      {
+        path: 'roadmap/workspace',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/workspace/roadmap-workspace.component').then(
+            (m) => m.RoadmapWorkspaceComponent
+          ),
+      },
+      {
+        path: 'roadmap/step/:stepId',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/step-detail/step-detail.component').then(
+            (m) => m.StepDetailComponent
+          ),
+      },
+      {
+        path: 'roadmap/milestones',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/milestones/milestones.component').then(
+            (m) => m.MilestonesComponent
+          ),
+      },
+      {
+        path: 'roadmap/notifications',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/notifications/notifications.component').then(
+            (m) => m.NotificationsComponent
+          ),
+      },
+      {
+        path: 'roadmap/replan',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/replan-wizard/replan-wizard.component').then(
+            (m) => m.ReplanWizardComponent
+          ),
+      },
+      {
+        path: 'roadmap/progress',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/progress-analytics/progress-analytics.component').then(
+            (m) => m.ProgressAnalyticsComponent
+          ),
+      },
+      {
+        path: 'assessment',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/assessment/assessment.component').then(
+            (m) => m.AssessmentComponent
+          ),
+      },
+      {
         path: 'cv',
         loadComponent: () =>
           import('./features/front-office/dashboard/cv-optimizer/cv-optimizer.component').then(
@@ -147,9 +203,9 @@ export const routes: Routes = [
 
   {
     path: 'admin',
-    //canMatch: [adminCanMatch],
+    canMatch: [adminCanMatch],
     //canActivate: [roleGuard],
-    data: { requiredRoles: ['recruiter'] },
+    //data: { requiredRoles: ['recruiter','candidate'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent
@@ -165,7 +221,7 @@ export const routes: Routes = [
       {
         path: 'users',
         //canActivate: [roleGuard],
-      // data: { requiredRoles: ['recruiter'] },
+        //data: { requiredRoles: ['recruiter'] },
         loadComponent: () =>
           import('./features/back-office/admin/users/user-management.component').then(
             (m) => m.UserManagementComponent

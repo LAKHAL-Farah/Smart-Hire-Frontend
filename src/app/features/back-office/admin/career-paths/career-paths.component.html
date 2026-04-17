@@ -12,9 +12,17 @@
         <lucide-icon name="upload" [size]="15"></lucide-icon>
         Import from JSON
       </button>
-      <button class="btn-primary" (click)="createNewPath()">Create New Path +</button>
+      <button class="btn-primary" (click)="createNewPath()" [disabled]="isLoading || isSaving">
+        {{ isSaving ? 'Saving...' : 'Create New Path +' }}
+      </button>
     </div>
   </header>
+
+  <div class="sync-banner" *ngIf="isLoading || apiError || apiSuccess">
+    <span class="sync-banner__item" *ngIf="isLoading">Syncing career paths from backend...</span>
+    <span class="sync-banner__item sync-banner__item--error" *ngIf="apiError">{{ apiError }}</span>
+    <span class="sync-banner__item sync-banner__item--success" *ngIf="apiSuccess">{{ apiSuccess }}</span>
+  </div>
 
   <!-- ╌╌╌ Overview Strip ╌╌╌ -->
   <div class="stat-strip">
@@ -78,7 +86,7 @@
         </div>
 
         <!-- Add new card -->
-        <div class="add-card" (click)="createNewPath()">
+        <div class="add-card" (click)="!isLoading && !isSaving && createNewPath()">
           <lucide-icon name="plus" [size]="24"></lucide-icon>
           <span>New Career Path</span>
         </div>
@@ -109,13 +117,15 @@
           </div>
         </div>
         <div class="detail-hdr__right">
-          <button *ngIf="!editMode" class="btn-ghost btn-ghost--sm" (click)="enterEdit()">
+          <button *ngIf="!editMode" class="btn-ghost btn-ghost--sm" (click)="enterEdit()" [disabled]="isSaving">
             <lucide-icon name="square-pen" [size]="14"></lucide-icon>
             Edit
           </button>
           <ng-container *ngIf="editMode">
-            <button class="btn-primary btn-primary--sm" (click)="saveChanges()">Save Changes</button>
-            <button class="btn-ghost btn-ghost--sm" (click)="discardEdit()">Discard</button>
+            <button class="btn-primary btn-primary--sm" (click)="saveChanges()" [disabled]="isSaving">
+              {{ isSaving ? 'Saving...' : 'Save Changes' }}
+            </button>
+            <button class="btn-ghost btn-ghost--sm" (click)="discardEdit()" [disabled]="isSaving">Discard</button>
           </ng-container>
         </div>
       </div>
@@ -323,7 +333,7 @@
             <div class="rm-content">
               <div class="rm-row">
                 <span class="rm-title">{{ step.title }}</span>
-                <span class="rm-hours">{{ step.estimatedHours }}h</span>
+                <span class="rm-hours">{{ step.estimatedDays }}d</span>
                 <span class="dbadge" [ngClass]="getDifficultyClass(step.difficulty)">{{ step.difficulty }}</span>
                 <div class="rm-actions" *ngIf="editMode">
                   <button class="action-btn" (click)="toggleStepEdit(step)" title="Edit">
@@ -340,7 +350,7 @@
                 <div class="form-field"><label class="info-label">Title</label><input [(ngModel)]="step.title" class="form-input" /></div>
                 <div class="form-field"><label class="info-label">Description</label><textarea [(ngModel)]="step.description" class="form-textarea" rows="3"></textarea></div>
                 <div class="rm-expand__row">
-                  <div class="form-field form-field--half"><label class="info-label">Hours</label><input type="number" [(ngModel)]="step.estimatedHours" class="form-input form-input--num" /></div>
+                        <div class="form-field form-field--half"><label class="info-label">Days</label><input type="number" [(ngModel)]="step.estimatedDays" class="form-input form-input--num" /></div>
                   <div class="form-field form-field--half">
                     <label class="info-label">Difficulty</label>
                     <select [(ngModel)]="step.difficulty" class="form-select">

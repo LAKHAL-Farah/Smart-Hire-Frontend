@@ -1,7 +1,9 @@
-import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
+import { RoadmapApiService } from '../../../../../services/roadmap-api.service';
 
 /* ── Types ── */
 interface SessionQuestion {
@@ -27,9 +29,14 @@ interface DimensionScore {
   styleUrl: './interview-session.component.scss'
 })
 export class InterviewSessionComponent implements OnInit, OnDestroy {
-  /* ── Session config ── */
+  private readonly roadmapApi = inject(RoadmapApiService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+
+  sessionId = signal<number | null>(null);
+
   mode = signal<'practice' | 'test'>('practice');
-  totalQuestions = 8;
+  totalQuestions = 0;
   currentIndex = signal(0);
 
   /* ── Timer ── */
@@ -37,16 +44,8 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   private timerInterval: any = null;
 
   /* ── Questions ── */
-  questions: SessionQuestion[] = [
-    { id: 1, text: 'Explain the difference between a stack and a queue. When would you choose one over the other?', category: 'technical', difficulty: 'Intermediate', difficultyColor: '#f59e0b' },
-    { id: 2, text: 'Tell me about a time you had to resolve a conflict within your team. What was your approach and what was the outcome?', category: 'behavioral', difficulty: 'Easy', difficultyColor: '#10b981' },
-    { id: 3, text: 'How would you design a rate limiter for an API that handles 10,000 requests per second?', category: 'technical', difficulty: 'Hard', difficultyColor: '#ef4444' },
-    { id: 4, text: 'Walk me through how you would optimize a slow database query that involves multiple JOINs.', category: 'technical', difficulty: 'Intermediate', difficultyColor: '#f59e0b' },
-    { id: 5, text: 'Describe a situation where you had to learn a new technology quickly to meet a deadline.', category: 'behavioral', difficulty: 'Easy', difficultyColor: '#10b981' },
-    { id: 6, text: 'What is the difference between horizontal and vertical scaling? Give examples of when each is appropriate.', category: 'technical', difficulty: 'Intermediate', difficultyColor: '#f59e0b' },
-    { id: 7, text: 'How do you handle disagreements about technical decisions with senior engineers?', category: 'behavioral', difficulty: 'Intermediate', difficultyColor: '#f59e0b' },
-    { id: 8, text: 'Implement a function that detects a cycle in a linked list. Explain the time and space complexity of your solution.', category: 'technical', difficulty: 'Hard', difficultyColor: '#ef4444' },
-  ];
+  questions: SessionQuestion[] = [];
+  currentQuestionData = signal<SessionQuestion | null>(null);
 
   /* ── Answer state ── */
   answerText = signal('');
@@ -70,20 +69,14 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   /* ── Transition ── */
   transitioning = signal(false);
 
-  /* ── Test mode quotes ── */
-  quotes = [
-    '"First, solve the problem. Then, write the code." — John Johnson',
-    '"The best way to predict the future is to implement it." — David Heinemeier Hansson',
-    '"Code is like humor. When you have to explain it, it is bad." — Cory House',
-    '"Simplicity is the soul of efficiency." — Austin Freeman',
-    '"Talk is cheap. Show me the code." — Linus Torvalds',
-    '"Programs must be written for people to read, and only incidentally for machines to execute." — Harold Abelson',
-    '"Any fool can write code that a computer can understand. Good programmers write code that humans can understand." — Martin Fowler',
-    '"The only way to go fast is to go well." — Robert C. Martin',
-  ];
-
-  currentQuestion = computed(() => this.questions[this.currentIndex()]);
-  currentQuote = computed(() => this.quotes[this.currentIndex() % this.quotes.length]);
+  currentQuestion = computed(() => this.currentQuestionData() || this.emptyQuestion());
+  currentQuote = computed(() => {
+    const text = this.currentQuestion().text || '';
+    if (!text) {
+      return 'Stay focused. Give concise, structured answers.';
+    }
+    return `Focus prompt: ${text}`;
+  });
 
   formattedTime = computed(() => {
     const s = this.elapsedSeconds();
@@ -95,7 +88,22 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   charCount = computed(() => this.answerText().length);
 
   ngOnInit(): void {
+    const sessionIdParam = this.route.snapshot.paramMap.get('id');
+    const parsedSessionId = sessionIdParam ? Number(sessionIdParam) : NaN;
+    if (!Number.isFinite(parsedSessionId) || parsedSessionId <= 0) {
+      this.showExitDialog.set(true);
+      return;
+    }
+
+    this.sessionId.set(parsedSessionId);
+
+    const modeParam = (this.route.snapshot.queryParamMap.get('mode') || '').toLowerCase();
+    if (modeParam === 'test' || modeParam === 'practice') {
+      this.mode.set(modeParam);
+    }
+
     this.startTimer();
+    this.loadNextQuestion();
   }
 
   ngOnDestroy(): void {
@@ -120,32 +128,35 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   }
 
   submitAnswer(): void {
-    if (this.mode() === 'practice') {
-      this.feedbackState.set('loading');
-      // Simulate AI analysis delay
-      setTimeout(() => {
-        this.overallScore.set(7.4);
-        this.dimensionScores.set([
-          { label: 'Content', score: 82, color: '#2ee8a5' },
-          { label: 'Clarity', score: 74, color: '#3b82f6' },
-          { label: 'Confidence', score: 68, color: '#10b981' },
-          { label: 'Tone', score: 78, color: '#8b5cf6' },
-          { label: 'Non-verbal', score: 55, color: '#f59e0b' },
-        ]);
-        this.strengths.set([
-          'Clear structure with well-defined examples',
-          'Good use of technical terminology',
-          'Confident opening statement',
-        ]);
-        this.improvements.set([
-          'Could elaborate more on edge cases',
-          'Consider adding a real-world analogy',
-        ]);
-        this.feedbackState.set('ready');
-      }, 2500);
-    } else {
-      this.goNext();
+    const sessionId = this.sessionId();
+    if (!sessionId || this.answerText().trim().length === 0) {
+      return;
     }
+
+    this.feedbackState.set('loading');
+    this.roadmapApi.submitInterviewAnswer(sessionId, this.answerText().trim()).subscribe({
+      next: (result) => {
+        if (this.mode() === 'practice') {
+          const overall = this.normalizeScore(result.score);
+          this.overallScore.set(overall);
+          this.dimensionScores.set(this.buildDimensionScores(overall));
+          const feedback = this.extractFeedback(result.evaluation);
+          this.strengths.set(feedback ? [feedback] : []);
+          this.improvements.set([]);
+          this.feedbackState.set('ready');
+        } else {
+          this.feedbackState.set('idle');
+          this.goNext();
+        }
+
+        if (result.completed) {
+          this.finishSession();
+        }
+      },
+      error: () => {
+        this.feedbackState.set('idle');
+      },
+    });
   }
 
   retryQuestion(): void {
@@ -155,22 +166,13 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
   }
 
   goNext(): void {
-    const nextIdx = this.currentIndex() + 1;
-    if (nextIdx >= this.totalQuestions) {
-      this.stopTimer();
-      this.finalScore.set(7.8);
-      this.percentile.set(68);
-      this.sessionComplete.set(true);
-      return;
-    }
-
     this.transitioning.set(true);
     setTimeout(() => {
-      this.currentIndex.set(nextIdx);
       this.answerText.set('');
       this.showHint.set(false);
       this.feedbackState.set('idle');
       this.transitioning.set(false);
+      this.loadNextQuestion();
     }, 800);
   }
 
@@ -184,15 +186,125 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
 
   confirmExit(): void {
     this.showExitDialog.set(false);
-    // Navigate back to hub — in real app use Router
-    window.history.back();
+    void this.router.navigate(['/dashboard/interview']);
   }
 
   viewReport(): void {
-    console.log('Navigate to report');
+    const sessionId = this.sessionId();
+    if (!sessionId) {
+      return;
+    }
+    void this.router.navigate(['/dashboard/interview/report', sessionId]);
   }
 
   backToHub(): void {
-    window.history.back();
+    void this.router.navigate(['/dashboard/interview']);
+  }
+
+  private loadNextQuestion(): void {
+    const sessionId = this.sessionId();
+    if (!sessionId) {
+      return;
+    }
+
+    this.roadmapApi.getInterviewQuestion(sessionId).subscribe({
+      next: (question) => {
+        const total = question.total || this.totalQuestions || 0;
+        this.totalQuestions = total;
+        this.questions = Array.from({ length: total }, (_, index) => this.placeholderQuestion(index + 1));
+
+        const order = question.order || question.id || this.currentIndex() + 1;
+        this.currentIndex.set(Math.max(0, order - 1));
+
+        const text = question.question || question.text || `Question ${order}`;
+        this.currentQuestionData.set({
+          id: Number(question.id || order),
+          text,
+          category: 'technical',
+          difficulty: this.formatDifficulty(this.mode() === 'test' ? 'hard' : 'intermediate'),
+          difficultyColor: this.mode() === 'test' ? '#ef4444' : '#f59e0b',
+        });
+      },
+      error: () => {
+        this.finishSession();
+      },
+    });
+  }
+
+  private finishSession(): void {
+    const sessionId = this.sessionId();
+    if (!sessionId) {
+      return;
+    }
+
+    this.roadmapApi.getInterviewScore(sessionId).subscribe({
+      next: (score) => {
+        this.stopTimer();
+        this.finalScore.set(this.normalizeScore(score.finalScore));
+        this.percentile.set(50);
+        this.sessionComplete.set(true);
+      },
+      error: () => {
+        this.stopTimer();
+        this.sessionComplete.set(true);
+      },
+    });
+  }
+
+  private normalizeScore(score: number | undefined): number {
+    if (typeof score !== 'number') {
+      return 0;
+    }
+    return Number(Math.max(0, Math.min(10, score)).toFixed(1));
+  }
+
+  private buildDimensionScores(score: number): DimensionScore[] {
+    const ratio = Math.round((score / 10) * 100);
+    return [
+      { label: 'Content', score: ratio, color: '#2ee8a5' },
+      { label: 'Clarity', score: Math.max(0, ratio - 4), color: '#3b82f6' },
+      { label: 'Confidence', score: Math.max(0, ratio - 8), color: '#10b981' },
+      { label: 'Tone', score: Math.max(0, ratio - 2), color: '#8b5cf6' },
+      { label: 'Non-verbal', score: Math.max(0, ratio - 12), color: '#f59e0b' },
+    ];
+  }
+
+  private extractFeedback(evaluation: string | undefined): string {
+    if (!evaluation) {
+      return '';
+    }
+    const marker = 'Feedback:';
+    const idx = evaluation.indexOf(marker);
+    if (idx === -1) {
+      return evaluation;
+    }
+    return evaluation.substring(idx + marker.length).trim();
+  }
+
+  private formatDifficulty(value: string): string {
+    if (!value) {
+      return 'Intermediate';
+    }
+    return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+  }
+
+  private placeholderQuestion(id: number): SessionQuestion {
+    return {
+      id,
+      text: '',
+      category: 'technical',
+      difficulty: 'Intermediate',
+      difficultyColor: '#f59e0b',
+    };
+  }
+
+  private emptyQuestion(): SessionQuestion {
+    return {
+      id: 0,
+      text: '',
+      category: 'technical',
+      difficulty: 'Intermediate',
+      difficultyColor: '#f59e0b',
+    };
   }
 }

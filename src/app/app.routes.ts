@@ -23,10 +23,33 @@ export const routes: Routes = [
   },
   {
     canActivate: [noAuthGuard],
+    path: 'login-mfa',
+    loadComponent: () =>
+      import('./features/front-office/auth/login-mfa/login-mfa.component').then(
+        (m) => m.LoginMfaComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
     path: 'forgot-password',
     loadComponent: () =>
       import('./features/front-office/auth/forgot-password/forgot-password.component').then(
         (m) => m.ForgotPasswordComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'verify-face',
+    loadComponent: () =>
+      import('./features/front-office/auth/verify-face/verify-face.component').then(
+        (m) => m.VerifyFaceComponent
+      ),
+  },
+  {
+    path: 'setup-face-recognition',
+    loadComponent: () =>
+      import('./features/front-office/auth/setup-face-recognition/setup-face-recognition.component').then(
+        (m) => m.SetupFaceRecognitionComponent
       ),
   },
   {

@@ -1,0 +1,33 @@
+<section class="roadmap-page" [class.is-detail]="selectedCareer() !== null">
+  <div class="bg-net" aria-hidden="true"></div>
+  <div class="fog-layer fog-1" aria-hidden="true"></div>
+  <div class="fog-layer fog-2" aria-hidden="true"></div>
+  <div class="fog-layer fog-3" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <header class="roadmap-header">
+    <div class="header-left">
+      <span class="header-icon">🗺️</span>
+      <div>
+        <h1>Engineering Career Map</h1>
+        <p>Choose your path. Conquer the islands.</p>
+      </div>
+    </div>
+
+    <div class="header-stats">
+      <span>{{ trackCount() }} career tracks</span>
+      <span>{{ milestoneCount() }} milestones</span>
+      <span>{{ completedSteps() }} completed</span>
+    </div>
+  </header>
+
+  <div class="roadmap-content">
+    @if (!selectedCareer()) {
+      <app-career-grid [careers]="careers()" (careerSelected)="selectCareer($event)"></app-career-grid>
+    } @else {
+      <div class="detail-enter">
+        <app-career-detail [career]="selectedCareer()!" (back)="goBack()" (toggleStepDone)="toggleStepCompletion($event)"></app-career-detail>
+      </div>
+    }
+  </div>
+</section>

@@ -70,14 +70,14 @@ export const routes: Routes = [
       {
         path: 'roadmap',
         loadComponent: () =>
-          import('./features/front-office/dashboard/roadmap/roadmap.component').then(
+          import('./pages/roadmap/roadmap.component').then(
             (m) => m.RoadmapComponent
           ),
       },
       {
         path: 'roadmap/visual',
         loadComponent: () =>
-          import('./features/front-office/dashboard/roadmap/roadmap.component').then(
+          import('./pages/roadmap/roadmap.component').then(
             (m) => m.RoadmapComponent
           ),
       },

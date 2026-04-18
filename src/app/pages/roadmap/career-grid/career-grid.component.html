@@ -1,0 +1,8 @@
+<section class="career-grid">
+  @for (career of careers; track career.id) {
+    <app-career-card
+      [career]="career"
+      (explore)="onSelect(career)"
+    ></app-career-card>
+  }
+</section>

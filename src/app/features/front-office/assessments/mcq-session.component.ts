@@ -1,101 +1,98 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  inject,
+  signal,
+  computed,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import {
   CandidateSessionApiService,
-  QuestionPaperItemDto,
   QuestionPaperResponseDto,
+  SessionResponseDto,
 } from './candidate-session-api.service';
 import { getAssessmentUserId } from '../profile/profile-user-id';
-import { AssessmentNotificationsService } from '../../../core/services/assessment-notifications.service';
+
+/** Time limit per session in seconds (45 minutes). */
+const TIME_LIMIT_SEC = 45 * 60;
 
 @Component({
   selector: 'app-mcq-session',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, LUCIDE_ICONS],
+  imports: [CommonModule, RouterLink, LUCIDE_ICONS],
   templateUrl: './mcq-session.component.html',
   styleUrl: './mcq-session.component.scss',
 })
 export class McqSessionComponent implements OnInit, OnDestroy {
-  private readonly api = inject(CandidateSessionApiService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly assessmentNotif = inject(AssessmentNotificationsService);
+  private readonly sessionApi = inject(CandidateSessionApiService);
 
-  loading = signal(true);
+  loading = signal(false);
   errorMsg = signal<string | null>(null);
 
   paper = signal<QuestionPaperResponseDto | null>(null);
-  /** questionId -> choiceId */
-  picks = signal<Record<number, number>>({});
-
   submitted = signal(false);
   scorePercent = signal<number | null>(null);
-  sessionId = signal<number | null>(null);
 
-  /** Set when the user leaves the tab/window — backend forces score 0 on submit. */
+  /** Map of questionId → selected choiceId */
+  picks = signal<Record<number, number>>({});
+
   integrityViolation = signal(false);
-  /** Full-screen integrity dialog (replaces browser alert). */
   integrityModalOpen = signal(false);
-
-  private visibilityHandler?: () => void;
-  /** Browser timer id (number). */
-  private armTimeoutId: number | null = null;
-  /** 1s tick for quiz elapsed / countdown (browser timer id). */
-  private quizTickId: number | null = null;
-  private integrityReported = false;
-  /** Prevent double auto-submit when time runs out */
-  private timeUpAutoSubmitDone = false;
-
-  /** True while POST /forfeit is in flight */
   forfeitLoading = signal(false);
-
-  /** Questions with a selected answer (progress bar) */
-  answeredCount = computed(() => {
-    const p = this.paper();
-    if (!p) return 0;
-    const m = this.picks();
-    return p.questions.filter((q) => m[q.id] != null).length;
-  });
-
-  /** Seconds since question paper loaded (active quiz only). */
-  elapsedSec = signal(0);
-  /** Allowed time for this attempt in seconds (from question count). */
-  timeLimitSec = signal(0);
-
-  /** Remaining time = limit − elapsed (negative after expiry). */
-  remainingSec = computed(() => this.timeLimitSec() - this.elapsedSec());
-
-  /** True once the countdown reaches zero. */
-  timeExpired = signal(false);
-
-  /** In-app quit dialog (replaces browser confirm) */
   quitModalOpen = signal(false);
-  /** `forfeit` = close attempt at 0%; `no-user` = leave without API */
-  quitModalMode = signal<'forfeit' | 'no-user'>('forfeit');
+  quitModalMode = signal<'forfeit' | 'no-uid'>('forfeit');
+
+  elapsedSec = signal(0);
+  timeLimitSec = signal(TIME_LIMIT_SEC);
+
+  remainingSec = computed(() =>
+    Math.max(0, this.timeLimitSec() - this.elapsedSec())
+  );
+  timeExpired = computed(() => this.elapsedSec() >= this.timeLimitSec());
+  timeUpIncomplete = computed(
+    () =>
+      this.timeExpired() &&
+      !this.submitted() &&
+      this.paper() != null &&
+      this.answeredCount() < (this.paper()?.questions.length ?? 0)
+  );
+
+  answeredCount = computed(() => Object.keys(this.picks()).length);
+
+  private sessionId = 0;
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
+  private visibilityHandler: (() => void) | null = null;
 
   ngOnInit(): void {
-    const idParam = this.route.snapshot.paramMap.get('sessionId');
-    const sid = idParam ? Number(idParam) : NaN;
-    if (!Number.isFinite(sid)) {
-      this.loading.set(false);
+    this.sessionId = Number(this.route.snapshot.paramMap.get('sessionId'));
+    if (!Number.isFinite(this.sessionId) || this.sessionId <= 0) {
       this.errorMsg.set('Invalid session.');
       return;
     }
-    this.sessionId.set(sid);
-    this.api.getPaper(sid).subscribe({
-      next: (p) => {
-        this.paper.set(p);
-        this.timeLimitSec.set(this.computeTimeLimitSeconds(p.questions.length));
-        this.elapsedSec.set(0);
-        this.timeExpired.set(false);
-        this.timeUpAutoSubmitDone = false;
-        this.startQuizTimer();
+    this.loadPaper();
+    this.startClock();
+    this.registerVisibilityListener();
+  }
+
+  ngOnDestroy(): void {
+    this.stopClock();
+    this.removeVisibilityListener();
+  }
+
+  // ── Paper loading ──────────────────────────────────────────────────────────
+
+  private loadPaper(): void {
+    this.loading.set(true);
+    this.sessionApi.getPaper(this.sessionId).subscribe({
+      next: (doc) => {
+        this.paper.set(doc);
         this.loading.set(false);
-        this.armIntegrityMonitor(sid);
       },
       error: (err: unknown) => {
         this.loading.set(false);
@@ -104,219 +101,159 @@ export class McqSessionComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy(): void {
-    this.stopQuizTimer();
-    if (this.armTimeoutId !== null) {
-      window.clearTimeout(this.armTimeoutId);
-      this.armTimeoutId = null;
+  // ── Answer selection ───────────────────────────────────────────────────────
+
+  selectChoice(questionId: number, choiceId: number): void {
+    if (this.submitted()) return;
+    this.picks.update((prev) => ({ ...prev, [questionId]: choiceId }));
+  }
+
+  canSubmit(doc: QuestionPaperResponseDto): boolean {
+    return this.answeredCount() >= doc.questions.length && !this.submitted();
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+
+  submit(): void {
+    const doc = this.paper();
+    if (!doc || !this.canSubmit(doc)) return;
+
+    const selections = doc.questions.map((q) => ({
+      questionId: q.id,
+      answerChoiceId: this.picks()[q.id],
+    }));
+
+    this.loading.set(true);
+    this.errorMsg.set(null);
+    this.stopClock();
+
+    this.sessionApi.submit(this.sessionId, selections).subscribe({
+      next: (session: SessionResponseDto) => {
+        this.loading.set(false);
+        this.submitted.set(true);
+        this.scorePercent.set(session.scorePercent ?? null);
+      },
+      error: (err: unknown) => {
+        this.loading.set(false);
+        this.errorMsg.set(this.formatErr(err));
+      },
+    });
+  }
+
+  // ── Back / forfeit ─────────────────────────────────────────────────────────
+
+  onBackToAssessments(event: Event): void {
+    event.preventDefault();
+    if (this.submitted()) {
+      this.router.navigate(['/dashboard/assessments']);
+      return;
     }
-    if (this.visibilityHandler) {
-      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    const uid = getAssessmentUserId();
+    if (!uid) {
+      this.quitModalMode.set('no-uid');
+    } else {
+      this.quitModalMode.set('forfeit');
     }
-  }
-
-  /**
-   * Short windows: 3–20 min, ~30 s per question (capped) so attempts stay brief.
-   */
-  private computeTimeLimitSeconds(questionCount: number): number {
-    const n = Math.max(1, questionCount);
-    return Math.min(1200, Math.max(180, n * 30));
-  }
-
-  private startQuizTimer(): void {
-    this.stopQuizTimer();
-    this.quizTickId = window.setInterval(() => {
-      if (this.submitted()) {
-        this.stopQuizTimer();
-        return;
-      }
-      this.elapsedSec.update((s) => s + 1);
-      const doc = this.paper();
-      if (!doc) return;
-
-      const rem = this.timeLimitSec() - this.elapsedSec();
-      if (rem <= 0) {
-        if (!this.timeExpired()) {
-          this.timeExpired.set(true);
-        }
-        if (
-          !this.timeUpAutoSubmitDone &&
-          !this.loading() &&
-          this.canSubmit(doc)
-        ) {
-          this.timeUpAutoSubmitDone = true;
-          this.submit();
-        }
-      }
-    }, 1000);
-  }
-
-  private stopQuizTimer(): void {
-    if (this.quizTickId !== null) {
-      window.clearInterval(this.quizTickId);
-      this.quizTickId = null;
-    }
-  }
-
-  /** Formats signed seconds as H:MM:SS or M:SS */
-  formatClock(seconds: number): string {
-    const sign = seconds < 0 ? '−' : '';
-    const s = Math.floor(Math.abs(seconds));
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    if (h > 0) {
-      return `${sign}${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-    }
-    return `${sign}${m}:${String(sec).padStart(2, "0")}`;
-  }
-
-  /**
-   * Ignore the first ~800ms (initial load / browser quirks), then treat tab/window hide as a violation once.
-   */
-  private armIntegrityMonitor(sid: number): void {
-    this.armTimeoutId = window.setTimeout(() => {
-      this.armTimeoutId = null;
-      this.visibilityHandler = () => {
-        if (document.visibilityState !== 'hidden' || this.integrityReported) {
-          return;
-        }
-        this.integrityReported = true;
-        document.removeEventListener('visibilitychange', this.visibilityHandler!);
-        this.api.reportIntegrityViolation(sid, 'visibility_hidden').subscribe({
-          next: () => {
-            this.integrityViolation.set(true);
-            this.integrityModalOpen.set(true);
-          },
-          error: () => {
-            this.integrityReported = false;
-            document.addEventListener('visibilitychange', this.visibilityHandler!);
-          },
-        });
-      };
-      document.addEventListener('visibilitychange', this.visibilityHandler);
-    }, 800);
-  }
-
-  dismissIntegrityModal(): void {
-    this.integrityModalOpen.set(false);
+    this.quitModalOpen.set(true);
   }
 
   dismissQuitModal(): void {
     this.quitModalOpen.set(false);
   }
 
-  /**
-   * Back to assessments — opens enhanced confirm (forfeit at 0% when logged in).
-   */
-  onBackToAssessments(event: Event): void {
-    event.preventDefault();
-    if (this.submitted() || this.forfeitLoading() || this.quitModalOpen()) {
-      return;
-    }
-    const sid = this.sessionId();
-    if (sid == null) {
-      void this.router.navigateByUrl('/dashboard/assessments');
-      return;
-    }
-    const uid = getAssessmentUserId();
-    this.quitModalMode.set(uid ? 'forfeit' : 'no-user');
-    this.quitModalOpen.set(true);
-  }
-
   confirmQuitLeave(): void {
-    const mode = this.quitModalMode();
-    this.quitModalOpen.set(false);
-    if (mode === 'no-user') {
-      void this.router.navigateByUrl('/dashboard/assessments');
-      return;
-    }
-    const sid = this.sessionId();
     const uid = getAssessmentUserId();
-    if (!sid || !uid) {
-      void this.router.navigateByUrl('/dashboard/assessments');
+    if (!uid || this.quitModalMode() === 'no-uid') {
+      this.quitModalOpen.set(false);
+      this.router.navigate(['/dashboard/assessments']);
       return;
     }
     this.forfeitLoading.set(true);
-    this.api.forfeitSession(sid, uid).subscribe({
+    this.stopClock();
+    this.sessionApi.forfeitSession(this.sessionId, uid).subscribe({
       next: () => {
         this.forfeitLoading.set(false);
-        void this.router.navigateByUrl('/dashboard/assessments');
-      },
-      error: () => {
-        this.forfeitLoading.set(false);
-        void this.router.navigateByUrl('/dashboard/assessments');
-      },
-    });
-  }
-
-  selectChoice(questionId: number, choiceId: number): void {
-    this.picks.update((m) => ({ ...m, [questionId]: choiceId }));
-  }
-
-  canSubmit(paper: QuestionPaperResponseDto): boolean {
-    const m = this.picks();
-    return paper.questions.every((q) => m[q.id] != null);
-  }
-
-  /** Time ran out but not every question is answered — submit stays disabled until complete. */
-  timeUpIncomplete(): boolean {
-    const p = this.paper();
-    return (
-      this.timeExpired() &&
-      !this.submitted() &&
-      p != null &&
-      !this.canSubmit(p)
-    );
-  }
-
-  submit(): void {
-    const p = this.paper();
-    const sid = this.sessionId();
-    if (!p || sid == null) return;
-    if (!this.canSubmit(p)) {
-      this.errorMsg.set('Answer every question before submitting.');
-      return;
-    }
-    this.errorMsg.set(null);
-    const selections = p.questions.map((q) => ({
-      questionId: q.id,
-      answerChoiceId: this.picks()[q.id]!,
-    }));
-    this.loading.set(true);
-    this.api.submit(sid, selections).subscribe({
-      next: (res) => {
-        this.stopQuizTimer();
-        this.loading.set(false);
-        this.submitted.set(true);
-        this.scorePercent.set(res.scorePercent ?? null);
-        if (res.integrityViolation === true) {
-          this.integrityViolation.set(true);
-        }
-        this.assessmentNotif.refreshCandidate();
+        this.quitModalOpen.set(false);
+        this.router.navigate(['/dashboard/assessments']);
       },
       error: (err: unknown) => {
-        this.loading.set(false);
-        if (this.timeExpired()) {
-          this.timeUpAutoSubmitDone = false;
-        }
+        this.forfeitLoading.set(false);
+        this.quitModalOpen.set(false);
         this.errorMsg.set(this.formatErr(err));
+        // Navigate anyway — session may already be closed server-side
+        this.router.navigate(['/dashboard/assessments']);
       },
     });
   }
 
-  trackByQ(_i: number, q: QuestionPaperItemDto): number {
+  // ── Integrity violation ────────────────────────────────────────────────────
+
+  private registerVisibilityListener(): void {
+    this.visibilityHandler = () => {
+      if (document.hidden && !this.submitted() && !this.integrityViolation()) {
+        this.triggerIntegrityViolation();
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
+  private removeVisibilityListener(): void {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+  }
+
+  private triggerIntegrityViolation(): void {
+    this.integrityViolation.set(true);
+    this.integrityModalOpen.set(true);
+    this.sessionApi
+      .reportIntegrityViolation(this.sessionId, 'Tab hidden / window minimized')
+      .subscribe({ error: () => { /* fire-and-forget */ } });
+  }
+
+  dismissIntegrityModal(): void {
+    this.integrityModalOpen.set(false);
+  }
+
+  // ── Clock ──────────────────────────────────────────────────────────────────
+
+  private startClock(): void {
+    this.clockTimer = setInterval(() => {
+      this.elapsedSec.update((v) => v + 1);
+    }, 1000);
+  }
+
+  private stopClock(): void {
+    if (this.clockTimer != null) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
+  }
+
+  formatClock(totalSec: number): string {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  // ── Track-by ───────────────────────────────────────────────────────────────
+
+  trackByQ(_index: number, q: { id: number }): number {
     return q.id;
   }
+
+  // ── Error formatting ───────────────────────────────────────────────────────
 
   private formatErr(err: unknown): string {
     if (err instanceof HttpErrorResponse) {
       const b = err.error;
-      if (typeof b === 'string' && b.trim()) return b;
       if (b && typeof b === 'object' && 'message' in b) {
         return String((b as { message: unknown }).message);
       }
-      return err.message || `Error ${err.status}`;
+      if (typeof b === 'string' && b.trim()) return b;
+      if (err.status === 0) return 'Cannot reach MS-Assessment. Is the service running?';
+      return `Error ${err.status}`;
     }
     return 'Something went wrong.';
   }

@@ -1,23 +1,35 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
-import { of, throwError } from 'rxjs';
-import { catchError, map, switchMap } from 'rxjs/operators';
+import { of } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
-import { getAssessmentUserId } from '../profile/profile-user-id';
-import { ProfileApiService, ProfileApiResponse } from '../profile/profile-api.service';
-import { canonicalSessionListUserId, collectCandidateUserIdsForSessions } from './assessment-canonical-user';
 import {
   CandidateAssignmentApiService,
   CandidateAssignmentStatusDto,
 } from './candidate-assignment-api.service';
 import {
   CandidateSessionApiService,
-  isSessionPublished,
   SessionResponseDto,
+  isSessionCompleted,
+  isSessionPublished,
 } from './candidate-session-api.service';
-import { AssessmentNotificationsService } from '../../../core/services/assessment-notifications.service';
+import { collectCandidateUserIdsForSessions } from './assessment-canonical-user';
+import { getAssessmentUserId } from '../profile/profile-user-id';
+
+interface PendingStart {
+  categoryId: number;
+  title: string;
+  code: string;
+}
+
+type CategoryActionKind = 'start' | 'continue' | 'completed';
+
+interface CategoryAction {
+  kind: CategoryActionKind;
+  session?: SessionResponseDto;
+}
 
 @Component({
   selector: 'app-assessment-hub',
@@ -26,70 +38,72 @@ import { AssessmentNotificationsService } from '../../../core/services/assessmen
   templateUrl: './assessment-hub.component.html',
   styleUrl: './assessment-hub.component.scss',
 })
-export class AssessmentHubComponent implements OnInit {
+export class AssessmentHubComponent implements OnInit, OnDestroy {
   private readonly assignmentApi = inject(CandidateAssignmentApiService);
   private readonly sessionApi = inject(CandidateSessionApiService);
-  private readonly profileApi = inject(ProfileApiService);
   private readonly router = inject(Router);
-  private readonly assessmentNotif = inject(AssessmentNotificationsService);
 
-  loading = signal(true);
+  loading = signal(false);
   errorMsg = signal<string | null>(null);
-
-  /** No row in MS-Assessment — legacy accounts can still start sessions if backend allows. */
-  noPlan = signal(false);
-
   plan = signal<CandidateAssignmentStatusDto | null>(null);
-  history = signal<SessionResponseDto[]>([]);
+  noPlan = signal(false);
+  sessions = signal<SessionResponseDto[]>([]);
 
   startingCategoryId = signal<number | null>(null);
-
-  /** Before first start: rules about proctoring & quitting */
   startConfirmOpen = signal(false);
-  pendingStart = signal<{ id: number; title: string; code: string } | null>(null);
+  pendingStart = signal<PendingStart | null>(null);
+
+  /** Sessions that are completed (used for history section). */
+  history = computed(() =>
+    this.sessions().filter((s) => isSessionCompleted(s))
+  );
+
+  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
-    const baseUid = getAssessmentUserId();
-    if (!baseUid) {
-      this.loading.set(false);
-      this.errorMsg.set('Sign in to see your assessments.');
+    this.refresh();
+    // Poll every 30s so the page updates when admin approves
+    this.pollTimer = setInterval(() => this.refresh(), 30_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollTimer != null) {
+      clearInterval(this.pollTimer);
+    }
+  }
+
+  refresh(): void {
+    const uid = getAssessmentUserId();
+    if (!uid) {
+      this.errorMsg.set('Sign in to view your assessments.');
       return;
     }
+    this.loading.set(true);
+    this.errorMsg.set(null);
 
     this.assignmentApi
-      .getStatus(baseUid)
+      .getStatus(uid)
       .pipe(
         catchError((err: unknown) => {
           if (err instanceof HttpErrorResponse && err.status === 404) {
-            return of(null as CandidateAssignmentStatusDto | null);
+            this.noPlan.set(true);
+            return of(null);
           }
-          return throwError(() => err);
+          this.errorMsg.set(this.formatErr(err));
+          return of(null);
         }),
-        switchMap((plan) => {
-          const ids = collectCandidateUserIdsForSessions(plan, baseUid);
-          return this.sessionApi.listForUserMergedDistinct(ids).pipe(
-            catchError(() => {
-              this.errorMsg.set(
-                'Could not load your attempts from the assessment server. Check MS-Assessment (port 8084) and refresh.'
-              );
-              return of([] as SessionResponseDto[]);
-            }),
-            map((history) => ({ plan, history }))
-          );
+        switchMap((p) => {
+          this.plan.set(p);
+          const ids = collectCandidateUserIdsForSessions(p, uid);
+          return this.sessionApi
+            .listForUserMergedDistinct(ids)
+            .pipe(catchError(() => of([] as SessionResponseDto[])));
         })
       )
       .subscribe({
-        next: ({ plan, history }) => {
-          if (plan === null) {
-            this.noPlan.set(true);
-            this.plan.set(null);
-          } else {
-            this.noPlan.set(false);
-            this.plan.set(plan);
-          }
-          this.history.set(history);
+        next: (rows) => {
+          this.sessions.set(rows);
           this.loading.set(false);
-          this.assessmentNotif.refreshCandidate();
         },
         error: (err: unknown) => {
           this.loading.set(false);
@@ -98,41 +112,37 @@ export class AssessmentHubComponent implements OnInit {
       });
   }
 
-  refresh(): void {
-    this.loading.set(true);
-    this.errorMsg.set(null);
-    this.ngOnInit();
+  /**
+   * Determines what action is available for a given category tile.
+   * - 'completed': user has a finished session for this category
+   * - 'continue': user has an in-progress session
+   * - 'start': no session yet
+   */
+  categoryAction(categoryId: number): CategoryAction {
+    const match = this.sessions().find((s) => s.categoryId === categoryId);
+    if (!match) {
+      return { kind: 'start' };
+    }
+    if (isSessionCompleted(match)) {
+      return { kind: 'completed', session: match };
+    }
+    return { kind: 'continue', session: match };
   }
 
-  /**
-   * One completed attempt per category blocks a new Start; an in-progress session shows Continue instead.
-   */
-  categoryAction(categoryId: number): {
-    kind: 'start' | 'continue' | 'completed';
-    session?: SessionResponseDto;
-  } {
-    const cid = Number(categoryId);
-    const list = this.history().filter((s) => Number(s.categoryId) === cid);
-    const completed = list.find((s) => this.sessionCompleted(s));
-    if (completed) {
-      return { kind: 'completed', session: completed };
-    }
-    const inProg = list.find((s) => this.sessionInProgress(s));
-    if (inProg) {
-      return { kind: 'continue', session: inProg };
-    }
-    return { kind: 'start' };
+  sessionIsCompleted(s: SessionResponseDto): boolean {
+    return isSessionCompleted(s);
+  }
+
+  sessionIsPublished(s: SessionResponseDto): boolean {
+    return isSessionPublished(s);
   }
 
   continueSession(sessionId: number): void {
-    void this.router.navigate(['/dashboard/assessments/session', sessionId]);
+    this.router.navigate(['/dashboard/assessments/session', sessionId]);
   }
 
   openStartConfirm(categoryId: number, title: string, code: string): void {
-    if (this.startingCategoryId() != null) {
-      return;
-    }
-    this.pendingStart.set({ id: categoryId, title, code });
+    this.pendingStart.set({ categoryId, title, code });
     this.startConfirmOpen.set(true);
   }
 
@@ -142,85 +152,45 @@ export class AssessmentHubComponent implements OnInit {
   }
 
   confirmStartAssessment(): void {
-    const p = this.pendingStart();
-    if (!p) {
+    const ps = this.pendingStart();
+    if (!ps) return;
+    this.dismissStartConfirm();
+    this.startSession(ps.categoryId);
+  }
+
+  private startSession(categoryId: number): void {
+    const uid = getAssessmentUserId();
+    if (!uid) {
+      this.errorMsg.set('Sign in to start an assessment.');
       return;
     }
-    this.startConfirmOpen.set(false);
-    this.pendingStart.set(null);
-    this.startCategory(p.id);
-  }
-
-  startCategory(categoryId: number): void {
-    const baseUid = getAssessmentUserId();
-    if (!baseUid) return;
-    const uid = canonicalSessionListUserId(this.plan(), baseUid);
     this.startingCategoryId.set(categoryId);
-    this.profileApi
-      .getProfile(uid)
-      .pipe(
-        catchError(() => of(null as ProfileApiResponse | null)),
-        switchMap((p) => {
-          const name = p ? this.displayNameFromProfile(p) : undefined;
-          return this.sessionApi.startSession(uid, categoryId, name);
-        })
-      )
-      .subscribe({
-        next: (s) => {
-          this.startingCategoryId.set(null);
-          void this.router.navigate(['/dashboard/assessments/session', s.id]);
-        },
-        error: (err: unknown) => {
-          this.startingCategoryId.set(null);
-          this.errorMsg.set(this.formatErr(err));
-        },
-      });
-  }
+    this.errorMsg.set(null);
 
-  private displayNameFromProfile(p: ProfileApiResponse): string | undefined {
-    const fn = (p.firstName ?? '').trim();
-    const ln = (p.lastName ?? '').trim();
-    const full = `${fn} ${ln}`.trim();
-    if (full) return full;
-    const em = p.email?.trim();
-    return em || undefined;
-  }
+    // Resolve display name from plan userId if available
+    const displayName: string | null = null;
 
-  private sessionCompleted(s: SessionResponseDto): boolean {
-    return String(s.status ?? '')
-      .trim()
-      .toUpperCase()
-      .replace(/-/g, '_') === 'COMPLETED';
-  }
-
-  private sessionInProgress(s: SessionResponseDto): boolean {
-    return String(s.status ?? '')
-      .trim()
-      .toUpperCase()
-      .replace(/-/g, '_') === 'IN_PROGRESS';
-  }
-
-  /** Session row is completed (submitted); status stays COMPLETED after admin publish. */
-  sessionIsCompleted(s: SessionResponseDto): boolean {
-    return this.sessionCompleted(s);
-  }
-
-  /** Results/score/feedback visible only after admin publish. */
-  sessionIsPublished(s: SessionResponseDto): boolean {
-    return isSessionPublished(s);
+    this.sessionApi.startSession(uid, categoryId, displayName).subscribe({
+      next: (session) => {
+        this.startingCategoryId.set(null);
+        this.router.navigate(['/dashboard/assessments/session', session.id]);
+      },
+      error: (err: unknown) => {
+        this.startingCategoryId.set(null);
+        this.errorMsg.set(this.formatErr(err));
+      },
+    });
   }
 
   private formatErr(err: unknown): string {
     if (err instanceof HttpErrorResponse) {
       const b = err.error;
-      if (typeof b === 'string' && b.trim()) return b;
       if (b && typeof b === 'object' && 'message' in b) {
         return String((b as { message: unknown }).message);
       }
-      if (err.status === 403) {
-        return 'You already have an attempt for this category (one attempt per category; no retake after submit). Refresh to continue an in-progress attempt or view published results.';
-      }
-      return err.message || `Error ${err.status}`;
+      if (typeof b === 'string' && b.trim()) return b;
+      if (err.status === 0) return 'Cannot reach MS-Assessment. Is the service running?';
+      return `Error ${err.status}`;
     }
     return 'Something went wrong.';
   }

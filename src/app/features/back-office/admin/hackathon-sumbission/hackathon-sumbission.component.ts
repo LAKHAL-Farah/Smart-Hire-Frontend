@@ -1,3 +1,4 @@
+import { EventService } from './../../../../services/event.service';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -5,18 +6,32 @@ import { LucideAngularModule, Search, Plus, Download, EllipsisVertical, X, Pen, 
 import { HackathonSubmissionService } from '../../../../services/hackathon-submission.service';
 import { SubmissionStatus } from '../../../../models/submission-status.enum';
 import { HackathonSubmissionDTO } from '../../../../models/hackathon-submission.dto';
+import { AINotification } from '../../../../services/ainotification-service.service';
 
 export interface HackathonSubmission {
   id?: number;
   userId?: number;
   eventId?: number;
-  title?: string;
-  description?: string;
+  projectTitle: string;
+  projectDescription?: string;
   repoUrl?: string;
+  demoUrl?: string;
+  originalityScore?: number;
+  feasibilityScore?: number;
+  technicalScore?: number;
+  overallScore?: number;
+
+  aiFeedback?: string;
+  ranking?: number;
+
+  submittedAt?: string;   // ISO date string
+  evaluatedAt?: string;   // ISO date string
+
+
   status?: SubmissionStatus;
-  submittedAt?: string;
-  event?: { domain?: string };
+
 }
+
 
 @Component({
   selector: 'app-hackathon-sumbission',
@@ -42,7 +57,10 @@ export class HackathonSumbissionComponent implements OnInit {
   submissions: HackathonSubmission[] = [];
   loading = false;
   error = '';
-
+  notifications: AINotification[] = [];
+  showNotifications = false;
+  unreadCount = 0;
+  evaluatingId: number | null = null;
   // Filters
   searchQuery = '';
   statusFilter = 'All';
@@ -74,7 +92,7 @@ export class HackathonSumbissionComponent implements OnInit {
   // Menu
   openMenuId: number | null = null;
 
-  constructor(private hackathonSubmissionService: HackathonSubmissionService) {}
+  constructor(private hackathonSubmissionService: HackathonSubmissionService,private EventService: EventService) {}
 
   ngOnInit(): void {
     this.loadSubmissions();
@@ -83,17 +101,73 @@ export class HackathonSumbissionComponent implements OnInit {
 
   emptyForm(): HackathonSubmission {
     // ✅ FIX: was SubmissionStatus.ACCEPTED
-    return { userId: 0, eventId: 0, title: '', description: '', repoUrl: '', status: SubmissionStatus.SUBMITTED };
+    return { userId: 0, eventId: 0, projectTitle: '', projectDescription: '', repoUrl: '', demoUrl: '', status: SubmissionStatus.SUBMITTED };
   }
 
-  loadSubmissions(): void {
-    this.loading = true;
-    this.error = '';
-    this.hackathonSubmissionService.getSubmissions().subscribe({
-      next: (data) => { this.submissions = data ; this.loading = false; },
-      error: (err) => { this.error = 'Failed to load submissions.'; this.loading = false; }
+ // Ajoute cette propriété
+eventDomainCache = new Map<number, string>();
+
+// Modifie loadSubmissions()
+loadSubmissions(): void {
+  this.loading = true;
+  this.error = '';
+  this.hackathonSubmissionService.getSubmissions().subscribe({
+    next: (data) => {
+      this.submissions = data;
+      this.loading = false;
+      this.loadEventDomains(); // ✅ charge les domains après
+    },
+    error: (err) => { this.error = 'Failed to load submissions.'; this.loading = false; }
+  });
+}
+evaluateSubmission(id: number, event: Event): void {
+  event.stopPropagation();
+  this.evaluatingId = id;
+
+  this.hackathonSubmissionService.evaluateSubmission(id).subscribe({
+
+    next: (response: any) => {
+      this.loadSubmissions();
+      this.evaluatingId = null;
+      console.log('Evaluation response:', response);
+    },
+    error: (error:any) => {
+      this.evaluatingId = null;
+      console.error(error);
+      this.error = `Failed to evaluate submission #${id}`;
+    }
+    // ✅ pas de next — la réponse arrive via WebSocket
+  });
+}
+
+// ── Panel notifications ──
+toggleNotifications(event: Event): void {
+  event.stopPropagation();
+  this.showNotifications = !this.showNotifications;
+  if (this.showNotifications) this.unreadCount = 0;
+}
+
+clearNotifications(): void {
+  this.notifications = [];
+  this.unreadCount = 0;
+  this.showNotifications = false;
+}
+// Ajoute cette méthode
+loadEventDomains(): void {
+  const uniqueIds = [...new Set(this.submissions.map(s => s.eventId).filter((id): id is number => id != null))];
+  uniqueIds.forEach(id => {
+    this.EventService.getEventById(id).subscribe({
+      next: (data: any) => this.eventDomainCache.set(id, data.domain ?? '—'),
+      error: () => this.eventDomainCache.set(id, '—')
     });
-  }
+  });
+}
+
+// Remplace getEventById() par ceci
+getEventDomain(id?: number): string {
+  if (id == null) return '—';
+  return this.eventDomainCache.get(id) ?? '...';
+}
 
   // ── Computed ──────────────────────────────────────────────
 
@@ -109,9 +183,10 @@ export class HackathonSumbissionComponent implements OnInit {
     const q = this.searchQuery.toLowerCase();
     return this.submissions.filter(s => {
       const matchSearch = !q ||
-        (s.title?.toLowerCase().includes(q)) ||
-        (s.description?.toLowerCase().includes(q)) ||
-        (s.repoUrl?.toLowerCase().includes(q));
+        (s.projectTitle?.toLowerCase().includes(q)) ||
+        (s.projectDescription?.toLowerCase().includes(q)) ||
+        (s.repoUrl?.toLowerCase().includes(q))
+        ;
       const matchStatus = this.statusFilter === 'All' || s.status === this.statusFilter;
       const matchEvent = this.eventFilter === 'All' || String(s.eventId) === this.eventFilter;
       return matchSearch && matchStatus && matchEvent;
@@ -256,9 +331,9 @@ export class HackathonSumbissionComponent implements OnInit {
   }
 
   exportCsv(): void {
-    const headers = ['ID', 'User ID', 'Event ID', 'Title', 'Status', 'Repo URL', 'Submitted At'];
+    const headers = ['ID', 'User ID', 'Event ID', 'Project Title', 'Status', 'Repo URL', 'Demo URL', 'Submitted At'];
     const rows = this.filteredSubmissions.map(s =>
-      [s.id, s.userId, s.eventId, s.title, s.status, s.repoUrl, s.submittedAt].join(',')
+      [s.id, s.userId, s.eventId, s.projectTitle, s.status, s.repoUrl, s.demoUrl, s.submittedAt].join(',')
     );
     const csv = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -268,6 +343,8 @@ export class HackathonSumbissionComponent implements OnInit {
     URL.revokeObjectURL(url);
   }
 
+
+  
   get paginationStart(): number { return (this.currentPage - 1) * this.pageSize + 1; }
   get paginationEnd(): number { return Math.min(this.currentPage * this.pageSize, this.filteredSubmissions.length); }
 }

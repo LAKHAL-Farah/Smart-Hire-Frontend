@@ -23,6 +23,7 @@
       </select>
     </div>
     <div class="toolbar__right">
+    
       <button class="btn btn--primary btn--sm" (click)="openAddModal()">
         <lucide-icon [img]="Plus" [size]="15"></lucide-icon>
         Add Submission
@@ -86,7 +87,6 @@
         <tbody>
           @for (sub of paginatedSubmissions; track sub.id) {
             <tr [class.row-selected]="isSelected(sub.id!)" (click)="openDrawer(sub)">
-
               <!-- Checkbox -->
               <td class="col-check" (click)="$event.stopPropagation()">
                 <input type="checkbox" [checked]="isSelected(sub.id!)" (change)="toggleRow(sub.id!)" />
@@ -109,17 +109,11 @@
               <td><span class="event-badge">Event #{{ sub.eventId }}</span></td>
 
               <!-- Domain -->
-              <td>
-                @if (sub.event) {
-                  <span class="event-badge">{{ sub.event?.domain }}</span>
-                } @else {
-                  <span class="text-muted">—</span>
-                }
-              </td>
+              <td><span class="event-badge">{{ getEventDomain(sub.eventId) }}</span></td>
 
               <!-- Title -->
               <td class="col-title">
-                <span class="title-text">{{ sub.title || '—' }}</span>
+                <span class="title-text">{{ sub.projectTitle || '—' }}</span>
               </td>
 
               <!-- Status -->
@@ -149,9 +143,25 @@
                   </button>
                   @if (openMenuId === sub.id) {
                     <div class="action-menu">
-                      <button class="action-menu__item" (click)="openDrawer(sub); $event.stopPropagation()">View Details</button>
-                      <button class="action-menu__item" (click)="openEditModal(sub); $event.stopPropagation()">Edit</button>
-                      <button class="action-menu__item action-menu__item--danger" (click)="deleteSubmission(sub.id!); $event.stopPropagation()">Delete</button>
+                      <button class="action-menu__item" (click)="openDrawer(sub); $event.stopPropagation()">
+                        View Details
+                      </button>
+                      <button class="action-menu__item" (click)="openEditModal(sub); $event.stopPropagation()">
+                        Edit
+                      </button>
+                      <button class="action-menu__item action-menu__item--ai"
+                              [disabled]="evaluatingId === sub.id"
+                              (click)="evaluateSubmission(sub.id!, $event)">
+                        @if (evaluatingId === sub.id) {
+                          <lucide-icon [img]="Loader" [size]="13"></lucide-icon> Evaluating...
+                        } @else {
+                          🤖 AI Evaluate
+                        }
+                      </button>
+                      <button class="action-menu__item action-menu__item--danger"
+                              (click)="deleteSubmission(sub.id!); $event.stopPropagation()">
+                        Delete
+                      </button>
                     </div>
                   }
                 </div>
@@ -206,7 +216,7 @@
         <span class="user-avatar user-avatar--lg" [style.background]="avatarGradient(drawerSubmission.userId)">
           U{{ drawerSubmission.userId }}
         </span>
-        <h2 class="drawer__title">{{ drawerSubmission.title || 'Untitled Submission' }}</h2>
+        <h2 class="drawer__title">{{ drawerSubmission.projectTitle || 'Untitled Submission' }}</h2>
         <span class="drawer__company">Event #{{ drawerSubmission.eventId }}</span>
         <div class="drawer__pills">
           <span class="status-badge" [ngClass]="statusClass(drawerSubmission.status)">{{ drawerSubmission.status }}</span>
@@ -230,7 +240,7 @@
 
       <div class="drawer__section">
         <h4 class="drawer__label">Description</h4>
-        <p class="drawer__text">{{ drawerSubmission.description || 'No description provided.' }}</p>
+        <p class="drawer__text">{{ drawerSubmission.projectDescription || 'No description provided.' }}</p>
       </div>
 
       <div class="drawer__actions">
@@ -271,15 +281,19 @@
         </div>
         <div class="form-group">
           <label>Title</label>
-          <input class="form-input" type="text" [(ngModel)]="formSubmission.title" placeholder="My awesome project" />
+          <input class="form-input" type="text" [(ngModel)]="formSubmission.projectTitle" placeholder="My awesome project" />
         </div>
         <div class="form-group">
           <label>Description</label>
-          <textarea class="form-input form-textarea" [(ngModel)]="formSubmission.description" placeholder="Describe your submission..."></textarea>
+          <textarea class="form-input form-textarea" [(ngModel)]="formSubmission.projectDescription" placeholder="Describe your submission..."></textarea>
         </div>
         <div class="form-group">
           <label>Repo URL</label>
           <input class="form-input" type="url" [(ngModel)]="formSubmission.repoUrl" placeholder="https://github.com/..." />
+        </div>
+        <div class="form-group">
+          <label>Demo URL</label>
+          <input class="form-input" type="url" [(ngModel)]="formSubmission.demoUrl" placeholder="https://demo.com/..." />
         </div>
         <div class="form-group">
           <label>Status</label>

@@ -162,7 +162,6 @@
   </div>
 </section>
 
-
 <!-- SUBMISSION MODAL (Create / Edit) -->
 <div class="modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
   <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
@@ -249,7 +248,6 @@
   </div>
 </div>
 
-
 <!-- DELETE CONFIRMATION MODAL -->
 <div class="modal-backdrop" *ngIf="deleteTarget" (click)="deleteTarget = null">
   <div class="modal modal--sm" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
@@ -272,15 +270,26 @@
     </div>
   </div>
 </div>
-
-
 <!-- TOAST -->
-<div class="toast" [class.toast--show]="toastVisible" [class.toast--error]="toastError" role="alert" aria-live="polite">
-  <svg *ngIf="!toastError" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+<div class="toast"
+     [class.toast--show]="toastVisible"
+     [class.toast--error]="toastError"
+     role="alert"
+     aria-live="polite">
+
+  <!-- succès -->
+  <svg *ngIf="!toastError" width="15" height="15"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor">
     <polyline points="20 6 9 17 4 12"/>
   </svg>
-  <svg *ngIf="toastError" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+
+  <!-- erreur -->
+  <svg *ngIf="toastError" width="15" height="15"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
   </svg>
+
   {{ toastMsg }}
 </div>

@@ -1,8 +1,10 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HackathonSubmissionDTO } from '../../../../models/hackathon-submission.dto';
 import { HackathonSubmissionService } from '../../../../services/hackathon-submission.service';
+import { AINotificationService } from '../../../../services/ainotification-service.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-hackathon-submissions',
@@ -12,7 +14,7 @@ import { HackathonSubmissionService } from '../../../../services/hackathon-submi
   styleUrls: ['./hackathon-submissions.component.scss']
 })
 export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
-
+  private notifSub!: Subscription;
   submissions: HackathonSubmissionDTO[] = [];
   loading  = false;
   error    = '';
@@ -33,6 +35,7 @@ export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
   toastVisible = false;
   toastMsg     = '';
   toastError   = false;
+  toastAI      = false;  // conservé pour compatibilité, non utilisé dans la template
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   filterTabs = [
@@ -51,14 +54,42 @@ export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
     default:   '#94a3b8',
   };
 
-  constructor(private svc: HackathonSubmissionService) {}
-
+  constructor(private svc: HackathonSubmissionService, private notifService: AINotificationService,private cdr:ChangeDetectorRef) {}
+  
+  
   ngOnInit(): void {
     this.loadSubmissions();
+
+    const userId = 1; // ⚠️ remplacer avec vrai ID
+    this.notifService.connect(userId);
+
+    this.notifSub = this.notifService.notification$.subscribe({
+      next: (notif: any) => {
+        if (!notif) return;
+
+        console.log('📩 Notification reçue:', notif);
+
+        const title = notif.projectTitle ?? 'Unknown project';
+        const score = notif.overallScore ?? '?';
+
+        const msg = `🤖 New evaluation for "${title}" → ${score}/10`;
+
+        this.showToast(msg);
+
+        this.loadSubmissions();
+
+        this.cdr.detectChanges(); // 🔥 force refresh UI
+      },
+      error: () => {
+        this.showToast('Connection lost. Real-time updates may not work.', true);
+      }
+    });
   }
 
   ngOnDestroy(): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.notifSub?.unsubscribe();
+    this.notifService.disconnect();
   }
 
   // ── DATA ─────────────────────────────────────────────────────────────
@@ -154,7 +185,6 @@ export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
       projectDescription: this.form.projectDescription ?? '',
     } as HackathonSubmissionDTO;
 
-    // Use idLong if available, fall back to id
     const existingId = this.editTarget?.idLong ?? this.editTarget?.id;
     const call$ = existingId
       ? this.svc.updateSubmission(existingId, payload)
@@ -175,27 +205,13 @@ export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
 
   // ── DELETE ────────────────────────────────────────────────────────────
 
-  /**
-   * Called from the card "Delete" button — opens the confirmation modal.
-   * Uses idLong when available, falls back to id.
-   */
   deleteSubmission(id: number | undefined): void {
     if (id == null) {
       this.showToast('Cannot delete: submission ID is missing.', true);
       return;
     }
-    // Find the full object so the modal can show the title
-    const sub = this.submissions.find(s => (s.idLong ?? s.id) === id || s.id === id);
+    const sub = this.submissions.find(s => (s.idLong ?? s.id) === id);
     this.deleteTarget = sub ?? null;
-  }
-
-  confirmDelete(sub: HackathonSubmissionDTO): void {
-    const id = sub.idLong ?? sub.id;
-    if (id == null) {
-      this.showToast('Cannot delete: submission ID is missing.', true);
-      return;
-    }
-    this.deleteTarget = sub;
   }
 
   doDelete(): void {
@@ -211,19 +227,16 @@ export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
     this.deleting = true;
     this.svc.deleteSubmission(id).subscribe({
       next: () => {
-        this.submissions  = this.submissions.filter(
-          s => (s.idLong ?? s.id) !== id
-        );
+        this.submissions = this.submissions.filter(s => (s.idLong ?? s.id) !== id);
         this.deleteTarget = null;
-        this.deleting     = false;
+        this.deleting = false;
         this.showToast('Submission deleted successfully.');
       },
       error: (err: any) => {
         this.deleting = false;
-        const msg =
-          err.status === 404 ? 'Submission not found on server.' :
-          err.status === 400 ? 'Bad request: submission could not be deleted.' :
-          'Delete failed — please try again.';
+        const msg = err.status === 404 ? 'Submission not found on server.' :
+                    err.status === 400 ? 'Bad request: submission could not be deleted.' :
+                    'Delete failed — please try again.';
         this.showToast(msg, true);
       }
     });
@@ -231,11 +244,19 @@ export class HackathonSubmissionsComponent implements OnInit, OnDestroy {
 
   // ── TOAST ─────────────────────────────────────────────────────────────
 
+ 
   showToast(msg: string, isError = false): void {
     if (this.toastTimer) clearTimeout(this.toastTimer);
+
     this.toastMsg     = msg;
     this.toastError   = isError;
     this.toastVisible = true;
-    this.toastTimer   = setTimeout(() => { this.toastVisible = false; }, 3500);
+
+    this.cdr.detectChanges(); // 🔥 important
+
+    this.toastTimer = setTimeout(() => {
+      this.toastVisible = false;
+      this.cdr.detectChanges();
+    }, 3500);
   }
 }

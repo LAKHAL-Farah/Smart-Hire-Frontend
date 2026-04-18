@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -13,7 +14,9 @@ export class HackathonSubmissionService {
   getSubmissions() {
     return this.http.get<any[]>(this.apiUrl);
   }
-
+ evaluateSubmission(id: number) {
+    return this.http.post(`${this.apiUrl}/${id}/evaluate`, {});
+  }
 
   addSubmission(submission: any) {
     return this.http.post<any>(`${this.apiUrl}`, submission);

@@ -722,3 +722,12 @@ body {
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: $surface; }
 ::-webkit-scrollbar-thumb { background: $accent; border-radius: 10px; }
+/* ── Toast IA ─────────────────────────────────────────── */
+.toast--ai {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-color: #818cf8;
+  color: #fff;
+  font-weight: 500;
+  min-width: 320px;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35);
+}

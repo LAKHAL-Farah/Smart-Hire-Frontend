@@ -1,9 +1,9 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { of } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError, switchMap, filter } from 'rxjs/operators';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import {
   CandidateAssignmentApiService,
@@ -24,7 +24,7 @@ interface PendingStart {
   code: string;
 }
 
-type CategoryActionKind = 'start' | 'continue' | 'completed';
+type CategoryActionKind = 'start' | 'completed';
 
 interface CategoryAction {
   kind: CategoryActionKind;
@@ -64,6 +64,16 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
     this.refresh();
     // Poll every 30s so the page updates when admin approves
     this.pollTimer = setInterval(() => this.refresh(), 30_000);
+    
+    // Also refresh when user navigates back to this page (e.g., after forfeit or integrity violation)
+    this.router.events
+      .pipe(
+        filter(event => event instanceof NavigationEnd),
+        filter((event: any) => event.urlAfterRedirects.includes('/dashboard/assessments') && !event.urlAfterRedirects.includes('/session'))
+      )
+      .subscribe(() => {
+        this.refresh();
+      });
   }
 
   ngOnDestroy(): void {
@@ -114,19 +124,17 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
 
   /**
    * Determines what action is available for a given category tile.
-   * - 'completed': user has a finished session for this category
-   * - 'continue': user has an in-progress session
+   * - 'completed': user has any session for this category (completed, integrity violation, or forfeit)
    * - 'start': no session yet
+   * Note: We no longer show 'continue' since users get only one attempt per category
    */
   categoryAction(categoryId: number): CategoryAction {
     const match = this.sessions().find((s) => s.categoryId === categoryId);
     if (!match) {
       return { kind: 'start' };
     }
-    if (isSessionCompleted(match)) {
-      return { kind: 'completed', session: match };
-    }
-    return { kind: 'continue', session: match };
+    // Any existing session means the category is completed (no more attempts allowed)
+    return { kind: 'completed', session: match };
   }
 
   sessionIsCompleted(s: SessionResponseDto): boolean {
@@ -135,10 +143,6 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
 
   sessionIsPublished(s: SessionResponseDto): boolean {
     return isSessionPublished(s);
-  }
-
-  continueSession(sessionId: number): void {
-    this.router.navigate(['/dashboard/assessments/session', sessionId]);
   }
 
   openStartConfirm(categoryId: number, title: string, code: string): void {

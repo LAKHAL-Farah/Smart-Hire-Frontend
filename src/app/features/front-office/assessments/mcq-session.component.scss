@@ -785,3 +785,44 @@
     transform: scale(0.99);
   }
 }
+
+/* ── Advice panel ── */
+.mcq-done__advice {
+  margin: 20px 0 24px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(46, 232, 165, 0.07) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border: 1px solid rgba(46, 232, 165, 0.2);
+  text-align: left;
+}
+
+.mcq-done__advice-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(94, 234, 212, 0.9);
+  margin: 0 0 14px;
+}
+
+.mcq-done__advice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcq-done__advice-item {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}

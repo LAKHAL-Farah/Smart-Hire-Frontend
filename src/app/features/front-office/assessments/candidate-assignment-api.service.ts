@@ -29,11 +29,14 @@ export class CandidateAssignmentApiService {
     return assessmentApiBaseUrl();
   }
 
-  register(userId: string, situation: string, careerPath: string): Observable<CandidateAssignmentStatusDto> {
+  register(userId: string, situation: string, careerPath: string, headline?: string, customSituation?: string, customCareerPath?: string): Observable<CandidateAssignmentStatusDto> {
     return this.http.post<CandidateAssignmentStatusDto>(`${this.base()}/candidates/register`, {
       userId: userId.trim(),
       situation,
       careerPath,
+      headline: headline || '',
+      customSituation: customSituation || '',
+      customCareerPath: customCareerPath || '',
     });
   }
 

@@ -8,10 +8,12 @@ import {
   AssessmentAdminApiService,
   AssessmentSessionAdminRow,
   CategoryAdminRow,
+  CategorySuggestionResult,
   ChoiceAdminRow,
   PendingAssignmentRow,
   QuestionAdminRow,
   SessionResultAdminDto,
+  UserScoresSummaryRow,
 } from '../../service/assessment-admin-api.service';
 
 @Component({
@@ -62,6 +64,16 @@ export class SkillAssessmentAdminComponent implements OnInit {
 
   /** Show create/edit category form panel */
   showCategoryForm = false;
+
+  /** User scores panel */
+  userScoresOpen = false;
+  userScoresLoading = false;
+  userScoresData: UserScoresSummaryRow | null = null;
+  userScoresUserId = '';
+
+  /** AI category suggestion */
+  suggestionLoading = false;
+  suggestionData: CategorySuggestionResult | null = null;
 
   ngOnInit(): void {
     this.refreshCategories();
@@ -520,5 +532,50 @@ export class SkillAssessmentAdminComponent implements OnInit {
       }
     }
     this.apiError = msg;
+  }
+
+  // ── User scores ────────────────────────────────────────────────────────────
+
+  openUserScores(userId: string): void {
+    this.userScoresUserId = userId;
+    this.userScoresOpen = true;
+    this.userScoresData = null;
+    this.userScoresLoading = true;
+    this.api.getUserScores(userId).subscribe({
+      next: (data) => {
+        this.userScoresData = data;
+        this.userScoresLoading = false;
+      },
+      error: (e) => {
+        this.userScoresLoading = false;
+        this.fail(e);
+      },
+    });
+  }
+
+  closeUserScores(): void {
+    this.userScoresOpen = false;
+    this.userScoresData = null;
+  }
+
+  // ── AI category suggestion ─────────────────────────────────────────────────
+
+  loadSuggestion(userId: string): void {
+    this.suggestionLoading = true;
+    this.suggestionData = null;
+    this.api.suggestCategories(userId).subscribe({
+      next: (data) => {
+        this.suggestionData = data;
+        this.suggestionLoading = false;
+        // Pre-select suggested categories for this user
+        if (data.suggestedCategories?.length) {
+          this.approvalPicks[userId] = data.suggestedCategories.map((c) => c.id);
+        }
+      },
+      error: (e) => {
+        this.suggestionLoading = false;
+        this.fail(e);
+      },
+    });
   }
 }

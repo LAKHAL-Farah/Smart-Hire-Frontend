@@ -183,3 +183,46 @@
   padding-top: 0.5rem;
   border-top: 1px dashed rgba(255, 255, 255, 0.1);
 }
+
+.arv__advice {
+  margin: 1.75rem 0;
+  padding: 1rem 1.15rem;
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  background: rgba(251, 191, 36, 0.06);
+}
+
+.arv__advice-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  opacity: 0.95;
+}
+
+.arv__advice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.arv__advice-item {
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.45;
+  font-size: 0.92rem;
+  opacity: 0.9;
+  
+  &::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    opacity: 0.6;
+  }
+}
+

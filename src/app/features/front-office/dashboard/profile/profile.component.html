@@ -243,24 +243,11 @@
                 <a routerLink="/dashboard/assessments" class="overview-cta__link">Go to assessments hub</a>
               </p>
             </section>
-          } @else if (pendingPublishCount() > 0) {
-            <section class="content-card content-card--notice">
-              <h3 class="content-card__title">Assessments in review</h3>
-              <p class="content-card__text">
-                You have {{ pendingPublishCount() }}
-                completed {{ pendingPublishCount() === 1 ? 'attempt' : 'attempts' }} waiting for your administrator to
-                publish. Your overview will update here once results are released.
-              </p>
-              <button type="button" class="overview-cta__btn" (click)="activeTab.set('assessments')">
-                View status
-              </button>
-            </section>
           } @else if (hasInProgressAssessment()) {
             <section class="content-card content-card--notice">
               <h3 class="content-card__title">Assessment in progress</h3>
               <p class="content-card__text">
-                Finish and submit your quiz. After your administrator publishes the result, your skill overview and
-                readiness score will appear here.
+                Finish and submit your quiz. Your skill overview and readiness score will update immediately.
               </p>
               <a routerLink="/dashboard/assessments" class="overview-cta__link">Continue on assessments hub</a>
             </section>
@@ -467,13 +454,10 @@
                   <li class="assess-history__item">
                     <div class="assess-history__main">
                       <span class="assess-history__cat">{{ s.categoryTitle }}</span>
-                      <span class="assess-history__meta">{{ s.status }} · {{ s.startedAt | date : 'medium' }}</span>
-                      @if (sessionCompleted(s) && !sessionPublished(s)) {
-                        <span class="assess-history__pending">Awaiting admin publish</span>
-                      }
+                      <span class="assess-history__meta">{{ s.forfeit ? 'Forfeit' : s.status }} · {{ s.startedAt | date : 'medium' }}</span>
                     </div>
                     <div class="assess-history__right">
-                      @if (sessionCompleted(s) && sessionPublished(s) && s.scorePercent != null) {
+                      @if (sessionCompleted(s) && s.scorePercent != null) {
                         <span class="assess-history__score">{{ s.scorePercent }}%</span>
                         <a
                           class="assess-history__link"
@@ -482,8 +466,6 @@
                         >
                           View results
                         </a>
-                      } @else if (sessionCompleted(s) && !sessionPublished(s) && s.scorePercent != null) {
-                        <span class="assess-history__score assess-history__score--muted">{{ s.scorePercent }}%</span>
                       }
                     </div>
                     @if (sessionCompleted(s) && sessionPublished(s) && s.adminFeedback) {

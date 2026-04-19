@@ -38,12 +38,17 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   paper = signal<QuestionPaperResponseDto | null>(null);
   submitted = signal(false);
   scorePercent = signal<number | null>(null);
+  scoreReleased = signal(false);
+  advice = signal<string[]>([]);
 
   /** Map of questionId → selected choiceId */
   picks = signal<Record<number, number>>({});
 
   integrityViolation = signal(false);
   integrityModalOpen = signal(false);
+  /** True while the integrity auto-close is in progress */
+  integrityClosing = signal(false);
+
   forfeitLoading = signal(false);
   quitModalOpen = signal(false);
   quitModalMode = signal<'forfeit' | 'no-uid'>('forfeit');
@@ -51,9 +56,7 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   elapsedSec = signal(0);
   timeLimitSec = signal(TIME_LIMIT_SEC);
 
-  remainingSec = computed(() =>
-    Math.max(0, this.timeLimitSec() - this.elapsedSec())
-  );
+  remainingSec = computed(() => Math.max(0, this.timeLimitSec() - this.elapsedSec()));
   timeExpired = computed(() => this.elapsedSec() >= this.timeLimitSec());
   timeUpIncomplete = computed(
     () =>
@@ -62,7 +65,6 @@ export class McqSessionComponent implements OnInit, OnDestroy {
       this.paper() != null &&
       this.answeredCount() < (this.paper()?.questions.length ?? 0)
   );
-
   answeredCount = computed(() => Object.keys(this.picks()).length);
 
   private sessionId = 0;
@@ -104,12 +106,12 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   // ── Answer selection ───────────────────────────────────────────────────────
 
   selectChoice(questionId: number, choiceId: number): void {
-    if (this.submitted()) return;
+    if (this.submitted() || this.integrityViolation()) return;
     this.picks.update((prev) => ({ ...prev, [questionId]: choiceId }));
   }
 
   canSubmit(doc: QuestionPaperResponseDto): boolean {
-    return this.answeredCount() >= doc.questions.length && !this.submitted();
+    return this.answeredCount() >= doc.questions.length && !this.submitted() && !this.integrityClosing();
   }
 
   // ── Submit ─────────────────────────────────────────────────────────────────
@@ -117,10 +119,13 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   submit(): void {
     const doc = this.paper();
     if (!doc || !this.canSubmit(doc)) return;
+    this.doSubmit(doc);
+  }
 
+  private doSubmit(doc: QuestionPaperResponseDto): void {
     const selections = doc.questions.map((q) => ({
       questionId: q.id,
-      answerChoiceId: this.picks()[q.id],
+      answerChoiceId: this.picks()[q.id] ?? doc.questions[0].choices[0]?.id ?? 0,
     }));
 
     this.loading.set(true);
@@ -130,11 +135,15 @@ export class McqSessionComponent implements OnInit, OnDestroy {
     this.sessionApi.submit(this.sessionId, selections).subscribe({
       next: (session: SessionResponseDto) => {
         this.loading.set(false);
+        this.integrityClosing.set(false);
         this.submitted.set(true);
         this.scorePercent.set(session.scorePercent ?? null);
+        this.scoreReleased.set(session.scoreReleased ?? false);
+        this.advice.set(session.advice ?? []);
       },
       error: (err: unknown) => {
         this.loading.set(false);
+        this.integrityClosing.set(false);
         this.errorMsg.set(this.formatErr(err));
       },
     });
@@ -149,11 +158,7 @@ export class McqSessionComponent implements OnInit, OnDestroy {
       return;
     }
     const uid = getAssessmentUserId();
-    if (!uid) {
-      this.quitModalMode.set('no-uid');
-    } else {
-      this.quitModalMode.set('forfeit');
-    }
+    this.quitModalMode.set(uid ? 'forfeit' : 'no-uid');
     this.quitModalOpen.set(true);
   }
 
@@ -171,16 +176,20 @@ export class McqSessionComponent implements OnInit, OnDestroy {
     this.forfeitLoading.set(true);
     this.stopClock();
     this.sessionApi.forfeitSession(this.sessionId, uid).subscribe({
-      next: () => {
+      next: (session: SessionResponseDto) => {
         this.forfeitLoading.set(false);
         this.quitModalOpen.set(false);
-        this.router.navigate(['/dashboard/assessments']);
+        // Show the result screen so the user can read feedback and advice
+        this.submitted.set(true);
+        this.scorePercent.set(session.scorePercent ?? 0);
+        this.scoreReleased.set(true);
+        this.advice.set(session.advice ?? []);
+        // User can manually navigate back or wait for auto-redirect after 10 seconds
+        setTimeout(() => this.router.navigate(['/dashboard/assessments']), 10000);
       },
-      error: (err: unknown) => {
+      error: () => {
         this.forfeitLoading.set(false);
         this.quitModalOpen.set(false);
-        this.errorMsg.set(this.formatErr(err));
-        // Navigate anyway — session may already be closed server-side
         this.router.navigate(['/dashboard/assessments']);
       },
     });
@@ -207,13 +216,36 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   private triggerIntegrityViolation(): void {
     this.integrityViolation.set(true);
     this.integrityModalOpen.set(true);
+    this.stopClock();
+
+    // Report to backend — backend now closes the session immediately at 0
     this.sessionApi
       .reportIntegrityViolation(this.sessionId, 'Tab hidden / window minimized')
-      .subscribe({ error: () => { /* fire-and-forget */ } });
+      .subscribe({
+        next: (session: SessionResponseDto) => {
+          // Session is now COMPLETED with score 0 on the server
+          this.integrityClosing.set(false);
+          this.submitted.set(true);
+          this.scorePercent.set(session.scorePercent ?? 0);
+          this.scoreReleased.set(true);
+          this.advice.set(session.advice ?? []);
+        },
+        error: () => {
+          // Even on error, mark as closed locally
+          this.integrityClosing.set(false);
+          this.submitted.set(true);
+          this.scorePercent.set(0);
+          this.scoreReleased.set(true);
+        },
+      });
   }
 
   dismissIntegrityModal(): void {
     this.integrityModalOpen.set(false);
+    // If already submitted (integrity closed), redirect after giving user time to read
+    if (this.submitted()) {
+      setTimeout(() => this.router.navigate(['/dashboard/assessments']), 10000);
+    }
   }
 
   // ── Clock ──────────────────────────────────────────────────────────────────
@@ -248,9 +280,7 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   private formatErr(err: unknown): string {
     if (err instanceof HttpErrorResponse) {
       const b = err.error;
-      if (b && typeof b === 'object' && 'message' in b) {
-        return String((b as { message: unknown }).message);
-      }
+      if (b && typeof b === 'object' && 'message' in b) return String((b as { message: unknown }).message);
       if (typeof b === 'string' && b.trim()) return b;
       if (err.status === 0) return 'Cannot reach MS-Assessment. Is the service running?';
       return `Error ${err.status}`;

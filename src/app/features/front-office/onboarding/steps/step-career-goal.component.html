@@ -19,4 +19,23 @@
       </button>
     }
   </div>
+
+  @if (selected === 'other') {
+    <div class="custom-input-section">
+      <label for="custom-career" class="custom-input-label">
+        Describe your target role:
+      </label>
+      <textarea
+        id="custom-career"
+        class="custom-input-textarea"
+        placeholder="e.g., AI/ML Engineer specializing in NLP, Game Developer using Unity, Blockchain Developer..."
+        [value]="customValue"
+        (input)="onCustomInput($event)"
+        maxlength="128"
+      ></textarea>
+      <div class="custom-input-hint">
+        Be specific about technologies, domains, or specializations you're interested in.
+      </div>
+    </div>
+  }
 </div>

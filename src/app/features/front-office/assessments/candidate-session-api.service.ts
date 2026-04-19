@@ -45,6 +45,10 @@ export interface SessionResponseDto {
   adminFeedback: string | null;
   /** True if the candidate left the quiz (e.g. switched tab); final score is forced to 0 on submit. */
   integrityViolation?: boolean;
+  /** True if the candidate clicked back without submitting; final score is forced to 0. */
+  forfeit?: boolean;
+  /** AI-generated personalised advice — present when score is visible to the candidate. */
+  advice?: string[] | null;
 }
 
 export interface AnswerReviewItemDto {

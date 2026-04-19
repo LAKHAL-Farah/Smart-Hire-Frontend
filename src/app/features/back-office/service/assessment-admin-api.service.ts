@@ -46,15 +46,37 @@ export interface AssessmentSessionAdminRow {
   status: string;
   scorePercent: number | null;
   scoreReleased: boolean;
-  /** Same as scoreReleased (backend). */
   isPublished?: boolean;
   notes: string | null;
-  /** Candidate-facing message after publish (optional). */
   adminFeedback: string | null;
-  /** Resolved from MS-User for admin lists when lookup succeeds. */
   candidateDisplayName?: string | null;
-  /** Candidate left the quiz UI during the attempt — score forced to 0. */
   integrityViolation?: boolean;
+}
+
+export interface UserScoresSummaryRow {
+  userId: string;
+  candidateDisplayName: string | null;
+  situation: string | null;
+  careerPath: string | null;
+  overallAvgScore: number;
+  sessions: {
+    sessionId: number;
+    categoryTitle: string;
+    categoryCode: string;
+    topicTag: string | null;
+    scorePercent: number | null;
+    scoreReleased: boolean;
+    integrityViolation: boolean;
+    completedAt: string | null;
+  }[];
+}
+
+export interface CategorySuggestionResult {
+  userId: string;
+  situation: string | null;
+  careerPath: string | null;
+  suggestedCategoryCodes: string[];
+  suggestedCategories: CategoryAdminRow[];
 }
 
 /** One row in GET /admin/sessions/{id}/review */
@@ -239,6 +261,22 @@ export class AssessmentAdminApiService {
     return this.http.post<AssessmentSessionAdminRow>(
       `${this.base()}/admin/sessions/${sessionId}/release-result`,
       body,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** All completed scores for a user — no publish required. */
+  getUserScores(userId: string): Observable<UserScoresSummaryRow> {
+    return this.http.get<UserScoresSummaryRow>(
+      `${this.base()}/admin/users/${userId}/scores`,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** AI-suggested categories based on candidate onboarding profile. */
+  suggestCategories(userId: string): Observable<CategorySuggestionResult> {
+    return this.http.get<CategorySuggestionResult>(
+      `${this.base()}/admin/assignments/${userId}/suggest-categories`,
       { headers: this.adminHeaders() }
     );
   }

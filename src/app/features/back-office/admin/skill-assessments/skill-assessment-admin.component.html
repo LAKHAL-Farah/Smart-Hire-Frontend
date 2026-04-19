@@ -50,9 +50,21 @@
                 </label>
               }
             </div>
-            <button type="button" class="saa-btn saa-btn--gradient" [disabled]="loading" (click)="approveRow(row.userId)">
-              Approve assignment
-            </button>
+            <div class="saa-pending__actions">
+              <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm"
+                [disabled]="suggestionLoading" (click)="loadSuggestion(row.userId)">
+                <lucide-icon name="brain-circuit" [size]="14"></lucide-icon>
+                AI suggest
+              </button>
+              @if (suggestionData && suggestionData.userId === row.userId) {
+                <span class="saa-pending__suggestion">
+                  Suggested: {{ suggestionData.suggestedCategoryCodes.join(', ') || 'none' }}
+                </span>
+              }
+              <button type="button" class="saa-btn saa-btn--gradient" [disabled]="loading" (click)="approveRow(row.userId)">
+                Approve assignment
+              </button>
+            </div>
           </li>
         }
       </ul>
@@ -158,6 +170,9 @@
               }
               <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" [disabled]="loading" (click)="openReview(s.id)">
                 View responses
+              </button>
+              <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" [disabled]="loading" (click)="openUserScores(s.userId)">
+                All scores
               </button>
             </div>
           </li>
@@ -534,8 +549,66 @@
     </div>
   }
 
-  @if (publishTarget) {
-    <div class="saa-modal-backdrop" (click)="closePublishModal()">
+  @if (userScoresOpen) {
+    <div class="saa-modal-backdrop" (click)="closeUserScores()">
+      <div class="saa-modal saa-modal--wide" role="dialog" aria-modal="true"
+        aria-labelledby="saa-scores-title" (click)="$event.stopPropagation()">
+        <div class="saa-modal__head">
+          <h2 id="saa-scores-title" class="saa-modal__title">All scores — {{ userScoresUserId }}</h2>
+          <button type="button" class="saa-modal__close" (click)="closeUserScores()" aria-label="Close">
+            <lucide-icon name="x" [size]="20"></lucide-icon>
+          </button>
+        </div>
+        @if (userScoresLoading) {
+          <p class="saa-modal__loading">Loading…</p>
+        } @else if (userScoresData) {
+          <div class="saa-scores__meta">
+            @if (userScoresData.candidateDisplayName) {
+              <span class="saa-scores__name">{{ userScoresData.candidateDisplayName }}</span>
+            }
+            @if (userScoresData.situation) {
+              <span class="saa-chip">{{ userScoresData.situation }}</span>
+            }
+            @if (userScoresData.careerPath) {
+              <span class="saa-chip saa-chip--topic">{{ userScoresData.careerPath }}</span>
+            }
+            <span class="saa-scores__avg">Avg: <strong>{{ userScoresData.overallAvgScore }}%</strong></span>
+          </div>
+          @if (userScoresData.sessions.length === 0) {
+            <p class="saa-release__empty">No completed sessions for this user.</p>
+          } @else {
+            <ul class="saa-modal__answers">
+              @for (s of userScoresData.sessions; track s.sessionId) {
+                <li class="saa-modal-ans" [class.saa-modal-ans--ok]="(s.scorePercent ?? 0) >= 70"
+                  [class.saa-modal-ans--bad]="(s.scorePercent ?? 0) < 70">
+                  <div class="saa-modal-ans__top">
+                    <span class="saa-modal-ans__pts">{{ s.scorePercent ?? '—' }}%</span>
+                    @if (s.integrityViolation) {
+                      <span class="saa-chip saa-chip--warn">Integrity</span>
+                    }
+                    @if (s.scoreReleased) {
+                      <span class="saa-chip saa-chip--ok">Published</span>
+                    } @else {
+                      <span class="saa-chip saa-chip--wait">Not published</span>
+                    }
+                  </div>
+                  <p class="saa-modal-ans__prompt">
+                    {{ s.categoryTitle }}
+                    @if (s.topicTag) { <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span> }
+                  </p>
+                  @if (s.completedAt) {
+                    <p class="saa-modal-ans__line">{{ s.completedAt | date: 'medium' }}</p>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        }
+      </div>
+    </div>
+  }
+
+  @if (publishTarget) {    <div class="saa-modal-backdrop" (click)="closePublishModal()">
       <div class="saa-modal saa-publish" role="dialog" aria-modal="true" aria-labelledby="saa-publish-title" (click)="$event.stopPropagation()">
         <div class="saa-modal__head">
           <h2 id="saa-publish-title" class="saa-modal__title">Publish to candidate</h2>

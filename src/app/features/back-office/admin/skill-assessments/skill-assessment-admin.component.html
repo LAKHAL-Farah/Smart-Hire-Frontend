@@ -1,4 +1,4 @@
-<div class="saa saa-page">
+﻿<div class="saa saa-page">
   <div class="saa__ambient" aria-hidden="true"></div>
   <header class="saa__hero">
     <div class="saa__hero-text">
@@ -132,162 +132,131 @@
     }
   </section>
 
-  <section class="saa-history" aria-labelledby="saa-history-title">
+  <!-- All completed history -->
+  <section class="saa-history">
     <div class="saa-history__head">
-      <h2 id="saa-history-title" class="saa-history__title">All completed attempts</h2>
+      <h2 class="saa-history__title">All completed attempts</h2>
       <p class="saa-history__sub">
-        Open any row to see the candidate’s choices and correct answers. Works before or after publishing.
+        View all assessment sessions. Click a row to see details, or use the actions to manage results.
       </p>
     </div>
     @if (completedSessions().length === 0) {
       <p class="saa-release__empty">No completed sessions yet.</p>
     } @else {
-      <div class="saa-user-groups">
-        @for (group of groupedByUser(); track group.userId) {
-          <div class="saa-user-group">
-            <div class="saa-user-group__header">
-              <div class="saa-user-group__info">
-                @if (group.candidateDisplayName) {
-                  <span class="saa-user-group__name">{{ group.candidateDisplayName }}</span>
-                }
-                <span class="saa-user-group__uid" title="User id">{{ group.userId }}</span>
-              </div>
-              <span class="saa-user-group__count">{{ group.attemptCount }} attempt(s)</span>
-            </div>
-            <ul class="saa-user-group__sessions">
-              @for (s of group.sessions; track s.id) {
-                <li class="saa-user-session">
-                  <div class="saa-user-session__main">
-                    <span class="saa-user-session__cat">{{ s.categoryTitle }}</span>
-                    @if (s.topicTag) {
-                      <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span>
-                    }
-                    @if (s.completedAt) {
-                      <span class="saa-user-session__when">{{ s.completedAt | date : 'medium' }}</span>
-                    }
-                  </div>
-                  <div class="saa-user-session__right">
-                    @if (s.integrityViolation) {
-                      <span class="saa-chip saa-chip--warn" title="Left quiz during attempt">Integrity</span>
-                    }
-                    @if (s.forfeit) {
-                      <span class="saa-chip saa-chip--forfeit" title="Forfeited">Forfeit</span>
-                    }
-                    <span class="saa-user-session__score">{{ s.scorePercent ?? '—' }}%</span>
-                    @if (s.scoreReleased) {
-                      <span class="saa-chip saa-chip--ok">Published</span>
-                    } @else {
-                      <span class="saa-chip saa-chip--wait">Not published</span>
-                    }
-                    <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" [disabled]="loading" (click)="openReview(s.id)">
-                      View responses
+      <div class="saa-table-wrap">
+        <table class="saa-table">
+          <thead>
+            <tr>
+              <th scope="col">Candidate</th>
+              <th scope="col">Category</th>
+              <th scope="col">Date</th>
+              <th scope="col" class="saa-table__col-n">Score</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="saa-table__col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of completedSessions(); track s.id) {
+              <tr class="saa-table__row">
+                <td>
+                  <div class="saa-table__cell-title">{{ s.candidateDisplayName || 'Unknown' }}</div>
+                  <div class="saa-table__cell-desc">{{ s.userId }}</div>
+                </td>
+                <td>
+                  <div class="saa-table__cell-title">{{ s.categoryTitle }}</div>
+                  @if (s.topicTag) {
+                    <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span>
+                  }
+                </td>
+                <td>
+                  @if (s.completedAt) {
+                    {{ s.completedAt | date:'MMM d, y' }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="saa-table__col-n">
+                  <span class="saa-table__count">{{ s.scorePercent ?? '—' }}%</span>
+                </td>
+                <td>
+                  @if (s.integrityViolation) {
+                    <span class="saa-chip saa-chip--warn">Integrity</span>
+                  }
+                  @if (s.forfeit) {
+                    <span class="saa-chip saa-chip--forfeit">Forfeit</span>
+                  }
+                  @if (s.scoreReleased) {
+                    <span class="saa-chip saa-chip--ok">Published</span>
+                  } @else {
+                    <span class="saa-chip saa-chip--wait">Pending</span>
+                  }
+                </td>
+                <td class="saa-table__col-actions">
+                  <button type="button" class="saa-icon-btn" (click)="openReview(s.id)" title="View responses" [disabled]="loading">
+                    <lucide-icon name="eye" [size]="16"></lucide-icon>
+                  </button>
+                  @if (!s.scoreReleased) {
+                    <button type="button" class="saa-icon-btn" (click)="openPublishModal(s)" title="Publish" [disabled]="loading">
+                      <lucide-icon name="send" [size]="16"></lucide-icon>
                     </button>
-                    <button type="button" class="saa-icon-btn saa-icon-btn--danger" [disabled]="loading" (click)="openDeleteConfirm(s)" title="Delete attempt">
-                      <lucide-icon name="trash-2" [size]="16"></lucide-icon>
-                    </button>
-                  </div>
-                </li>
-              }
-            </ul>
-          </div>
-        }
+                  }
+                  <button type="button" class="saa-icon-btn saa-icon-btn--danger" (click)="openDeleteConfirm(s)" title="Delete" [disabled]="loading">
+                    <lucide-icon name="trash-2" [size]="16"></lucide-icon>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
     }
   </section>
 
-  <div class="saa__stats">
-    <div class="saa__stats-item">
-      <span class="saa__stats-label">Categories</span>
-      <div class="saa__stats-main">
-        <span class="saa__stats-value">{{ categories.length }}</span>
-        <span class="saa__stats-unit">in bank</span>
-      </div>
-    </div>
-    <div class="saa__stats-divider"></div>
-    <div class="saa__stats-item">
-      <span class="saa__stats-label">Total questions</span>
-      <div class="saa__stats-main">
-        <span class="saa__stats-value">{{ totalQuestionsInBank }}</span>
-        <span class="saa__stats-unit">across all</span>
-      </div>
-    </div>
-    <div class="saa__stats-divider"></div>
-    <div class="saa__stats-item">
-      <span class="saa__stats-label">Awaiting release</span>
-      <div class="saa__stats-main">
-        <span class="saa__stats-value">{{ pendingRelease.length }}</span>
-        <span class="saa__stats-unit">to publish</span>
-      </div>
-    </div>
-    <div class="saa__stats-divider"></div>
-    <div class="saa__stats-item">
-      <span class="saa__stats-label">Pending assignment</span>
-      <div class="saa__stats-main">
-        <span class="saa__stats-value">{{ pending.length }}</span>
-        <span class="saa__stats-unit">in queue</span>
-      </div>
-    </div>
-    <div class="saa__stats-divider"></div>
-    <div class="saa__stats-item">
-      <span class="saa__stats-label">Choices (open question)</span>
-      <div class="saa__stats-main">
-        <span class="saa__stats-value">{{ choicesCountSelected }}</span>
-        <span class="saa__stats-unit">options</span>
-      </div>
-    </div>
-  </div>
-
+  <!-- ═══════════ CATEGORY & QUESTION MANAGEMENT ═══════════ -->
   <!-- Step 1: Categories table -->
   <section class="saa-bank" aria-labelledby="saa-bank-title">
     <div class="saa-toolbar">
       <div>
         <h2 id="saa-bank-title" class="saa-bank__title">1 · Categories</h2>
-        <p class="saa-bank__hint">Click a row to open the question editor for that category. Use “Add category” to create a new line.</p>
+        <p class="saa-bank__hint">Click a row to open the question editor for that category. Use "Add category" to create a new line.</p>
       </div>
-      <div class="saa-toolbar__actions">
-        <button
-          type="button"
-          class="saa-btn saa-btn--ghost"
-          [disabled]="loading"
-          title="Insert all default categories that are not in the database yet"
-          (click)="seedDefaultBank()"
-        >
-          Load default categories
-        </button>
-        <button type="button" class="saa-btn saa-btn--gradient saa-btn--icon" [disabled]="loading" (click)="openNewCategoryForm()">
-          <lucide-icon name="plus" [size]="16"></lucide-icon>
-          Add category
-        </button>
-      </div>
+      <button type="button" class="saa-btn saa-btn--gradient saa-btn--icon" [disabled]="loading" (click)="openNewCategoryForm()">
+        <lucide-icon name="plus" [size]="16"></lucide-icon>
+        Add category
+      </button>
     </div>
 
     @if (showCategoryForm) {
       <div class="saa-panel saa-panel--category">
         <div class="saa-panel__head">
-          <span class="saa-panel__head-title">{{ editingCategoryId == null ? 'New category' : 'Edit category' }}</span>
-          <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" (click)="cancelCategoryForm()">Cancel</button>
+          <h3 class="saa-panel__head-title">{{ editingCategoryId == null ? 'New category' : 'Edit category' }}</h3>
+          <button type="button" class="saa-icon-btn" (click)="cancelCategoryForm()" title="Cancel">
+            <lucide-icon name="x" [size]="16"></lucide-icon>
+          </button>
         </div>
         <form class="saa-form saa-form--compact" (ngSubmit)="saveCategory()">
           <div class="saa-form-grid">
             <div>
               <label class="saa-field-label">Code</label>
-              <input class="saa-input" name="cCode" [(ngModel)]="catForm.code" placeholder="e.g. JAVA_OOP" />
+              <input class="saa-input" name="catCode" [(ngModel)]="catForm.code" placeholder="e.g. JAVA_OOP" />
+            </div>
+            <div>
+              <label class="saa-field-label">Title</label>
+              <input class="saa-input" name="catTitle" [(ngModel)]="catForm.title" placeholder="e.g. Java OOP" />
             </div>
             <div class="saa-form-grid__span2">
-              <label class="saa-field-label">Title</label>
-              <input class="saa-input" name="cTitle" [(ngModel)]="catForm.title" placeholder="Display name" />
+              <label class="saa-field-label">Description (optional)</label>
+              <textarea
+                class="saa-input saa-input--textarea"
+                name="catDesc"
+                rows="2"
+                [(ngModel)]="catForm.description"
+                placeholder="Short summary for admins"
+              ></textarea>
             </div>
           </div>
-          <label class="saa-field-label">Description (optional)</label>
-          <textarea
-            class="saa-input saa-input--textarea"
-            name="cDesc"
-            rows="2"
-            [(ngModel)]="catForm.description"
-            placeholder="Short note for admins"
-          ></textarea>
           <button type="submit" class="saa-btn saa-btn--gradient" [disabled]="loading">
-            {{ editingCategoryId == null ? 'Create category' : 'Save changes' }}
+            {{ editingCategoryId == null ? 'Create category' : 'Update category' }}
           </button>
         </form>
       </div>
@@ -342,7 +311,7 @@
         </tbody>
       </table>
       @if (categories.length === 0 && !loading) {
-        <p class="saa-empty saa-empty--table">No categories yet. Click “Add category” to create your first row.</p>
+        <p class="saa-empty saa-empty--table">No categories yet. Click "Add category" to create your first row.</p>
       }
     </div>
   </section>
@@ -512,6 +481,7 @@
     </section>
   }
 
+  <!-- ═══════════ MODALS ═══════════ -->
   @if (reviewOpen) {
     <div class="saa-modal-backdrop" (click)="closeReview()">
       <div class="saa-modal" role="dialog" aria-modal="true" aria-labelledby="saa-modal-title" (click)="$event.stopPropagation()">
@@ -563,66 +533,8 @@
     </div>
   }
 
-  @if (userScoresOpen) {
-    <div class="saa-modal-backdrop" (click)="closeUserScores()">
-      <div class="saa-modal saa-modal--wide" role="dialog" aria-modal="true"
-        aria-labelledby="saa-scores-title" (click)="$event.stopPropagation()">
-        <div class="saa-modal__head">
-          <h2 id="saa-scores-title" class="saa-modal__title">All scores — {{ userScoresUserId }}</h2>
-          <button type="button" class="saa-modal__close" (click)="closeUserScores()" aria-label="Close">
-            <lucide-icon name="x" [size]="20"></lucide-icon>
-          </button>
-        </div>
-        @if (userScoresLoading) {
-          <p class="saa-modal__loading">Loading…</p>
-        } @else if (userScoresData) {
-          <div class="saa-scores__meta">
-            @if (userScoresData.candidateDisplayName) {
-              <span class="saa-scores__name">{{ userScoresData.candidateDisplayName }}</span>
-            }
-            @if (userScoresData.situation) {
-              <span class="saa-chip">{{ userScoresData.situation }}</span>
-            }
-            @if (userScoresData.careerPath) {
-              <span class="saa-chip saa-chip--topic">{{ userScoresData.careerPath }}</span>
-            }
-            <span class="saa-scores__avg">Avg: <strong>{{ userScoresData.overallAvgScore }}%</strong></span>
-          </div>
-          @if (userScoresData.sessions.length === 0) {
-            <p class="saa-release__empty">No completed sessions for this user.</p>
-          } @else {
-            <ul class="saa-modal__answers">
-              @for (s of userScoresData.sessions; track s.sessionId) {
-                <li class="saa-modal-ans" [class.saa-modal-ans--ok]="(s.scorePercent ?? 0) >= 70"
-                  [class.saa-modal-ans--bad]="(s.scorePercent ?? 0) < 70">
-                  <div class="saa-modal-ans__top">
-                    <span class="saa-modal-ans__pts">{{ s.scorePercent ?? '—' }}%</span>
-                    @if (s.integrityViolation) {
-                      <span class="saa-chip saa-chip--warn">Integrity</span>
-                    }
-                    @if (s.scoreReleased) {
-                      <span class="saa-chip saa-chip--ok">Published</span>
-                    } @else {
-                      <span class="saa-chip saa-chip--wait">Not published</span>
-                    }
-                  </div>
-                  <p class="saa-modal-ans__prompt">
-                    {{ s.categoryTitle }}
-                    @if (s.topicTag) { <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span> }
-                  </p>
-                  @if (s.completedAt) {
-                    <p class="saa-modal-ans__line">{{ s.completedAt | date: 'medium' }}</p>
-                  }
-                </li>
-              }
-            </ul>
-          }
-        }
-      </div>
-    </div>
-  }
-
-  @if (publishTarget) {    <div class="saa-modal-backdrop" (click)="closePublishModal()">
+  @if (publishTarget) {
+    <div class="saa-modal-backdrop" (click)="closePublishModal()">
       <div class="saa-modal saa-publish" role="dialog" aria-modal="true" aria-labelledby="saa-publish-title" (click)="$event.stopPropagation()">
         <div class="saa-modal__head">
           <h2 id="saa-publish-title" class="saa-modal__title">Publish to candidate</h2>
@@ -703,6 +615,151 @@
             }
           </button>
         </div>
+      </div>
+    </div>
+  }
+
+  @if (manageAssessmentsOpen) {
+    <div class="saa-modal-backdrop" (click)="closeManageAssessments()">
+      <div class="saa-modal saa-manage-assessments-modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+        <div class="saa-manage-assessments__header">
+          <div class="saa-manage-assessments__header-content">
+            <div class="saa-manage-assessments__header-icon">
+              <lucide-icon name="settings-2" [size]="24"></lucide-icon>
+            </div>
+            <div class="saa-manage-assessments__header-text">
+              <h2 class="saa-manage-assessments__title">Manage Assessments</h2>
+              <p class="saa-manage-assessments__subtitle">{{ manageAssessmentsCandidateName }}</p>
+            </div>
+          </div>
+          <button type="button" class="saa-manage-assessments__close" (click)="closeManageAssessments()" aria-label="Close">
+            <lucide-icon name="x" [size]="20"></lucide-icon>
+          </button>
+        </div>
+
+        <div class="saa-manage-assessments__user-card">
+          <div class="saa-manage-assessments__user-avatar">
+            <span>{{ manageAssessmentsCandidateName.charAt(0).toUpperCase() }}</span>
+          </div>
+          <div class="saa-manage-assessments__user-details">
+            <div class="saa-manage-assessments__user-name">{{ manageAssessmentsCandidateName }}</div>
+            <div class="saa-manage-assessments__user-id">{{ manageAssessmentsUserId }}</div>
+          </div>
+          <div class="saa-manage-assessments__user-stats">
+            <div class="saa-manage-assessments__stat">
+              <div class="saa-manage-assessments__stat-value">{{ manageAssessmentsData.length }}</div>
+              <div class="saa-manage-assessments__stat-label">Assigned</div>
+            </div>
+          </div>
+        </div>
+
+        @if (manageAssessmentsLoading) {
+          <div class="saa-manage-assessments__loading-state">
+            <lucide-icon name="loader" [size]="32" class="saa-manage-assessments__loading-icon"></lucide-icon>
+            <p>Loading assessments...</p>
+          </div>
+        } @else {
+          <div class="saa-manage-assessments__content">
+            @if (manageAssessmentsMessage) {
+              <div class="saa-manage-assessments__alert"
+                [class.saa-manage-assessments__alert--success]="manageAssessmentsMessageType === 'success'"
+                [class.saa-manage-assessments__alert--error]="manageAssessmentsMessageType === 'error'">
+                {{ manageAssessmentsMessage }}
+              </div>
+            }
+
+            <div class="saa-manage-assessments__grid">
+              <div class="saa-manage-assessments__column">
+                <div class="saa-manage-assessments__column-header">
+                  <h3>Current Assessments</h3>
+                  <span class="saa-manage-assessments__column-badge">{{ manageAssessmentsData.length }}</span>
+                </div>
+                @if (manageAssessmentsData.length === 0) {
+                  <div class="saa-manage-assessments__empty-state">
+                    <lucide-icon name="inbox" [size]="32"></lucide-icon>
+                    <p>No assessments assigned yet</p>
+                  </div>
+                } @else {
+                  <div class="saa-manage-assessments__list">
+                    @for (assessment of manageAssessmentsData; track assessment.id) {
+                      <label class="saa-manage-assessments__card saa-manage-assessments__card--current"
+                        [class.saa-manage-assessments__card--selected]="isManageRemoveSelected(assessment.id)">
+                        <div class="saa-manage-assessments__card-checkbox">
+                          <input type="checkbox"
+                            [checked]="isManageRemoveSelected(assessment.id)"
+                            (change)="toggleManageRemoveAssessment(assessment.id)" />
+                        </div>
+                        <div class="saa-manage-assessments__card-content">
+                          <div class="saa-manage-assessments__card-title">{{ assessment.title }}</div>
+                          <div class="saa-manage-assessments__card-meta">
+                            <span class="saa-manage-assessments__card-code">{{ assessment.code }}</span>
+                            @if (assessment.completed) {
+                              <span class="saa-manage-assessments__badge saa-manage-assessments__badge--completed">
+                                <lucide-icon name="check" [size]="10"></lucide-icon>
+                                Completed
+                              </span>
+                            } @else {
+                              <span class="saa-manage-assessments__badge saa-manage-assessments__badge--pending">
+                                <lucide-icon name="clock" [size]="10"></lucide-icon>
+                                Not Started
+                              </span>
+                            }
+                          </div>
+                        </div>
+                        <div class="saa-manage-assessments__card-action">
+                          <span class="saa-manage-assessments__action-label">Remove</span>
+                        </div>
+                      </label>
+                    }
+                  </div>
+                }
+              </div>
+
+              <div class="saa-manage-assessments__column">
+                <div class="saa-manage-assessments__column-header">
+                  <h3>Available Assessments</h3>
+                  <span class="saa-manage-assessments__column-badge">{{ categories.length - manageAssessmentsData.length }}</span>
+                </div>
+                <div class="saa-manage-assessments__list">
+                  @for (category of categories; track category.id) {
+                    @if (!isAssessmentAlreadyAssigned(category.id)) {
+                      <label class="saa-manage-assessments__card saa-manage-assessments__card--available"
+                        [class.saa-manage-assessments__card--selected]="isManageAddSelected(category.id)">
+                        <div class="saa-manage-assessments__card-checkbox">
+                          <input type="checkbox"
+                            [checked]="isManageAddSelected(category.id)"
+                            (change)="toggleManageAddAssessment(category.id)" />
+                        </div>
+                        <div class="saa-manage-assessments__card-content">
+                          <div class="saa-manage-assessments__card-title">{{ category.title }}</div>
+                          <div class="saa-manage-assessments__card-meta">
+                            <span class="saa-manage-assessments__card-code">{{ category.code }}</span>
+                            <span class="saa-manage-assessments__card-questions">
+                              <lucide-icon name="help-circle" [size]="10"></lucide-icon>
+                              {{ category.questionCount }} questions
+                            </span>
+                          </div>
+                        </div>
+                        <div class="saa-manage-assessments__card-action">
+                          <span class="saa-manage-assessments__action-label">Add</span>
+                        </div>
+                      </label>
+                    }
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="saa-manage-assessments__footer">
+            <button type="button" class="saa-btn saa-btn--ghost" [disabled]="manageAssessmentsLoading" (click)="closeManageAssessments()">
+              Cancel
+            </button>
+            <button type="button" class="saa-btn saa-btn--gradient" [disabled]="manageAssessmentsLoading" (click)="confirmManageAssessments()">
+              Save Changes
+            </button>
+          </div>
+        }
       </div>
     </div>
   }

@@ -289,4 +289,35 @@ export class AssessmentAdminApiService {
       { headers: this.adminHeaders() }
     );
   }
+
+  /** Assign assessments to a user (works for new and existing users). */
+  assignAssessmentToUser(
+    userId: string,
+    categoryIds: number[],
+    situation?: string | null,
+    careerPath?: string | null,
+    requireApproval?: boolean
+  ): Observable<unknown> {
+    const body: any = { 
+      userId: userId, // Backend expects UUID string
+      categoryIds: categoryIds.map(id => Number(id)), // Ensure they're numbers
+    };
+    if (situation) body.situation = situation;
+    if (careerPath) body.careerPath = careerPath;
+    if (requireApproval !== undefined) body.forceReassign = requireApproval;
+    
+    return this.http.post(
+      `${this.base()}/admin/assignments/assign-to-user`,
+      body,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** Get user's assigned assessments (finished or not). */
+  getUserAssignedAssessments(userId: string): Observable<Array<{ id: number; code: string; title: string; status: string; completed: boolean }>> {
+    return this.http.get<Array<{ id: number; code: string; title: string; status: string; completed: boolean }>>(
+      `${this.base()}/admin/users/${userId}/assigned-assessments`,
+      { headers: this.adminHeaders() }
+    );
+  }
 }

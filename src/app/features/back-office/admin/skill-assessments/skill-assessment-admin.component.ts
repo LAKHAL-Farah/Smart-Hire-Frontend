@@ -82,6 +82,28 @@ export class SkillAssessmentAdminComponent implements OnInit {
   deleteConfirmCandidateName = '';
   deleteConfirmLoading = false;
 
+  /** Add assessment modal */
+  addAssessmentModalOpen = false;
+  addAssessmentUserId = '';
+  addAssessmentSelectedCategories: number[] = [];
+  addAssessmentLoading = false;
+  addAssessmentMessage = '';
+  addAssessmentMessageType: 'success' | 'error' | null = null;
+
+  /** Manage user assessments panel */
+  manageAssessmentsOpen = false;
+  manageAssessmentsUserId = '';
+  manageAssessmentsCandidateName = '';
+  manageAssessmentsData: { id: number; code: string; title: string; status: string; completed: boolean }[] = [];
+  manageAssessmentsLoading = false;
+  manageAssessmentsMessage = '';
+  manageAssessmentsMessageType: 'success' | 'error' | null = null;
+  manageAssessmentsSelectedToRemove: number[] = [];
+  manageAssessmentsSelectedToAdd: number[] = [];
+
+  /** Expanded user in table */
+  expandedUserId: string | null = null;
+
   /** Grouped sessions by user */
   groupedByUser = computed(() => {
     const grouped = new Map<string, AssessmentSessionAdminRow[]>();
@@ -91,16 +113,33 @@ export class SkillAssessmentAdminComponent implements OnInit {
       }
       grouped.get(session.userId)!.push(session);
     }
-    return Array.from(grouped.entries()).map(([userId, sessions]) => ({
-      userId,
-      candidateDisplayName: sessions[0]?.candidateDisplayName || null,
-      attemptCount: sessions.length,
-      sessions: sessions.sort((a, b) => {
-        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
-        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
-        return bTime - aTime; // newest first
-      }),
-    }));
+    return Array.from(grouped.entries()).map(([userId, sessions]) => {
+      // Calculate average score
+      const scores = sessions
+        .map(s => s.scorePercent)
+        .filter((score): score is number => score !== null && score !== undefined);
+      const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+
+      // Check if any sessions are unpublished
+      const hasUnpublished = sessions.some(s => !s.scoreReleased);
+
+      // Check if any sessions have integrity issues
+      const hasIntegrityIssues = sessions.some(s => s.integrityViolation);
+
+      return {
+        userId,
+        candidateDisplayName: sessions[0]?.candidateDisplayName || null,
+        attemptCount: sessions.length,
+        avgScore,
+        hasUnpublished,
+        hasIntegrityIssues,
+        sessions: sessions.sort((a, b) => {
+          const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+          const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+          return bTime - aTime; // newest first
+        }),
+      };
+    });
   });
 
   ngOnInit(): void {
@@ -131,6 +170,14 @@ export class SkillAssessmentAdminComponent implements OnInit {
         this.completedSessions.set([]);
       },
     });
+  }
+
+  toggleUserExpand(userId: string): void {
+    if (this.expandedUserId === userId) {
+      this.expandedUserId = null;
+    } else {
+      this.expandedUserId = userId;
+    }
   }
 
   openReview(sessionId: number): void {
@@ -640,6 +687,209 @@ export class SkillAssessmentAdminComponent implements OnInit {
       error: (e) => {
         this.deleteConfirmLoading = false;
         this.fail(e);
+      },
+    });
+  }
+
+  // ── Add assessment modal ────────────────────────────────────────────────────
+
+  openAddAssessmentModal(userId: string): void {
+    this.addAssessmentModalOpen = true;
+    this.addAssessmentUserId = userId;
+    this.addAssessmentSelectedCategories = [];
+    this.addAssessmentMessage = '';
+    this.addAssessmentMessageType = null;
+  }
+
+  closeAddAssessmentModal(): void {
+    this.addAssessmentModalOpen = false;
+    this.addAssessmentUserId = '';
+    this.addAssessmentSelectedCategories = [];
+    this.addAssessmentMessage = '';
+    this.addAssessmentMessageType = null;
+  }
+
+  toggleAddAssessmentCategory(categoryId: number): void {
+    const idx = this.addAssessmentSelectedCategories.indexOf(categoryId);
+    if (idx >= 0) {
+      this.addAssessmentSelectedCategories.splice(idx, 1);
+    } else {
+      this.addAssessmentSelectedCategories.push(categoryId);
+    }
+  }
+
+  isAddAssessmentCategorySelected(categoryId: number): boolean {
+    return this.addAssessmentSelectedCategories.includes(categoryId);
+  }
+
+  confirmAddAssessment(): void {
+    if (this.addAssessmentSelectedCategories.length === 0) {
+      this.addAssessmentMessage = 'Please select at least one category';
+      this.addAssessmentMessageType = 'error';
+      return;
+    }
+
+    this.addAssessmentLoading = true;
+    this.addAssessmentMessage = '';
+    this.addAssessmentMessageType = null;
+
+    this.api.assignAssessmentToUser(
+      this.addAssessmentUserId,
+      this.addAssessmentSelectedCategories,
+      undefined,
+      undefined,
+      false
+    ).subscribe({
+      next: () => {
+        this.addAssessmentLoading = false;
+        this.addAssessmentMessage = `Successfully added ${this.addAssessmentSelectedCategories.length} assessment(s)`;
+        this.addAssessmentMessageType = 'success';
+
+        // Refresh data after 1.5 seconds
+        setTimeout(() => {
+          this.refreshCompletedSessions();
+          this.closeAddAssessmentModal();
+        }, 1500);
+      },
+      error: (e: unknown) => {
+        this.addAssessmentLoading = false;
+        this.addAssessmentMessageType = 'error';
+        let msg = 'Failed to add assessments';
+        if (e instanceof HttpErrorResponse && e.error?.message) {
+          msg = e.error.message;
+        }
+        this.addAssessmentMessage = msg;
+      },
+    });
+  }
+
+  // ── Manage user assessments panel ────────────────────────────────────────
+
+  openManageAssessments(userId: string, candidateName: string | null): void {
+    this.manageAssessmentsUserId = userId;
+    this.manageAssessmentsCandidateName = candidateName || userId;
+    this.manageAssessmentsOpen = true;
+    this.manageAssessmentsLoading = true;
+    this.manageAssessmentsData = [];
+    this.manageAssessmentsSelectedToRemove = [];
+    this.manageAssessmentsSelectedToAdd = [];
+    this.manageAssessmentsMessage = '';
+    this.manageAssessmentsMessageType = null;
+
+    // Load user's assigned assessments
+    this.api.getUserAssignedAssessments(userId).subscribe({
+      next: (data) => {
+        this.manageAssessmentsData = data;
+        this.manageAssessmentsLoading = false;
+      },
+      error: (e) => {
+        this.manageAssessmentsLoading = false;
+        this.fail(e);
+      },
+    });
+  }
+
+  closeManageAssessments(): void {
+    this.manageAssessmentsOpen = false;
+    this.manageAssessmentsUserId = '';
+    this.manageAssessmentsCandidateName = '';
+    this.manageAssessmentsData = [];
+    this.manageAssessmentsSelectedToRemove = [];
+    this.manageAssessmentsSelectedToAdd = [];
+    this.manageAssessmentsMessage = '';
+    this.manageAssessmentsMessageType = null;
+  }
+
+  toggleManageRemoveAssessment(categoryId: number): void {
+    const idx = this.manageAssessmentsSelectedToRemove.indexOf(categoryId);
+    if (idx >= 0) {
+      this.manageAssessmentsSelectedToRemove.splice(idx, 1);
+    } else {
+      this.manageAssessmentsSelectedToRemove.push(categoryId);
+    }
+  }
+
+  isManageRemoveSelected(categoryId: number): boolean {
+    return this.manageAssessmentsSelectedToRemove.includes(categoryId);
+  }
+
+  toggleManageAddAssessment(categoryId: number): void {
+    const idx = this.manageAssessmentsSelectedToAdd.indexOf(categoryId);
+    if (idx >= 0) {
+      this.manageAssessmentsSelectedToAdd.splice(idx, 1);
+    } else {
+      this.manageAssessmentsSelectedToAdd.push(categoryId);
+    }
+  }
+
+  isManageAddSelected(categoryId: number): boolean {
+    return this.manageAssessmentsSelectedToAdd.includes(categoryId);
+  }
+
+  isAssessmentAlreadyAssigned(categoryId: number): boolean {
+    return this.manageAssessmentsData.some(a => a.id === categoryId);
+  }
+
+  confirmManageAssessments(): void {
+    const hasRemove = this.manageAssessmentsSelectedToRemove.length > 0;
+    const hasAdd = this.manageAssessmentsSelectedToAdd.length > 0;
+
+    if (!hasRemove && !hasAdd) {
+      this.manageAssessmentsMessage = 'Select assessments to add or remove';
+      this.manageAssessmentsMessageType = 'error';
+      return;
+    }
+
+    this.manageAssessmentsLoading = true;
+    this.manageAssessmentsMessage = '';
+    this.manageAssessmentsMessageType = null;
+
+    // Get current assigned categories
+    const currentIds = this.manageAssessmentsData.map(a => a.id);
+    
+    // Remove selected ones
+    let finalIds = currentIds.filter(id => !this.manageAssessmentsSelectedToRemove.includes(id));
+    
+    // Add new ones
+    finalIds = [...new Set([...finalIds, ...this.manageAssessmentsSelectedToAdd])];
+
+    // Call API to update
+    this.api.assignAssessmentToUser(
+      this.manageAssessmentsUserId,
+      finalIds,
+      undefined,
+      undefined,
+      false
+    ).subscribe({
+      next: () => {
+        this.manageAssessmentsLoading = false;
+        const removedCount = this.manageAssessmentsSelectedToRemove.length;
+        const addedCount = this.manageAssessmentsSelectedToAdd.length;
+        let msg = '';
+        if (removedCount > 0 && addedCount > 0) {
+          msg = `Removed ${removedCount}, added ${addedCount} assessment(s)`;
+        } else if (removedCount > 0) {
+          msg = `Removed ${removedCount} assessment(s)`;
+        } else {
+          msg = `Added ${addedCount} assessment(s)`;
+        }
+        this.manageAssessmentsMessage = msg;
+        this.manageAssessmentsMessageType = 'success';
+
+        // Refresh after 1.5 seconds
+        setTimeout(() => {
+          this.refreshCompletedSessions();
+          this.openManageAssessments(this.manageAssessmentsUserId, this.manageAssessmentsCandidateName);
+        }, 1500);
+      },
+      error: (e: unknown) => {
+        this.manageAssessmentsLoading = false;
+        this.manageAssessmentsMessageType = 'error';
+        let msg = 'Failed to update assessments';
+        if (e instanceof HttpErrorResponse && e.error?.message) {
+          msg = e.error.message;
+        }
+        this.manageAssessmentsMessage = msg;
       },
     });
   }

@@ -139,45 +139,59 @@
         Open any row to see the candidate’s choices and correct answers. Works before or after publishing.
       </p>
     </div>
-    @if (completedSessions.length === 0) {
+    @if (completedSessions().length === 0) {
       <p class="saa-release__empty">No completed sessions yet.</p>
     } @else {
-      <ul class="saa-history__list">
-        @for (s of completedSessions; track s.id) {
-          <li class="saa-history__row">
-            <div class="saa-history__main">
-              <span class="saa-history__cat">{{ s.categoryTitle }}</span>
-              @if (s.topicTag) {
-                <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span>
-              }
-              @if (s.candidateDisplayName) {
-                <span class="saa-history__name">{{ s.candidateDisplayName }}</span>
-              }
-              <span class="saa-history__uid" title="User id">{{ s.userId }}</span>
-              @if (s.completedAt) {
-                <span class="saa-history__when">{{ s.completedAt | date : 'medium' }}</span>
-              }
+      <div class="saa-user-groups">
+        @for (group of groupedByUser(); track group.userId) {
+          <div class="saa-user-group">
+            <div class="saa-user-group__header">
+              <div class="saa-user-group__info">
+                @if (group.candidateDisplayName) {
+                  <span class="saa-user-group__name">{{ group.candidateDisplayName }}</span>
+                }
+                <span class="saa-user-group__uid" title="User id">{{ group.userId }}</span>
+              </div>
+              <span class="saa-user-group__count">{{ group.attemptCount }} attempt(s)</span>
             </div>
-            <div class="saa-history__right">
-              @if (s.integrityViolation) {
-                <span class="saa-chip saa-chip--warn" title="Left quiz during attempt">Integrity</span>
+            <ul class="saa-user-group__sessions">
+              @for (s of group.sessions; track s.id) {
+                <li class="saa-user-session">
+                  <div class="saa-user-session__main">
+                    <span class="saa-user-session__cat">{{ s.categoryTitle }}</span>
+                    @if (s.topicTag) {
+                      <span class="saa-chip saa-chip--topic">{{ s.topicTag }}</span>
+                    }
+                    @if (s.completedAt) {
+                      <span class="saa-user-session__when">{{ s.completedAt | date : 'medium' }}</span>
+                    }
+                  </div>
+                  <div class="saa-user-session__right">
+                    @if (s.integrityViolation) {
+                      <span class="saa-chip saa-chip--warn" title="Left quiz during attempt">Integrity</span>
+                    }
+                    @if (s.forfeit) {
+                      <span class="saa-chip saa-chip--forfeit" title="Forfeited">Forfeit</span>
+                    }
+                    <span class="saa-user-session__score">{{ s.scorePercent ?? '—' }}%</span>
+                    @if (s.scoreReleased) {
+                      <span class="saa-chip saa-chip--ok">Published</span>
+                    } @else {
+                      <span class="saa-chip saa-chip--wait">Not published</span>
+                    }
+                    <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" [disabled]="loading" (click)="openReview(s.id)">
+                      View responses
+                    </button>
+                    <button type="button" class="saa-icon-btn saa-icon-btn--danger" [disabled]="loading" (click)="openDeleteConfirm(s)" title="Delete attempt">
+                      <lucide-icon name="trash-2" [size]="16"></lucide-icon>
+                    </button>
+                  </div>
+                </li>
               }
-              <span class="saa-history__score">{{ s.scorePercent ?? '—' }}%</span>
-              @if (s.scoreReleased) {
-                <span class="saa-chip saa-chip--ok">Published</span>
-              } @else {
-                <span class="saa-chip saa-chip--wait">Not published</span>
-              }
-              <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" [disabled]="loading" (click)="openReview(s.id)">
-                View responses
-              </button>
-              <button type="button" class="saa-btn saa-btn--ghost saa-btn--sm" [disabled]="loading" (click)="openUserScores(s.userId)">
-                All scores
-              </button>
-            </div>
-          </li>
+            </ul>
+          </div>
         }
-      </ul>
+      </div>
     }
   </section>
 
@@ -638,6 +652,56 @@
         <div class="saa-publish__actions">
           <button type="button" class="saa-btn saa-btn--ghost" [disabled]="loading" (click)="closePublishModal()">Cancel</button>
           <button type="button" class="saa-btn saa-btn--gradient" [disabled]="loading" (click)="confirmPublish()">Publish</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (deleteConfirmOpen) {
+    <div class="saa-modal-backdrop" (click)="closeDeleteConfirm()">
+      <div class="saa-modal saa-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="saa-delete-title" (click)="$event.stopPropagation()">
+        <div class="saa-modal__head">
+          <h2 id="saa-delete-title" class="saa-modal__title">Delete attempt</h2>
+          <button type="button" class="saa-modal__close" (click)="closeDeleteConfirm()" aria-label="Close">
+            <lucide-icon name="x" [size]="20"></lucide-icon>
+          </button>
+        </div>
+        <div class="saa-delete-confirm__content">
+          <div class="saa-delete-confirm__icon">
+            <lucide-icon name="alert-triangle" [size]="48"></lucide-icon>
+          </div>
+          <p class="saa-delete-confirm__title">Are you sure?</p>
+          <p class="saa-delete-confirm__text">
+            You're about to permanently delete this assessment attempt.
+          </p>
+          <div class="saa-delete-confirm__details">
+            <div class="saa-delete-confirm__detail-row">
+              <span class="saa-delete-confirm__label">Candidate:</span>
+              <span class="saa-delete-confirm__value">{{ deleteConfirmCandidateName }}</span>
+            </div>
+            <div class="saa-delete-confirm__detail-row">
+              <span class="saa-delete-confirm__label">Category:</span>
+              <span class="saa-delete-confirm__value">{{ deleteConfirmSessionTitle }}</span>
+            </div>
+          </div>
+          <p class="saa-delete-confirm__warning">
+            <lucide-icon name="info" [size]="16"></lucide-icon>
+            This action cannot be undone. All responses and scores will be permanently removed.
+          </p>
+        </div>
+        <div class="saa-delete-confirm__actions">
+          <button type="button" class="saa-btn saa-btn--ghost" [disabled]="deleteConfirmLoading" (click)="closeDeleteConfirm()">
+            Cancel
+          </button>
+          <button type="button" class="saa-btn saa-btn--danger" [disabled]="deleteConfirmLoading" (click)="confirmDelete()">
+            @if (deleteConfirmLoading) {
+              <lucide-icon name="loader" [size]="14" class="saa-btn__spinner"></lucide-icon>
+              Deleting…
+            } @else {
+              <lucide-icon name="trash-2" [size]="14"></lucide-icon>
+              Delete permanently
+            }
+          </button>
         </div>
       </div>
     </div>

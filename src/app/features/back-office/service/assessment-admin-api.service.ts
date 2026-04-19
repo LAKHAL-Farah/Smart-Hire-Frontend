@@ -51,6 +51,7 @@ export interface AssessmentSessionAdminRow {
   adminFeedback: string | null;
   candidateDisplayName?: string | null;
   integrityViolation?: boolean;
+  forfeit?: boolean;
 }
 
 export interface UserScoresSummaryRow {
@@ -277,6 +278,14 @@ export class AssessmentAdminApiService {
   suggestCategories(userId: string): Observable<CategorySuggestionResult> {
     return this.http.get<CategorySuggestionResult>(
       `${this.base()}/admin/assignments/${userId}/suggest-categories`,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** Delete a completed assessment session. */
+  deleteSession(sessionId: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.base()}/admin/sessions/${sessionId}`,
       { headers: this.adminHeaders() }
     );
   }

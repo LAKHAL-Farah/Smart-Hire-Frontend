@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -50,7 +50,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   /** Submitted assessments waiting for admin to publish score */
   pendingRelease: AssessmentSessionAdminRow[] = [];
   /** All completed attempts (history) */
-  completedSessions: AssessmentSessionAdminRow[] = [];
+  completedSessions = signal<AssessmentSessionAdminRow[]>([]);
 
   reviewOpen = false;
   reviewLoading = false;
@@ -75,6 +75,34 @@ export class SkillAssessmentAdminComponent implements OnInit {
   suggestionLoading = false;
   suggestionData: CategorySuggestionResult | null = null;
 
+  /** Delete confirmation modal */
+  deleteConfirmOpen = false;
+  deleteConfirmSessionId: number | null = null;
+  deleteConfirmSessionTitle = '';
+  deleteConfirmCandidateName = '';
+  deleteConfirmLoading = false;
+
+  /** Grouped sessions by user */
+  groupedByUser = computed(() => {
+    const grouped = new Map<string, AssessmentSessionAdminRow[]>();
+    for (const session of this.completedSessions()) {
+      if (!grouped.has(session.userId)) {
+        grouped.set(session.userId, []);
+      }
+      grouped.get(session.userId)!.push(session);
+    }
+    return Array.from(grouped.entries()).map(([userId, sessions]) => ({
+      userId,
+      candidateDisplayName: sessions[0]?.candidateDisplayName || null,
+      attemptCount: sessions.length,
+      sessions: sessions.sort((a, b) => {
+        const aTime = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+        const bTime = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+        return bTime - aTime; // newest first
+      }),
+    }));
+  });
+
   ngOnInit(): void {
     this.refreshCategories();
     this.refreshPendingAssignments();
@@ -97,10 +125,10 @@ export class SkillAssessmentAdminComponent implements OnInit {
   refreshCompletedSessions(): void {
     this.api.listAllCompletedSessions().subscribe({
       next: (rows) => {
-        this.completedSessions = rows;
+        this.completedSessions.set(rows);
       },
       error: () => {
-        this.completedSessions = [];
+        this.completedSessions.set([]);
       },
     });
   }
@@ -574,6 +602,43 @@ export class SkillAssessmentAdminComponent implements OnInit {
       },
       error: (e) => {
         this.suggestionLoading = false;
+        this.fail(e);
+      },
+    });
+  }
+
+  // ── Delete session ─────────────────────────────────────────────────────
+
+  openDeleteConfirm(session: AssessmentSessionAdminRow): void {
+    this.deleteConfirmSessionId = session.id;
+    this.deleteConfirmSessionTitle = session.categoryTitle;
+    this.deleteConfirmCandidateName = session.candidateDisplayName || 'Unknown';
+    this.deleteConfirmOpen = true;
+  }
+
+  closeDeleteConfirm(): void {
+    this.deleteConfirmOpen = false;
+    this.deleteConfirmSessionId = null;
+    this.deleteConfirmSessionTitle = '';
+    this.deleteConfirmCandidateName = '';
+    this.deleteConfirmLoading = false;
+  }
+
+  confirmDelete(): void {
+    if (!this.deleteConfirmSessionId) return;
+    this.deleteConfirmLoading = true;
+    const sessionId = this.deleteConfirmSessionId;
+    this.api.deleteSession(sessionId).subscribe({
+      next: () => {
+        this.deleteConfirmLoading = false;
+        this.closeDeleteConfirm();
+        // Remove from completedSessions without reloading - update signal
+        const updated = this.completedSessions().filter((s: AssessmentSessionAdminRow) => s.id !== sessionId);
+        this.completedSessions.set(updated);
+        this.refreshPendingRelease();
+      },
+      error: (e) => {
+        this.deleteConfirmLoading = false;
         this.fail(e);
       },
     });

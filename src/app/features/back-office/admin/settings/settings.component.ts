@@ -2,6 +2,10 @@ import { Component, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { Router } from '@angular/router';
+import { UserManagementService } from '../../service/user-management.service';
+import { AutheService } from '../../../front-office/auth/authe.service';
+import { FaceRecognitionService } from '../../../front-office/auth/setup-face-recognition/face-recognition.service';
 
 /* ══════════ INTERFACES ══════════ */
 
@@ -33,6 +37,10 @@ interface LocalizationConfig {
   dateFormat: string;
   currency: string;
   availableLanguages: string[];
+}
+
+interface FeaturesConfig {
+  faceRecognitionEnabled: boolean;
 }
 
 interface Toast {
@@ -142,14 +150,51 @@ export class SettingsComponent implements OnDestroy {
   dirtyCategories = new Set<string>();
   toast: Toast = { message: '', type: 'success', visible: false };
   private toastTimeout: any;
+  /* Features config */
+  features: FeaturesConfig = {
+    faceRecognitionEnabled: true
+  };
+  featuresSnapshot = '';
 
   /* ══════════ LIFECYCLE ══════════ */
-  constructor() {
+  constructor(private router: Router, private userManagementService: UserManagementService, private setupFaceService: FaceRecognitionService) {
     this.snapshotAll();
   }
 
+  private userId:any;
+ngOnInit(): void {
+  this.userId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
+
+  this.userManagementService.isMfaEnabled(this.userId).subscribe((isEnabled) => {
+    console.log('Face recognition enabled:', isEnabled);
+
+    this.features.faceRecognitionEnabled = isEnabled;
+  });
+}
+
   ngOnDestroy(): void {
     if (this.toastTimeout) clearTimeout(this.toastTimeout);
+  }
+
+
+
+
+  setupFaceRecognition(): void {
+    if ( ! this.features.faceRecognitionEnabled) {
+      this.features.faceRecognitionEnabled = !this.features.faceRecognitionEnabled; 
+      this.checkDirty();
+      this.router.navigate(["/setup-face-recognition"])
+    }else{
+      this.setupFaceService.disableFaceRecognition(this.userId).subscribe({
+        next: () => {
+          this.features.faceRecognitionEnabled = !this.features.faceRecognitionEnabled;
+          this.checkDirty();
+          this.showToast('Face recognition disabled successfully', 'success');
+        }
+      });
+
+    }
+    
   }
 
   /* ══════════ SNAPSHOT HELPERS ══════════ */
@@ -157,6 +202,7 @@ export class SettingsComponent implements OnDestroy {
     this.identitySnapshot = JSON.stringify(this.identity);
     this.maintenanceSnapshot = JSON.stringify(this.maintenance);
     this.localizationSnapshot = JSON.stringify(this.localization);
+    this.featuresSnapshot = JSON.stringify(this.features);
   }
 
   private snapshotCategory(cat: string): void {
@@ -164,6 +210,8 @@ export class SettingsComponent implements OnDestroy {
       this.identitySnapshot = JSON.stringify(this.identity);
       this.maintenanceSnapshot = JSON.stringify(this.maintenance);
       this.localizationSnapshot = JSON.stringify(this.localization);
+    } else if (cat === 'features') {
+      this.featuresSnapshot = JSON.stringify(this.features);
     }
   }
 
@@ -172,11 +220,17 @@ export class SettingsComponent implements OnDestroy {
     const identityDirty = JSON.stringify(this.identity) !== this.identitySnapshot;
     const maintenanceDirty = JSON.stringify(this.maintenance) !== this.maintenanceSnapshot;
     const localizationDirty = JSON.stringify(this.localization) !== this.localizationSnapshot;
+    const featuresDirty = JSON.stringify(this.features) !== this.featuresSnapshot;
 
     if (identityDirty || maintenanceDirty || localizationDirty) {
       this.dirtyCategories.add('general');
     } else {
       this.dirtyCategories.delete('general');
+    }
+    if (featuresDirty) {
+      this.dirtyCategories.add('features');
+    } else {
+      this.dirtyCategories.delete('features');
     }
     this.syncCategoryDirtyFlags();
   }
@@ -202,6 +256,8 @@ export class SettingsComponent implements OnDestroy {
       this.identity = JSON.parse(this.identitySnapshot);
       this.maintenance = JSON.parse(this.maintenanceSnapshot);
       this.localization = JSON.parse(this.localizationSnapshot);
+    } else if (this.activeCategory === 'features') {
+      this.features = JSON.parse(this.featuresSnapshot);
     }
     this.dirtyCategories.delete(this.activeCategory);
     this.syncCategoryDirtyFlags();
@@ -284,4 +340,6 @@ export class SettingsComponent implements OnDestroy {
     // Delay to allow click on dropdown items
     setTimeout(() => this.showLanguageDropdown = false, 200);
   }
+
+ 
 }

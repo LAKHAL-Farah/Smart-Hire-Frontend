@@ -1,14 +1,10 @@
-
-import { Component, Input, signal, HostListener, computed, inject } from '@angular/core';
+import { Component, Input, signal, HostListener, computed, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { filter } from 'rxjs/operators';
 import { AutheService } from '../../../auth/authe.service';
-import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { resolveCurrentUserId } from '../../interview/interview-user.util';
-import { StreakService } from '../../interview/services/streak.service';
 
 @Component({
   selector: 'app-topbar',
@@ -18,18 +14,10 @@ import { StreakService } from '../../interview/services/streak.service';
   styleUrl: './topbar.component.scss'
 })
 export class TopbarComponent {
-  private readonly streakService = inject(StreakService);
-
   @Input() quizMode = false;
   searchQuery = '';
   notifOpen = signal(false);
   avatarOpen = signal(false);
-  streakPulse = signal(false);
-
-  readonly userId = resolveCurrentUserId();
-  readonly streak = toSignal(this.streakService.streak$, { initialValue: null });
-  readonly currentStreak = computed(() => this.streak()?.currentStreak ?? 0);
-  readonly longestStreak = computed(() => this.streak()?.longestStreak ?? 0);
 
   formattedDate = this.getFormattedDate();
 
@@ -37,7 +25,6 @@ export class TopbarComponent {
     '/dashboard/roadmap': 'Roadmap',
     '/dashboard/projects': 'Projects',
     '/dashboard/interview': 'Interview Simulation',
-    '/dashboard/interview/discover': 'Discover Questions',
     '/dashboard/cv': 'CV Optimizer',
     '/dashboard/profile': 'Profile',
     '/dashboard/settings': 'Settings',
@@ -49,28 +36,9 @@ export class TopbarComponent {
 
   constructor(private router: Router, private authService: AutheService) {
     this.url.set(this.router.url);
-
-    this.router.events
-      .pipe(filter(e => e instanceof NavigationEnd), takeUntilDestroyed())
-      .subscribe((e: any) => {
-        this.url.set(e.urlAfterRedirects ?? e.url);
-      });
-
-    if (this.userId) {
-      this.streakService
-        .ensureLoaded(this.userId)
-        .pipe(takeUntilDestroyed())
-        .subscribe();
-
-      this.streakService.streakIncrease$
-        .pipe(takeUntilDestroyed())
-        .subscribe(() => {
-          this.streakPulse.set(true);
-          setTimeout(() => {
-            this.streakPulse.set(false);
-          }, 1200);
-        });
-    }
+    this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: NavigationEnd) => {
+      this.url.set(e.urlAfterRedirects ?? e.url);
+    });
   }
 
   notifications = [

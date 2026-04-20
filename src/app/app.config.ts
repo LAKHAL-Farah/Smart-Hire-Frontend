@@ -4,12 +4,9 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-<<<<<<< HEAD
 import { authInterceptor } from './features/front-office/auth/interceptors/auth.interceptor';
 import { provideMonacoEditor } from 'ngx-monaco-editor-v2';
-=======
-import { authInterceptor } from './core/interceptors/auth.interceptor';
->>>>>>> 07d1b6a95d3c6ddc7abeaefab264b2268972d9f1
+
 
 export const appConfig: ApplicationConfig = {
   providers: [

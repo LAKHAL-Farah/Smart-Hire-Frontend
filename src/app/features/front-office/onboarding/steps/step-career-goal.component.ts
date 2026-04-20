@@ -1,5 +1,14 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RoadmapApiService } from '../../../../services/roadmap-api.service';
+
+interface CareerPathCard {
+  id: string;
+  emoji: string;
+  title: string;
+  tech: string;
+  badge: string;
+}
 
 @Component({
   selector: 'app-step-career-goal',
@@ -8,20 +17,47 @@ import { CommonModule } from '@angular/common';
   templateUrl: './step-career-goal.component.html',
   styleUrl: './step-career-goal.component.scss'
 })
-export class StepCareerGoalComponent {
+export class StepCareerGoalComponent implements OnInit {
   @Input() selected: string | null = null;
   @Output() selectionChange = new EventEmitter<string>();
 
-  careerPaths = [
-    { id: 'frontend', emoji: '🎨', title: 'Frontend Engineer', tech: 'React, Angular, Vue, TypeScript', badge: 'High demand' },
-    { id: 'backend', emoji: '⚙️', title: 'Backend Engineer', tech: 'Node.js, Python, Java, Go', badge: 'Top salary' },
-    { id: 'fullstack', emoji: '🔗', title: 'Full Stack', tech: 'Next.js, MERN, Django + React', badge: 'Most versatile' },
-    { id: 'devops', emoji: '☁️', title: 'DevOps / Cloud', tech: 'AWS, Docker, K8s, Terraform', badge: 'Growing fast' },
-    { id: 'data', emoji: '📊', title: 'Data Engineer', tech: 'Python, SQL, Spark, Airflow', badge: 'High demand' },
-    { id: 'mobile', emoji: '📱', title: 'Mobile Engineer', tech: 'React Native, Flutter, Swift', badge: 'Top salary' },
-  ];
+  private readonly roadmapApi = inject(RoadmapApiService);
+
+  careerPaths: CareerPathCard[] = [];
+
+  ngOnInit(): void {
+    this.roadmapApi.getPublishedCareerPaths().subscribe({
+      next: (items) => {
+        this.careerPaths = (items || []).map((item) => {
+          const topics = (item.defaultTopics || '')
+            .split(',')
+            .map((token) => token.trim())
+            .filter((token) => token.length > 0)
+            .slice(0, 4)
+            .join(', ');
+
+          const difficulty = (item.difficulty || 'Unknown').toUpperCase();
+          return {
+            id: String(item.id),
+            emoji: this.pickEmoji(item.id),
+            title: item.title,
+            tech: topics || 'No topics configured yet',
+            badge: difficulty,
+          };
+        });
+      },
+      error: () => {
+        this.careerPaths = [];
+      },
+    });
+  }
 
   select(id: string): void {
     this.selectionChange.emit(id);
+  }
+
+  private pickEmoji(id: number): string {
+    const emojis = ['💻', '🔧', '📊', '🎨', '🛡️', '📱', '☁️', '🤖', '🧪', '🌐', '🚀', '⚙️'];
+    return emojis[id % emojis.length] || emojis[0];
   }
 }

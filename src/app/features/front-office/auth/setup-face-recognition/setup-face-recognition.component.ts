@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { FaceRecognitionService } from './face-recognition.service';
 import { FaceCameraService } from './face-camera.service';
 import { HttpErrorResponse } from '@angular/common/http';
+import { AuthMfaService } from '../auth-mfa.service';
 
 type SetupStep = 'intro' | 'camera' | 'preview' | 'uploading' | 'success' | 'error';
 
@@ -43,6 +44,7 @@ export class SetupFaceRecognitionComponent implements OnInit, OnDestroy {
   constructor(
     private faceRecognitionService: FaceRecognitionService,
     private faceCameraService: FaceCameraService,
+    private auth: AuthMfaService,
     private router: Router
   ) {}
 
@@ -177,7 +179,7 @@ export class SetupFaceRecognitionComponent implements OnInit, OnDestroy {
       });
 
       setTimeout(() => {
-        void this.router.navigate(['/dashboard']);
+        void this.auth.redirectAfterLogin();
       }, 2000);
 
     } catch (error: any) {
@@ -220,15 +222,10 @@ export class SetupFaceRecognitionComponent implements OnInit, OnDestroy {
    */
   cancel(): void {
     this.stopCamera();
-    void this.router.navigate(['/dashboard']);
+    void this.router.navigate(['/admin/settings']);
   }
 
-  /**
-   * Naviguer vers le dashboard
-   */
-  goToDashboard(): void {
-    void this.router.navigate(['/dashboard']);
-  }
+
 
   /**
    * Setter pour erreur

@@ -15,7 +15,7 @@ export const routes: Routes = [
   },
   {
     canActivate: [noAuthGuard],
-    path: 'login',
+    path: 'login-mfa',
     loadComponent: () =>
       import('./features/front-office/auth/login/login.component').then(
         (m) => m.LoginComponent
@@ -23,7 +23,7 @@ export const routes: Routes = [
   },
   {
     canActivate: [noAuthGuard],
-    path: 'login-mfa',
+    path: 'login',
     loadComponent: () =>
       import('./features/front-office/auth/login-mfa/login-mfa.component').then(
         (m) => m.LoginMfaComponent
@@ -171,7 +171,7 @@ export const routes: Routes = [
   {
     path: 'admin',
     //canMatch: [adminCanMatch],
-    //canActivate: [roleGuard],
+    canActivate: [roleGuard],
     data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(

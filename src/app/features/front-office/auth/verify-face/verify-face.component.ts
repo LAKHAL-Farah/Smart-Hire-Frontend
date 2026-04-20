@@ -75,7 +75,7 @@ export class VerifyFaceComponent implements OnDestroy {
           localStorage.setItem('userName', res.data.userName);
           localStorage.setItem('email', res.data.email);
           localStorage.setItem('role', res.data.roles);
-          this.authService.redirectAfterLogin();
+          this.auth.redirectAfterLogin();
         }
       },
       error: (err) => {

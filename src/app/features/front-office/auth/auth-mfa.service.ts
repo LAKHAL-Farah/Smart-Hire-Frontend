@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { Router } from '@angular/router';
 
 @Injectable({ providedIn: 'root' })
 export class AuthMfaService {
   // Use environment.userApiUrl (dev points to port 8082)
   private baseUrl = 'http://localhost:8080/MS-USER';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private router: Router) {}
 
   loginMfa(email: string, password: string): Observable<any> {
     return this.http.post(`${this.baseUrl}/auth/login-mfa`, { email, password });
@@ -43,5 +44,20 @@ export class AuthMfaService {
     if (!ctx) return '';
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     return canvas.toDataURL('image/jpeg');
+  }
+  logout() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userName');
+    localStorage.removeItem('email');
+    localStorage.removeItem('role');
+  }
+  redirectAfterLogin(): void {
+    const role = localStorage.getItem('role');
+    if (role === 'recruiter') {
+      void this.router.navigate(['/admin']);
+    } else {
+      void this.router.navigate(['/dashboard']);
+    }
   }
 }

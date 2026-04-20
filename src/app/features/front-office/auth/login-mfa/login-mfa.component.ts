@@ -37,12 +37,12 @@ export class LoginMfaComponent {
         }
         if (res?.status === 'SUCCESS') {
           if (res?.status === 'SUCCESS') {
-          localStorage.setItem('auth_token', res.data.token);
-          localStorage.setItem('userId', res.data.userId);
+          localStorage.setItem('auth_token', res.data.Token);
+          localStorage.setItem('userId', res.data.UserId);
           localStorage.setItem('userName', res.data.userName);
           localStorage.setItem('email', res.data.email);
           localStorage.setItem('role', res.data.roles);
-          this.authService.redirectAfterLogin();
+          this.auth.redirectAfterLogin();
         }
         }
         this.error = res?.message || 'Erreur inattendue';

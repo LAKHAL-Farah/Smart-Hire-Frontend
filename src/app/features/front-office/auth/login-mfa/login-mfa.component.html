@@ -6,8 +6,8 @@
   <div class="auth-layout__right">
     <div class="auth-form-card">
       <div class="auth-form-card__header">
-        <h1 class="auth-form-card__title">Se connecter</h1>
-        <p class="auth-form-card__subtitle">Entrez vos identifiants</p>
+        <h1 class="auth-form-card__title">Connexion sécurisée</h1>
+        <p class="auth-form-card__subtitle">Veuillez vous authentifier pour continuer — utilisez votre mot de passe ou la méthode MFA configurée.</p>
       </div>
 
       <form class="auth-form" (ngSubmit)="onLogin()">
@@ -19,6 +19,7 @@
         </div>
 
         <div class="form-field">
+          
           <label class="form-field__label">Mot de passe</label>
           <input class="form-field__input" [(ngModel)]="password" name="password" type="password" required />
         </div>
@@ -31,6 +32,10 @@
 
       <p class="auth-form-card__footer">
         <a routerLink="/forgot-password" class="auth-link">Mot de passe oublié?</a>
+        <span style="margin:0 8px;color:var(--muted,#6b7280)">·</span>
+        <br>
+        Vous n'avez pas de compte?
+        <a routerLink="/register" class="auth-link">S'inscrire</a>
       </p>
     </div>
   </div>

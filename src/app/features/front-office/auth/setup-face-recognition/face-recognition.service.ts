@@ -51,7 +51,7 @@ export class FaceRecognitionService {
       image: imageBase64
     };
 
-    const userId = localStorage.getItem('UserId') || sessionStorage.getItem('UserId');
+    const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
     console.log('Enabling face recognition for user ID:', userId);
     return this.http.put<EnableFaceResponse>(
       `${this.baseUrl}/auth/enable-face-recognition/${userId}`,
@@ -68,14 +68,14 @@ export class FaceRecognitionService {
   /**
    * Désactiver la reconnaissance faciale
    */
-  disableFaceRecognition(): Observable<any> {
+  disableFaceRecognition(userId: string): Observable<any> {
     const headers = new HttpHeaders({
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.getAuthToken()}`
     });
-
+    
     return this.http.put(
-      `${this.baseUrl}/auth/disable-face-recognition`,
+      `${this.baseUrl}/auth/disable-face-recognition/${userId}`,
       {},
       { headers }
     );

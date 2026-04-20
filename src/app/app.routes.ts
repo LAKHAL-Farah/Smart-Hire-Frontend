@@ -15,10 +15,49 @@ export const routes: Routes = [
   },
   {
     canActivate: [noAuthGuard],
-    path: 'login',
+    path: 'login-mfa',
     loadComponent: () =>
       import('./features/front-office/auth/login/login.component').then(
         (m) => m.LoginComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'login',
+    loadComponent: () =>
+      import('./features/front-office/auth/login-mfa/login-mfa.component').then(
+        (m) => m.LoginMfaComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./features/front-office/auth/forgot-password/forgot-password.component').then(
+        (m) => m.ForgotPasswordComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'verify-face',
+    loadComponent: () =>
+      import('./features/front-office/auth/verify-face/verify-face.component').then(
+        (m) => m.VerifyFaceComponent
+      ),
+  },
+  {
+    path: 'setup-face-recognition',
+    loadComponent: () =>
+      import('./features/front-office/auth/setup-face-recognition/setup-face-recognition.component').then(
+        (m) => m.SetupFaceRecognitionComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./features/front-office/auth/reset-password/reset-password.component').then(
+        (m) => m.ResetPasswordComponent
       ),
   },
   {
@@ -139,7 +178,7 @@ export const routes: Routes = [
   {
     path: 'admin',
     //canMatch: [adminCanMatch],
-    //canActivate: [roleGuard],
+    canActivate: [roleGuard],
     data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
@@ -155,8 +194,8 @@ export const routes: Routes = [
       },
       {
         path: 'users',
-        canActivate: [roleGuard],
-        data: { requiredRoles: ['recruiter'] },
+        //canActivate: [roleGuard],
+      // data: { requiredRoles: ['recruiter'] },
         loadComponent: () =>
           import('./features/back-office/admin/users/user-management.component').then(
             (m) => m.UserManagementComponent

@@ -1,9 +1,15 @@
 export const environment = {
   production: true,
+  apiUrls: {
+    roadmap: '/msroadmap/api',
+    assessment: '/assessment-api'
+  },
+  apiUrl: '/msroadmap/api',
+  wsUrl: '/msroadmap/ws',
   userApiUrl: '/api/v1',
-  assessmentApiUrl: '/api/v1/assessment',
-  assessmentAdminApiKey: '',
-  devProfileUserUuid: '00000000-0000-4000-8000-000000000001',
-  localAuthFallback: false,
+  assessmentApiUrl: '/msroadmap/api/assessment',
+  assessmentAdminApiKey: 'dev-assessment-admin',
   openAdminPanelInDev: false,
+  localAuthFallback: false,
+  devProfileUserUuid: '1'
 };

@@ -141,7 +141,7 @@ export class RegisterComponent {
               JSON.stringify({
                 id: uid,
                 email: this.email.trim(),
-                name: `${firstName} ${lastName}`,
+                name: `${this.firstName} ${this.lastName}`,
                 role: this.selectedRole() === 'recruiter' ? 'recruiter' : 'user',
               })
             );

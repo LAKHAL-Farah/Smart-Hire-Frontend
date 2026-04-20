@@ -11,7 +11,7 @@ import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, AuthLeftPanelComponent, LUCIDE_ICONS],
   templateUrl: './reset-password.component.html',
-  styleUrl: './reset-password.component.scss'
+  styleUrls: ['./reset-password.component.scss']
 })
 export class ResetPasswordComponent {
   code = '';

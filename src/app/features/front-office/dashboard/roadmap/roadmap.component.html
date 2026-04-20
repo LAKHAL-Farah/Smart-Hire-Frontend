@@ -1,24 +1,38 @@
 <div class="scope-page">
-  <section class="scope-header">
-    <div>
-      <p class="scope-header__eyebrow">Scope of work</p>
-      <h1 class="scope-header__title">{{ roadmapTitle() }}</h1>
-      <p class="scope-header__sub">{{ roadmapSubtitle() }}</p>
+  <div class="bg-net" aria-hidden="true"></div>
+  <div class="depth-fog fog-1" aria-hidden="true"></div>
+  <div class="depth-fog fog-2" aria-hidden="true"></div>
+  <div class="depth-fog fog-3" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <header class="roadmap-header">
+    <div class="header-left">
+      <span class="header-icon" aria-hidden="true">🗺️</span>
+      <div>
+        <h1>Engineering Career Map</h1>
+        <p>{{ roadmapSubtitle() }}</p>
+      </div>
     </div>
-    <div class="scope-header__actions">
-      <a class="btn-ghost" aria-label="Open roadmap progress view" routerLink="/dashboard/roadmap/progress">Progress</a>
-      <a class="btn-ghost" aria-label="Open roadmap milestones" routerLink="/dashboard/roadmap/milestones">Milestones</a>
-      <a class="btn-ghost" aria-label="Open roadmap notifications" routerLink="/dashboard/roadmap/notifications">Notifications</a>
-      <a class="btn-primary-grad" aria-label="Open roadmap replan wizard" routerLink="/dashboard/roadmap/replan">Replan Wizard</a>
+
+    <div class="header-stats">
+      <span>{{ headerTrackCount() }} career tracks</span>
+      <span>{{ headerMilestoneCount() }} milestones</span>
     </div>
+  </header>
+
+  <section class="roadmap-header-actions">
+    <a class="btn-ghost" aria-label="Open roadmap progress view" routerLink="/dashboard/roadmap/progress">Progress</a>
+    <a class="btn-ghost" aria-label="Open roadmap milestones" routerLink="/dashboard/roadmap/milestones">Milestones</a>
+    <a class="btn-ghost" aria-label="Open roadmap notifications" routerLink="/dashboard/roadmap/notifications">Notifications</a>
+    <a class="btn-primary-grad" aria-label="Open roadmap replan wizard" routerLink="/dashboard/roadmap/replan">Replan Wizard</a>
   </section>
 
-  @if (roadmapCards().length > 0) {
+  @if (roadmapVisualCards().length > 0) {
     <section class="roadmap-hub" aria-label="Roadmap hub">
       <div class="roadmap-hub__head">
         <div>
-          <p class="roadmap-hub__eyebrow">Roadmap Hub</p>
-          <h2>All your roadmaps in one compact view</h2>
+          <p class="roadmap-hub__eyebrow">Career Grid</p>
+          <h2>Choose your path. Conquer the islands.</h2>
         </div>
         <p class="roadmap-hub__summary">
           {{ roadmapHubStats().total }} total · {{ roadmapHubStats().completed }} completed · {{ roadmapHubStats().active }} active
@@ -26,30 +40,153 @@
       </div>
 
       <div class="roadmap-hub__grid">
-        @for (roadmap of roadmapCards(); track roadmap.id) {
+        @for (card of roadmapVisualCards(); track card.id) {
           <button
             type="button"
-            class="roadmap-hub-card"
-            [class.roadmap-hub-card--active]="isRoadmapSelected(roadmap.id)"
-            [attr.aria-pressed]="isRoadmapSelected(roadmap.id)"
-            [attr.aria-label]="'Open ' + roadmap.title + ' roadmap'"
-            (click)="openRoadmap(roadmap.id)">
-            <div class="roadmap-hub-card__head">
-              <h3>{{ roadmap.title }}</h3>
-              <span
-                class="roadmap-hub-card__status"
-                [class.roadmap-hub-card__status--active]="roadmap.statusTone === 'active'"
-                [class.roadmap-hub-card__status--completed]="roadmap.statusTone === 'completed'"
-                [class.roadmap-hub-card__status--paused]="roadmap.statusTone === 'paused'"
-                [class.roadmap-hub-card__status--other]="roadmap.statusTone === 'other'">
-                {{ roadmap.statusLabel }}
-              </span>
+            class="career-card"
+            [class.career-card--active]="isRoadmapSelected(card.id)"
+            [attr.aria-pressed]="isRoadmapSelected(card.id)"
+            [attr.aria-label]="'Open ' + card.title + ' roadmap'"
+            [style.--career-color]="card.color"
+            [style.--career-rgb]="card.colorRgb"
+            (click)="openRoadmap(card.id)">
+            <div class="card-map-side">
+              <div class="diff-badge">
+                <span class="diff-label">{{ card.difficulty }}</span>
+              </div>
+
+              <svg class="career-map-svg" viewBox="0 0 280 140" role="img" [attr.aria-label]="card.title + ' map preview'">
+                <defs>
+                  <radialGradient [attr.id]="'mini-ocean-' + card.id" cx="36%" cy="62%" r="88%">
+                    <stop offset="0%" stop-color="#041428"></stop>
+                    <stop offset="100%" stop-color="#020a14"></stop>
+                  </radialGradient>
+                  <filter [attr.id]="'card-blur8-' + card.id">
+                    <feGaussianBlur stdDeviation="8"></feGaussianBlur>
+                  </filter>
+                  <filter [attr.id]="'card-blur2-' + card.id">
+                    <feGaussianBlur stdDeviation="2"></feGaussianBlur>
+                  </filter>
+                  <radialGradient [attr.id]="'card-terrain-' + card.id" cx="38%" cy="34%" r="64%">
+                    <stop offset="0%" stop-color="#0f2535"></stop>
+                    <stop offset="55%" stop-color="#081820"></stop>
+                    <stop offset="100%" stop-color="#040e18"></stop>
+                  </radialGradient>
+                </defs>
+
+                <rect x="0" y="0" width="280" height="140" [attr.fill]="'url(#mini-ocean-' + card.id + ')'">
+                </rect>
+
+                <polyline
+                  [attr.points]="card.routePoints"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="10"
+                  opacity="0.08"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  [attr.filter]="'url(#card-blur8-' + card.id + ')'">
+                </polyline>
+                <polyline
+                  [attr.points]="card.routePoints"
+                  fill="none"
+                  [attr.stroke]="card.color"
+                  stroke-width="5"
+                  opacity="0.3"
+                  stroke-linecap="round"
+                  [attr.filter]="'url(#card-blur2-' + card.id + ')'">
+                </polyline>
+                <polyline
+                  [attr.points]="card.routePoints"
+                  fill="none"
+                  stroke="white"
+                  stroke-width="1.4"
+                  opacity="0.9"
+                  stroke-linecap="round"
+                  stroke-dasharray="10 5"
+                  class="route-dash"
+                  [style.animation-duration.s]="card.dashDuration">
+                </polyline>
+
+                <path
+                  [attr.d]="card.islandPath"
+                  fill="none"
+                  [attr.stroke]="card.color"
+                  stroke-width="10"
+                  opacity="0.15"
+                  [attr.filter]="'url(#card-blur8-' + card.id + ')'">
+                </path>
+                <path
+                  [attr.d]="card.islandPath"
+                  fill="none"
+                  [attr.stroke]="card.color"
+                  stroke-width="4"
+                  opacity="0.58"
+                  [attr.filter]="'url(#card-blur2-' + card.id + ')'">
+                </path>
+                <path [attr.d]="card.islandPath" [attr.fill]="'url(#card-terrain-' + card.id + ')'" opacity="0.95"></path>
+                <path [attr.d]="card.islandInsetOne" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"></path>
+                <path [attr.d]="card.islandInsetTwo" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.8"></path>
+                <path [attr.d]="card.islandPath" fill="none" [attr.stroke]="card.color" stroke-width="1.4" opacity="0.9"></path>
+
+                @for (satellitePath of card.satellitePaths; track $index) {
+                  <path [attr.d]="satellitePath" fill="#081b2d" stroke="rgba(255,255,255,0.14)" stroke-width="1"></path>
+                }
+
+                @for (point of card.waypoints; track $index) {
+                  <rect
+                    [attr.x]="point.x - 4"
+                    [attr.y]="point.y - 4"
+                    width="8"
+                    height="8"
+                    rx="2"
+                    fill="#030d1a"
+                    [attr.stroke]="card.color"
+                    stroke-width="1"
+                    [attr.transform]="'rotate(45 ' + point.x + ' ' + point.y + ')'">
+                  </rect>
+                }
+
+                <circle r="3.5" fill="white" opacity="0.95">
+                  <animateMotion [attr.dur]="card.dashDuration + 's'" repeatCount="indefinite" [attr.path]="card.routePath"></animateMotion>
+                </circle>
+
+                <g [attr.transform]="'translate(' + card.waypoints[0].x + ',' + (card.waypoints[0].y - 12) + ')'">
+                  <rect x="-18" y="-9" width="36" height="14" rx="2" fill="#030d1a" [attr.stroke]="card.color" stroke-width="0.8" opacity="0.9"></rect>
+                  <text x="0" y="1" text-anchor="middle" font-size="7" font-family="monospace" [attr.fill]="card.color" letter-spacing="1">START</text>
+                </g>
+
+                <g [attr.transform]="'translate(' + card.waypoints[card.waypoints.length - 1].x + ',' + (card.waypoints[card.waypoints.length - 1].y - 12) + ')'">
+                  <rect x="-20" y="-9" width="40" height="14" rx="2" [attr.fill]="card.color" opacity="0.88"></rect>
+                  <text x="0" y="1" text-anchor="middle" font-size="7" font-family="monospace" fill="#030d1a" font-weight="700" letter-spacing="1">FINISH</text>
+                </g>
+              </svg>
+
+              <span class="map-distance">{{ card.completedSteps }} / {{ card.totalSteps }} milestones</span>
             </div>
 
-            <div class="roadmap-hub-card__meta">
-              <span>{{ roadmap.completedSteps }} / {{ roadmap.totalSteps }} steps</span>
-              <span>Score {{ roadmap.scorePercent }}%</span>
-              <span>{{ roadmap.startedLabel }}</span>
+            <div class="card-info-side">
+              <div class="card-top">
+                <div class="card-title-row">
+                  <h3 class="career-name">{{ card.title }}</h3>
+                  <span class="career-rating">★ {{ card.rating }}</span>
+                </div>
+                <p class="career-tagline">{{ card.tagline }}</p>
+              </div>
+
+              <div class="card-bottom">
+                <div class="card-tags">
+                  <span class="tag">{{ card.tags[0] }}</span>
+                  <span class="tag">{{ card.tags[1] }}</span>
+                  <span class="tag">{{ card.statusLabel }}</span>
+                </div>
+
+                <div class="card-bottom__actions">
+                  <span class="career-icon">{{ card.icon }}</span>
+                  <span class="score-chip">{{ card.scorePercent }}%</span>
+                  <span class="card-cta" aria-hidden="true">→</span>
+                </div>
+              </div>
             </div>
           </button>
         }
@@ -88,67 +225,277 @@
   @if (filteredSteps().length > 0) {
     <section class="scope-layout">
       <article class="scope-visual" [class.scope-visual--quiz-open]="quizSession()">
-        <div class="scope-visual__halo scope-visual__halo--one"></div>
-        <div class="scope-visual__halo scope-visual__halo--two"></div>
+        <button
+          type="button"
+          class="map-back-btn"
+          [disabled]="quizSession() || expandedStep() == null"
+          (click)="clearFocusedStep()"
+          aria-label="Clear selected milestone">
+          ←
+        </button>
 
-        <div class="scope-radar">
-          <div class="scope-radar__ring scope-radar__ring--outer"></div>
-          <div class="scope-radar__ring scope-radar__ring--inner"></div>
+        <svg class="island-map" viewBox="0 0 1200 700" role="img" aria-label="Fantasy roadmap island map">
+          <defs>
+            <pattern id="islandGrid" width="44" height="44" patternUnits="userSpaceOnUse">
+              <path d="M 44 0 L 0 0 0 44" fill="none" stroke="rgba(0,180,255,0.06)" stroke-width="1"></path>
+            </pattern>
 
-          @for (step of filteredSteps(); track step.number; let i = $index) {
-            <div
-              class="orbit-node-wrap"
-              [class.orbit-node-wrap--active]="expandedStep() === step.number"
-              [style.--orbit-index]="i"
-              [style.--orbit-count]="filteredSteps().length"
-            >
-              <button
-                type="button"
-                class="orbit-node"
-                [class.orbit-node--active]="expandedStep() === step.number"
-                [class.orbit-node--done]="step.status === 'done'"
-                [class.orbit-node--progress]="step.status === 'in-progress'"
-                [class.orbit-node--locked]="isStepLocked(step)"
-                [attr.aria-label]="
-                  step.title +
-                  ', ' +
-                  (step.status === 'done' ? 'completed' : step.status === 'in-progress' ? 'in progress' : isStepLocked(step) ? 'locked' : 'pending') +
-                  ', estimated ' +
-                  step.estimatedTime
-                "
-                [attr.title]="step.title + ' • ' + step.estimatedTime"
-                (click)="toggleStep(step.number)"
-              >
-                <span class="orbit-node__pin">
-                  @if (step.status === 'done') {
-                    <lucide-icon name="check" [size]="12"></lucide-icon>
-                  }
-                </span>
-                <span class="orbit-node__tag">{{ step.number }}</span>
-                <span class="orbit-node__title">{{ step.title }}</span>
-                <span class="orbit-node__meta">
-                  {{ step.status === 'done' ? 'Done' : step.status === 'in-progress' ? 'In progress' : isStepLocked(step) ? 'Locked' : 'Pending' }}
-                  • {{ step.estimatedTime }}
-                </span>
-              </button>
-            </div>
+            <filter id="blur2">
+              <feGaussianBlur stdDeviation="2"></feGaussianBlur>
+            </filter>
+            <filter id="blur8">
+              <feGaussianBlur stdDeviation="8"></feGaussianBlur>
+            </filter>
+            <filter id="glow-sm">
+              <feGaussianBlur stdDeviation="2" result="blur"></feGaussianBlur>
+              <feMerge>
+                <feMergeNode in="blur"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+              </feMerge>
+            </filter>
+            <filter id="glow-lg">
+              <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+              <feMerge>
+                <feMergeNode in="blur"></feMergeNode>
+                <feMergeNode in="SourceGraphic"></feMergeNode>
+              </feMerge>
+            </filter>
+
+            <radialGradient id="oceanVignette" cx="50%" cy="50%" r="64%">
+              <stop offset="40%" stop-color="rgba(0,0,0,0)"></stop>
+              <stop offset="100%" stop-color="rgba(2,10,20,0.94)"></stop>
+            </radialGradient>
+
+            @for (milestone of mapMilestones(); track milestone.step.number) {
+              <radialGradient
+                [attr.id]="milestone.gradientId"
+                [attr.cx]="milestone.terrainCx"
+                [attr.cy]="milestone.terrainCy"
+                r="60%">
+                <stop offset="0%" stop-color="#0f2535"></stop>
+                <stop offset="52%" stop-color="#081820"></stop>
+                <stop offset="100%" stop-color="#040e18"></stop>
+              </radialGradient>
+            }
+          </defs>
+
+          <rect x="0" y="0" width="1200" height="700" fill="#030d1a"></rect>
+          <rect x="0" y="0" width="1200" height="700" fill="url(#islandGrid)" opacity="0.65"></rect>
+
+          <ellipse cx="220" cy="520" rx="340" ry="220" fill="rgba(0,100,200,0.08)"></ellipse>
+          <ellipse cx="980" cy="120" rx="320" ry="190" fill="rgba(0,180,120,0.06)"></ellipse>
+          <ellipse cx="640" cy="320" rx="300" ry="200" fill="rgba(80,0,200,0.05)"></ellipse>
+
+          @if (mapRoutePath()) {
+            <path
+              [attr.d]="mapRoutePath()"
+              fill="none"
+              stroke="white"
+              stroke-width="12"
+              opacity="0.1"
+              stroke-linecap="round"
+              [attr.filter]="'url(#blur8)'">
+            </path>
+            <path
+              [attr.d]="mapRoutePath()"
+              fill="none"
+              stroke="#00d4ff"
+              stroke-width="4"
+              opacity="0.32"
+              stroke-linecap="round"
+              [attr.filter]="'url(#blur2)'">
+            </path>
+            <path
+              [attr.d]="mapRoutePath()"
+              fill="none"
+              stroke="white"
+              stroke-width="1.5"
+              opacity="0.9"
+              stroke-dasharray="10 6"
+              class="route-dash route-dash--map">
+            </path>
+
+            <circle r="4" fill="white" opacity="0.95" [attr.filter]="'url(#glow-sm)'">
+              <animateMotion dur="4.4s" repeatCount="indefinite" [attr.path]="mapRoutePath()"></animateMotion>
+            </circle>
           }
 
-          <div class="scope-core">
-            <p class="scope-core__eyebrow">Progress Core</p>
-            <h2>{{ progressPct() }}%</h2>
-            <p>{{ completedCount }} done • {{ steps.length - completedCount }} left</p>
-          </div>
-        </div>
+          @if (mapStartNode(); as startNode) {
+            <g [attr.transform]="'translate(' + startNode.x + ',' + (startNode.y - 16) + ')'">
+              <rect x="-18" y="-10" width="36" height="14" rx="2" fill="#030d1a" [attr.stroke]="startNode.color" stroke-width="0.8" opacity="0.95"></rect>
+              <text x="0" y="0" text-anchor="middle" font-size="7" font-family="monospace" [attr.fill]="startNode.color" letter-spacing="1">START</text>
+            </g>
+          }
+
+          @if (mapFinishNode(); as finishNode) {
+            <g [attr.transform]="'translate(' + finishNode.x + ',' + (finishNode.y - 16) + ')'">
+              <rect x="-20" y="-10" width="40" height="14" rx="2" [attr.fill]="finishNode.color" opacity="0.9"></rect>
+              <text x="0" y="0" text-anchor="middle" font-size="7" font-family="monospace" fill="#030d1a" font-weight="700" letter-spacing="1">FINISH</text>
+            </g>
+          }
+
+          @for (decor of mapDecorativeIslands(); track decor.id) {
+            <path [attr.d]="decor.path" fill="#071a2a" stroke="rgba(0,212,255,0.24)" stroke-width="1"></path>
+          }
+
+          @for (cloud of mapCloudPuffs(); track cloud.id) {
+            <g [attr.transform]="'translate(' + cloud.x + ',' + cloud.y + ')'" [attr.opacity]="cloud.opacity">
+              <ellipse cx="0" cy="0" [attr.rx]="cloud.rx" [attr.ry]="cloud.ry" fill="rgba(219,238,255,0.2)"></ellipse>
+              <ellipse cx="-24" cy="8" [attr.rx]="cloud.rx * 0.58" [attr.ry]="cloud.ry * 0.72" fill="rgba(219,238,255,0.16)"></ellipse>
+              <ellipse cx="22" cy="6" [attr.rx]="cloud.rx * 0.5" [attr.ry]="cloud.ry * 0.66" fill="rgba(219,238,255,0.14)"></ellipse>
+            </g>
+          }
+
+          @for (milestone of mapMilestones(); track milestone.step.number) {
+            <g
+              class="map-node"
+              [class.map-node--active]="milestone.selected"
+              [attr.transform]="'translate(' + milestone.x + ',' + milestone.y + ')'"
+              (click)="focusStep(milestone.step)">
+              <path
+                [attr.d]="milestone.path"
+                fill="none"
+                [attr.stroke]="milestone.color"
+                stroke-width="12"
+                opacity="0.15"
+                [attr.filter]="'url(#blur8)'">
+              </path>
+              <path
+                [attr.d]="milestone.path"
+                fill="none"
+                [attr.stroke]="milestone.color"
+                stroke-width="4"
+                opacity="0.56"
+                [attr.filter]="'url(#blur2)'">
+              </path>
+              <path [attr.d]="milestone.path" [attr.fill]="'url(#' + milestone.gradientId + ')'" opacity="0.96"></path>
+              <path [attr.d]="milestone.insetOne" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"></path>
+              <path [attr.d]="milestone.insetTwo" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.8"></path>
+              <path [attr.d]="milestone.path" fill="none" [attr.stroke]="milestone.color" stroke-width="1.5" opacity="0.9"></path>
+
+              @if (milestone.major) {
+                <g [attr.transform]="'translate(' + (-8) + ',' + (-milestone.size * 0.82) + ')'" class="map-castle">
+                  <rect x="0" y="4" width="16" height="11" rx="1.5" fill="#0a1220" stroke="#ff6b00" stroke-width="1"></rect>
+                  <rect x="4" y="-2" width="8" height="8" rx="1" fill="#0a1220" stroke="#ff6b00" stroke-width="1"></rect>
+                </g>
+              }
+
+              @if (milestone.selected) {
+                <circle r="58" fill="none" [attr.stroke]="milestone.color" stroke-width="1.6" opacity="0.7" class="selected-ring"></circle>
+              }
+
+              <g class="node-pin" [attr.filter]="'url(#glow-sm)'">
+                <circle r="0" fill="none" [attr.stroke]="milestone.color" stroke-width="1" opacity="0">
+                  <animate attributeName="r" values="12;22" dur="2s" repeatCount="indefinite"></animate>
+                  <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite"></animate>
+                </circle>
+
+                <rect
+                  [attr.x]="milestone.major ? -13 : -11"
+                  [attr.y]="milestone.major ? -13 : -11"
+                  [attr.width]="milestone.major ? 26 : 22"
+                  [attr.height]="milestone.major ? 26 : 22"
+                  rx="4"
+                  fill="rgba(3,13,26,0.9)"
+                  [attr.stroke]="milestone.color"
+                  [attr.stroke-width]="milestone.major ? 2 : 1.2">
+                </rect>
+
+                <g
+                  transform="translate(-7, -7)"
+                  color="rgba(255,255,255,0.86)"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round">
+                  @switch (milestone.icon) {
+                    @case ('math') {
+                      <line x1="2" y1="12" x2="12" y2="2"></line>
+                      <line x1="2" y1="7" x2="7" y2="2"></line>
+                      <line x1="7" y1="12" x2="12" y2="7"></line>
+                    }
+                    @case ('code') {
+                      <polyline points="3,5 1,7 3,9"></polyline>
+                      <polyline points="11,5 13,7 11,9"></polyline>
+                      <line x1="8" y1="3" x2="6" y2="11"></line>
+                    }
+                    @case ('database') {
+                      <ellipse cx="7" cy="4" rx="5" ry="2"></ellipse>
+                      <line x1="2" y1="4" x2="2" y2="10"></line>
+                      <line x1="12" y1="4" x2="12" y2="10"></line>
+                      <ellipse cx="7" cy="10" rx="5" ry="2"></ellipse>
+                    }
+                    @case ('shield') {
+                      <path d="M7,1 L13,4 L13,8 C13,11 10,13 7,14 C4,13 1,11 1,8 L1,4 Z"></path>
+                    }
+                    @case ('cloud') {
+                      <path d="M3,10 C1,10 1,7 3,7 C3,5 5,3 7,4 C8,2 12,2 12,6 C14,6 14,10 12,10 Z"></path>
+                    }
+                    @case ('rocket') {
+                      <path d="M7,13 L7,8 M5,10 L2,13 M9,10 L12,13"></path>
+                      <path d="M4,8 C4,4 7,1 7,1 C7,1 10,4 10,8"></path>
+                    }
+                    @case ('gear') {
+                      <circle cx="7" cy="7" r="2.5"></circle>
+                      <line x1="7" y1="1" x2="7" y2="3"></line>
+                      <line x1="7" y1="11" x2="7" y2="13"></line>
+                      <line x1="1" y1="7" x2="3" y2="7"></line>
+                      <line x1="11" y1="7" x2="13" y2="7"></line>
+                      <line x1="2.3" y1="2.3" x2="3.8" y2="3.8"></line>
+                      <line x1="10.2" y1="10.2" x2="11.7" y2="11.7"></line>
+                      <line x1="2.3" y1="11.7" x2="3.8" y2="10.2"></line>
+                      <line x1="10.2" y1="3.8" x2="11.7" y2="2.3"></line>
+                    }
+                    @default {
+                      <rect x="1" y="2" width="12" height="9" rx="1"></rect>
+                      <circle cx="7" cy="11" r="2"></circle>
+                      <line x1="5" y1="13" x2="9" y2="13"></line>
+                    }
+                  }
+                </g>
+              </g>
+
+              <g [attr.transform]="'translate(0,' + (milestone.size + 20) + ')'" class="milestone-caption">
+                <circle cx="-24" cy="0" r="10" fill="#030d1a" [attr.stroke]="milestone.color" stroke-width="1"></circle>
+                <text x="-24" y="3" text-anchor="middle" font-size="9" fill="white">{{ milestone.step.number }}</text>
+                <text x="-10" y="3" text-anchor="start" font-size="11" fill="rgba(221,236,255,0.9)">{{ milestone.shortLabel }}</text>
+              </g>
+            </g>
+          }
+
+          @for (particle of mapParticles(); track particle.id) {
+            <circle [attr.cx]="particle.x" [attr.cy]="particle.y" [attr.r]="particle.radius" fill="rgba(200,240,255,0.95)" [attr.opacity]="particle.opacity" pointer-events="none">
+              <animate
+                attributeName="cy"
+                [attr.values]="particle.y + ';' + (particle.y - particle.drift) + ';' + particle.y"
+                [attr.dur]="particle.duration + 's'"
+                [attr.begin]="particle.delay + 's'"
+                repeatCount="indefinite">
+              </animate>
+            </circle>
+          }
+
+          <g class="compass-rose" transform="translate(1085 610)" pointer-events="none">
+            <circle r="38" fill="rgba(3,13,26,0.68)" stroke="rgba(0,212,255,0.45)" stroke-width="1.2"></circle>
+            <path d="M0,-28 L8,-8 L0,0 L-8,-8 Z" fill="rgba(0,212,255,0.55)"></path>
+            <path d="M0,28 L8,8 L0,0 L-8,8 Z" fill="rgba(255,107,0,0.5)"></path>
+            <line x1="-26" y1="0" x2="26" y2="0" stroke="rgba(196,228,255,0.45)" stroke-width="1"></line>
+            <line x1="0" y1="-26" x2="0" y2="26" stroke="rgba(196,228,255,0.45)" stroke-width="1"></line>
+            <text x="0" y="-34" text-anchor="middle" fill="rgba(196,228,255,0.7)" font-size="9" letter-spacing="1">N</text>
+          </g>
+
+          <rect x="0" y="0" width="1200" height="700" fill="url(#oceanVignette)" pointer-events="none"></rect>
+        </svg>
 
         <div class="scope-legend">
-          <span><i class="dot dot--done"></i> Done</span>
-          <span><i class="dot dot--progress"></i> In progress</span>
-          <span><i class="dot dot--pending"></i> Pending</span>
-          <span><i class="dot dot--next"></i> Next: {{ nextThreeSteps().length }}</span>
+          <span><i class="dot dot--done"></i> Completed islands</span>
+          <span><i class="dot dot--progress"></i> In-progress islands</span>
+          <span><i class="dot dot--pending"></i> Pending islands</span>
+          <span><i class="dot dot--next"></i> Upcoming: {{ nextThreeSteps().length }}</span>
         </div>
 
-        <p class="scope-legend__hint">Tip: Select a node to view details, then use Prev/Next for faster navigation.</p>
+        <p class="scope-legend__hint">Click an island to sync the right panel, resources, and workspace actions.</p>
 
         @if (quizSession(); as quiz) {
           <section class="quiz-lock" role="dialog" aria-modal="true" aria-label="Node quiz exam mode">
@@ -262,486 +609,453 @@
       </article>
 
       <aside class="scope-panel" [class.scope-panel--disabled]="quizSession()">
-        <section class="scope-panel__summary">
-          <h3>{{ miniPanelCareer() }}</h3>
-          <p>{{ completionEstimate() }}</p>
-
-          <div class="scope-panel__stat-grid">
-            <article class="scope-panel__stat-card">
-              <span>Completed</span>
-              <strong>{{ completedCount }}</strong>
-            </article>
-            <article class="scope-panel__stat-card">
-              <span>Remaining</span>
-              <strong>{{ steps.length - completedCount }}</strong>
-            </article>
-            <article class="scope-panel__stat-card">
-              <span>Next Up</span>
-              <strong>{{ nextThreeSteps().length }}</strong>
-            </article>
+        <section class="step-panel">
+          <div class="step-panel__head">
+            <div>
+              <p class="step-panel__eyebrow">Milestone Console</p>
+              <h3>{{ miniPanelCareer() }}</h3>
+            </div>
+            <button
+              type="button"
+              class="step-panel__clear"
+              [disabled]="expandedStep() == null || quizSession()"
+              (click)="clearFocusedStep()">
+              Clear
+            </button>
           </div>
 
-          <div class="scope-panel__ring-wrap">
-            <svg width="96" height="96" viewBox="0 0 100 100">
-              <defs>
-                <linearGradient id="panelRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stop-color="#52ffd8"/>
-                  <stop offset="100%" stop-color="#2ed1ff"/>
-                </linearGradient>
-              </defs>
-              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="7"/>
-              <circle cx="50" cy="50" r="44" fill="none" stroke="url(#panelRingGrad)" stroke-width="7"
-                stroke-linecap="round"
-                [attr.stroke-dasharray]="ringCircum"
-                [attr.stroke-dashoffset]="ringOffset()"
-                style="transform: rotate(-90deg); transform-origin: center;"
-              />
-            </svg>
-            <strong>{{ progressPct() }}%</strong>
+          <p class="step-panel__meta">{{ completionEstimate() }}</p>
+
+          <div class="progress-track" aria-label="Roadmap progress">
+            <div class="progress-fill" [style.width.%]="progressPct()"></div>
+          </div>
+
+          <div class="step-list" role="list">
+            @for (step of filteredSteps(); track step.number) {
+              <button
+                type="button"
+                class="step-row"
+                role="listitem"
+                [class.active]="expandedStep() === step.number"
+                [class.completed]="step.status === 'done'"
+                [attr.aria-label]="'Open detail for step ' + step.number + ': ' + step.title"
+                (click)="focusStep(step)">
+                <span class="step-row__icon" [class.step-row__icon--major]="isMajorMilestoneStep(step)">
+                  <svg
+                    viewBox="0 0 14 14"
+                    color="rgba(255,255,255,0.88)"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    fill="none"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true">
+                    @switch (stepIcon(step)) {
+                      @case ('math') {
+                        <line x1="2" y1="12" x2="12" y2="2"></line>
+                        <line x1="2" y1="7" x2="7" y2="2"></line>
+                        <line x1="7" y1="12" x2="12" y2="7"></line>
+                      }
+                      @case ('code') {
+                        <polyline points="3,5 1,7 3,9"></polyline>
+                        <polyline points="11,5 13,7 11,9"></polyline>
+                        <line x1="8" y1="3" x2="6" y2="11"></line>
+                      }
+                      @case ('database') {
+                        <ellipse cx="7" cy="4" rx="5" ry="2"></ellipse>
+                        <line x1="2" y1="4" x2="2" y2="10"></line>
+                        <line x1="12" y1="4" x2="12" y2="10"></line>
+                        <ellipse cx="7" cy="10" rx="5" ry="2"></ellipse>
+                      }
+                      @case ('shield') {
+                        <path d="M7,1 L13,4 L13,8 C13,11 10,13 7,14 C4,13 1,11 1,8 L1,4 Z"></path>
+                      }
+                      @case ('cloud') {
+                        <path d="M3,10 C1,10 1,7 3,7 C3,5 5,3 7,4 C8,2 12,2 12,6 C14,6 14,10 12,10 Z"></path>
+                      }
+                      @case ('rocket') {
+                        <path d="M7,13 L7,8 M5,10 L2,13 M9,10 L12,13"></path>
+                        <path d="M4,8 C4,4 7,1 7,1 C7,1 10,4 10,8"></path>
+                      }
+                      @case ('gear') {
+                        <circle cx="7" cy="7" r="2.5"></circle>
+                        <line x1="7" y1="1" x2="7" y2="3"></line>
+                        <line x1="7" y1="11" x2="7" y2="13"></line>
+                        <line x1="1" y1="7" x2="3" y2="7"></line>
+                        <line x1="11" y1="7" x2="13" y2="7"></line>
+                        <line x1="2.3" y1="2.3" x2="3.8" y2="3.8"></line>
+                        <line x1="10.2" y1="10.2" x2="11.7" y2="11.7"></line>
+                        <line x1="2.3" y1="11.7" x2="3.8" y2="10.2"></line>
+                        <line x1="10.2" y1="3.8" x2="11.7" y2="2.3"></line>
+                      }
+                      @default {
+                        <rect x="1" y="2" width="12" height="9" rx="1"></rect>
+                        <circle cx="7" cy="11" r="2"></circle>
+                        <line x1="5" y1="13" x2="9" y2="13"></line>
+                      }
+                    }
+                  </svg>
+                </span>
+
+                <div class="step-row__content">
+                  <div class="step-row__top">
+                    <strong>Step {{ step.number }}</strong>
+                    @if (isMajorMilestoneStep(step)) {
+                      <span class="step-row__badge">MAJOR</span>
+                    }
+                  </div>
+                  <h4>{{ step.title }}</h4>
+                  <p>{{ step.description }}</p>
+
+                  <div class="step-row__chips">
+                    <span>{{ step.estimatedTime }}</span>
+                    <span>{{ stepStatusLabel(step) }}</span>
+                    <span>{{ hasQuizPassed(step.number) ? 'Quiz passed' : 'Quiz pending' }}</span>
+                  </div>
+
+                  <span class="step-row__detail-link">Open detail</span>
+                </div>
+
+                <span class="step-row__done" aria-hidden="true">{{ step.status === 'done' ? '✓' : '•' }}</span>
+              </button>
+            }
           </div>
         </section>
 
-        <section class="scope-panel__detail-shell">
-          <p class="scope-panel__label">Node Detail</p>
-
-          @if (expandedStepData(); as step) {
-            <section class="scope-panel__detail" (click)="$event.stopPropagation()">
-              <div class="scope-panel__detail-nav">
+        @if (expandedStepData(); as step) {
+          <section
+            class="scope-panel__overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Node detail popup"
+            (click)="clearFocusedStep()">
+            <section class="scope-panel__detail-shell scope-panel__detail-shell--modal" (click)="$event.stopPropagation()">
+              <div class="scope-panel__modal-head">
+                <p class="scope-panel__label">Node Detail</p>
                 <button
                   type="button"
-                  class="scope-panel__nav-btn"
-                  [disabled]="!canOpenPreviousStep()"
-                  (click)="openPreviousStep()">
-                  Prev
-                </button>
-
-                <p class="scope-panel__detail-meta">
-                  Step {{ step.number }} / {{ filteredSteps().length }} • {{ step.estimatedTime }}
-                </p>
-
-                <button
-                  type="button"
-                  class="scope-panel__nav-btn"
-                  [disabled]="!canOpenNextStep()"
-                  (click)="openNextStep()">
-                  Next
+                  class="step-panel__clear"
+                  (click)="clearFocusedStep()">
+                  Close
                 </button>
               </div>
 
-              <div class="scope-panel__detail-head">
-                <h4>{{ step.title }}</h4>
-                <span>{{ step.status === 'done' ? 'Completed' : step.status === 'in-progress' ? 'In progress' : 'Pending' }}</span>
-              </div>
-              <p>{{ step.description }}</p>
+              <section class="scope-panel__detail">
+                <div class="scope-panel__detail-nav">
+                  <button
+                    type="button"
+                    class="scope-panel__nav-btn"
+                    [disabled]="!canOpenPreviousStep()"
+                    (click)="openPreviousStep()">
+                    Prev
+                  </button>
 
-              <div class="scope-panel__tabs">
-                <button
-                  type="button"
-                  class="scope-panel__tab"
-                  role="tab"
-                  [attr.aria-selected]="activeResourceTab() === 'resources'"
-                  [class.scope-panel__tab--active]="activeResourceTab() === 'resources'"
-                  (click)="activeResourceTab.set('resources')"
-                >
-                  Resources
-                </button>
-                <button
-                  type="button"
-                  class="scope-panel__tab"
-                  role="tab"
-                  [attr.aria-selected]="activeResourceTab() === 'ai-tutor'"
-                  [class.scope-panel__tab--active]="activeResourceTab() === 'ai-tutor'"
-                  (click)="activeResourceTab.set('ai-tutor')"
-                >
-                  AI Tutor
-                </button>
-              </div>
+                  <p class="scope-panel__detail-meta">
+                    Step {{ step.number }} / {{ filteredSteps().length }} • {{ step.estimatedTime }}
+                  </p>
 
-              @if (activeResourceTab() === 'resources') {
-                <div class="scope-resources">
-                  @if (step.resourcesLoading) {
-                    <p class="scope-resources__state">Loading resources...</p>
-                  } @else {
-                    <div class="scope-resource-block">
-                      <p class="scope-resource-block__title">Free resources</p>
-                      @if (expandedStepBuckets().free.length === 0) {
-                        <p class="scope-resources__state">No free references found yet for this node.</p>
-                      } @else {
-                        @for (res of expandedStepBuckets().free; track res.url) {
-                          <a class="scope-resource" [href]="res.url" target="_blank" rel="noopener">
-                            <span class="scope-resource__icon" [class]="'scope-resource__icon--' + res.type">
-                              @if (res.type === 'video') {
-                                <lucide-icon name="play" [size]="14"></lucide-icon>
-                              } @else if (res.type === 'article') {
-                                <lucide-icon name="file-text" [size]="14"></lucide-icon>
-                              } @else {
-                                <lucide-icon name="graduation-cap" [size]="14"></lucide-icon>
-                              }
-                            </span>
-                            <span class="scope-resource__meta">
-                              <strong>{{ res.title }}</strong>
-                              <small>{{ res.source }}</small>
-                            </span>
-                            <span class="scope-resource__pill">{{ res.type }}</span>
-                          </a>
-                        }
-                      }
-                    </div>
+                  <button
+                    type="button"
+                    class="scope-panel__nav-btn"
+                    [disabled]="!canOpenNextStep()"
+                    (click)="openNextStep()">
+                    Next
+                  </button>
+                </div>
 
-                    @if (expandedStepBuckets().premium.length > 0) {
-                      <div class="scope-resource-block">
-                        <p class="scope-resource-block__title">Premium references</p>
-                        @for (res of expandedStepBuckets().premium; track res.url) {
-                          <a class="scope-resource" [href]="res.url" target="_blank" rel="noopener">
-                            <span class="scope-resource__icon" [class]="'scope-resource__icon--' + res.type">
-                              @if (res.type === 'video') {
-                                <lucide-icon name="play" [size]="14"></lucide-icon>
-                              } @else if (res.type === 'article') {
-                                <lucide-icon name="file-text" [size]="14"></lucide-icon>
-                              } @else {
-                                <lucide-icon name="graduation-cap" [size]="14"></lucide-icon>
-                              }
-                            </span>
-                            <span class="scope-resource__meta">
-                              <strong>{{ res.title }}</strong>
-                              <small>{{ res.source }}</small>
-                            </span>
-                            <span class="scope-resource__pill scope-resource__pill--premium">{{ res.type }}</span>
-                          </a>
-                        }
+                <div class="scope-panel__detail-head">
+                  <h4>{{ step.title }}</h4>
+                  <span>{{ step.status === 'done' ? 'Completed' : step.status === 'in-progress' ? 'In progress' : 'Pending' }}</span>
+                </div>
+                <p>{{ step.description }}</p>
+
+                <div class="scope-panel__tabs">
+                  <button
+                    type="button"
+                    class="scope-panel__tab"
+                    role="tab"
+                    [attr.aria-selected]="activeResourceTab() === 'resources'"
+                    [class.scope-panel__tab--active]="activeResourceTab() === 'resources'"
+                    (click)="setActiveResourceTab('resources')"
+                  >
+                    Resources
+                  </button>
+                  <button
+                    type="button"
+                    class="scope-panel__tab"
+                    role="tab"
+                    [attr.aria-selected]="activeResourceTab() === 'ai-tutor'"
+                    [class.scope-panel__tab--active]="activeResourceTab() === 'ai-tutor'"
+                    (click)="setActiveResourceTab('ai-tutor')"
+                  >
+                    AI Tutor
+                  </button>
+                  <button
+                    type="button"
+                    class="scope-panel__tab scope-panel__tab--workspace"
+                    (click)="openWorkspace(step)"
+                  >
+                    Workspace
+                  </button>
+                </div>
+
+                @if (activeResourceTab() === 'resources') {
+                  <div class="scope-resources">
+                    @if (step.resourcesLoading) {
+                      <p class="scope-resources__state">Loading resources...</p>
+                    } @else if (expandedResourceCount() === 0) {
+                      <div class="scope-resources__empty">
+                        <lucide-icon name="folder" [size]="18"></lucide-icon>
+                        <p>No resources added yet</p>
                       </div>
-                    }
-                  }
-                </div>
-              } @else {
-                <div class="scope-tutor">
-                  <div class="scope-tutor__head">
-                    <p class="scope-tutor__title">Personalized AI tutor prompts</p>
-                    @if (step.tutorLoading) {
-                      <span class="scope-tutor__status">Thinking...</span>
-                    }
-                  </div>
-
-                  <div class="scope-tutor__prompt-grid">
-                    @for (prompt of getTutorPrompts(step); track prompt) {
-                      <button
-                        type="button"
-                        class="scope-tutor__prompt-btn"
-                        [disabled]="step.tutorLoading"
-                        (click)="triggerTutorPrompt(step, prompt)">
-                        {{ prompt }}
-                      </button>
-                    }
-                  </div>
-
-                  <div class="scope-tutor__custom">
-                    <input
-                      type="text"
-                      class="scope-tutor__input"
-                      placeholder="Ask your own question about this node..."
-                      [value]="tutorPromptDraft()"
-                      (input)="tutorPromptDraft.set($any($event.target).value)" />
-                    <button
-                      type="button"
-                      class="scope-tutor__ask-btn"
-                      [disabled]="step.tutorLoading"
-                      (click)="submitCustomTutorPrompt(step)">
-                      {{ step.tutorLoading ? 'Thinking...' : 'Ask Tutor' }}
-                    </button>
-                  </div>
-
-                  @if (step.tutorResponse; as tutorResponse) {
-                    <article class="scope-tutor-response">
-                      <p class="scope-tutor-response__meta">
-                        {{ tutorResponse.aiGenerated ? 'AI tutor response' : 'Guided response' }}
-                        @if (tutorResponse.respondedAt) {
-                          • {{ tutorResponse.respondedAt | date:'medium' }}
-                        }
-                      </p>
-                      <p class="scope-tutor-response__answer">{{ tutorResponse.answer }}</p>
-
-                      @if (tutorResponse.keyTakeaways.length > 0) {
-                        <div class="scope-tutor-response__block">
-                          <h6>Key takeaways</h6>
-                          <ul>
-                            @for (item of tutorResponse.keyTakeaways; track item) {
-                              <li>{{ item }}</li>
-                            }
-                          </ul>
-                        </div>
-                      }
-
-                      @if (tutorResponse.nextActions.length > 0) {
-                        <div class="scope-tutor-response__block">
-                          <h6>Next actions</h6>
-                          <ul>
-                            @for (item of tutorResponse.nextActions; track item) {
-                              <li>{{ item }}</li>
-                            }
-                          </ul>
-                        </div>
-                      }
-                    </article>
-                  }
-                </div>
-
-                <div class="scope-resources">
-                  @if (step.resourcesLoading) {
-                    <p class="scope-resources__state">Loading AI recommendations...</p>
-                  } @else if (expandedStepBuckets().aiTutor.length === 0) {
-                    <p class="scope-resources__state">No AI references yet. Try opening this node again to refresh suggestions.</p>
-                  } @else {
-                    <div class="scope-resource-block">
-                      <p class="scope-resource-block__title">AI suggested references</p>
-                      @for (res of expandedStepBuckets().aiTutor; track res.url) {
-                        <a class="scope-resource" [href]="res.url" target="_blank" rel="noopener">
-                          <span class="scope-resource__icon" [class]="'scope-resource__icon--' + res.type">
-                            @if (res.type === 'video') {
-                              <lucide-icon name="play" [size]="14"></lucide-icon>
-                            } @else if (res.type === 'article') {
-                              <lucide-icon name="file-text" [size]="14"></lucide-icon>
-                            } @else {
-                              <lucide-icon name="graduation-cap" [size]="14"></lucide-icon>
-                            }
-                          </span>
-                          <span class="scope-resource__meta">
-                            <strong>{{ res.title }}</strong>
-                            <small>{{ res.source }}</small>
-                          </span>
-                          <span class="scope-resource__pill scope-resource__pill--ai">AI</span>
-                        </a>
-                      }
-                    </div>
-                  }
-                </div>
-
-                <div class="scope-course">
-                  <div class="scope-course__head">
-                    <p class="scope-course__title">Node Course Studio</p>
-                    <div class="scope-course__actions">
-                      <button
-                        type="button"
-                        class="btn-course"
-                        (click)="openCourseWorkspace(step, false)">
-                        Open Interactive Tab
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-course btn-course--ghost"
-                        (click)="openCourseWorkspace(step, true)">
-                        Regenerate In New Tab
-                      </button>
-                    </div>
-                  </div>
-
-                  @if (step.courseHistoryLoading) {
-                    <p class="scope-course__state">Loading course trace...</p>
-                  }
-
-                  @if (step.courseHistory.length === 0 && !step.courseHistoryLoading) {
-                    <p class="scope-course__state">No saved course version yet. Open the interactive tab to generate one.</p>
-                  } @else if (step.courseHistory.length > 0) {
-                    <div class="scope-course-history">
-                      <p class="scope-course-history__title">Saved course versions</p>
-                      <div class="scope-course-history__list">
-                        @for (version of step.courseHistory; track version.historyId || version.generatedAt || $index) {
-                          <button
-                            type="button"
-                            class="scope-course-history__item"
-                            [class.scope-course-history__item--active]="(step.course?.historyId || step.course?.generatedAt) === (version.historyId || version.generatedAt)"
-                            (click)="openCourseWorkspace(step, false, version.historyId, version.generatedAt || '')">
-                            <strong>{{ version.generatedAt ? (version.generatedAt | date:'short') : 'Saved version' }}</strong>
-                            <small>{{ version.aiGenerated ? 'AI' : 'Fallback' }}</small>
-                          </button>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-
-                <div class="scope-challenges">
-                  <div class="scope-challenges__head">
-                    <p class="scope-challenges__title">Coding Challenge Studio</p>
-                    <div class="scope-challenges__actions">
-                      <button
-                        type="button"
-                        class="btn-generate-challenge btn-generate-challenge--ghost"
-                        [disabled]="step.challengesLoading"
-                        (click)="loadChallengeHistory(step)">
-                        Refresh Trace
-                      </button>
-                      <button
-                        type="button"
-                        class="btn-generate-challenge"
-                        [disabled]="step.challengesLoading"
-                        (click)="openChallengeWorkspace(step, undefined, true)">
-                        Generate In New Tab
-                      </button>
-                    </div>
-                  </div>
-
-                  @if (step.challengesLoading) {
-                    <p class="scope-challenges__state">Loading challenge trace...</p>
-                  } @else if (step.challenges.length === 0) {
-                    <p class="scope-challenges__state">No challenge yet. Generate one and it opens directly in a dedicated tab.</p>
-                  } @else {
-                    <div class="scope-challenges__list">
-                      @for (challenge of step.challenges; track challenge.id) {
-                        <article class="scope-challenge-card">
-                          <div class="scope-challenge-card__meta">
-                            <span>{{ challenge.difficulty }}</span>
-                            <span>~{{ challenge.estimatedDays }}d</span>
-                            @if (challenge.createdAt) {
-                              <span>{{ challenge.createdAt | date:'short' }}</span>
-                            }
+                    } @else {
+                      @for (group of expandedResourceGroups(); track group.key) {
+                        <section class="scope-resource-group">
+                          <div class="scope-resource-group__head">
+                            <p class="scope-resource-group__title">{{ group.title }}</p>
                           </div>
-                          <h5>{{ challenge.title }}</h5>
-                          <p>{{ challenge.description }}</p>
-                          @if (challenge.techStack.length > 0) {
-                            <div class="scope-challenge-card__stack">
-                              @for (tech of challenge.techStack; track tech) {
-                                <span>{{ tech }}</span>
+
+                          @if (group.cards.length === 0) {
+                            <p class="scope-resources__state">No resources added yet.</p>
+                          } @else {
+                            <div class="scope-resource-carousel-wrap">
+                              @if (showResourceCarouselArrows(step.number, group.key)) {
+                                <button
+                                  type="button"
+                                  class="scope-resource-carousel__arrow scope-resource-carousel__arrow--prev"
+                                  [disabled]="!canScrollResourcePrev(step.number, group.key)"
+                                  (click)="scrollResourceGroup(step.number, group.key, -1)"
+                                  aria-label="Previous resources">
+                                  <lucide-icon name="chevron-left" [size]="14"></lucide-icon>
+                                </button>
+                              }
+
+                              <div
+                                class="scope-resource-carousel"
+                                [id]="resourceCarouselId(step.number, group.key)"
+                                (scroll)="onResourceCarouselScroll(step.number, group.key)">
+                                @for (res of group.cards; track res.url + '-' + $index) {
+                                  @if (group.key === 'videos') {
+                                    <article
+                                      class="scope-resource-card scope-resource-card--video"
+                                      role="button"
+                                      tabindex="0"
+                                      (click)="openVideoResource(res)"
+                                      (keydown)="onVideoCardKeyboard($event, res)">
+                                      <span class="scope-resource-card__badge">{{ resourceBadgeLabel(res, group.key) }}</span>
+                                      <div class="scope-video-card__thumb">
+                                        @if (videoThumbnailUrl(res); as thumb) {
+                                          <img [src]="thumb" [alt]="res.title" loading="lazy" />
+                                        } @else {
+                                          <div class="scope-video-card__placeholder">
+                                            <lucide-icon name="play" [size]="20"></lucide-icon>
+                                          </div>
+                                        }
+                                        <div class="scope-video-card__overlay">
+                                          <lucide-icon name="play" [size]="18"></lucide-icon>
+                                          <span>{{ videoDurationLabel(res) }}</span>
+                                        </div>
+                                      </div>
+                                      <div class="scope-video-card__meta">
+                                        <strong>{{ res.title }}</strong>
+                                        <div class="scope-video-card__subrow">
+                                          <small>{{ videoChannelName(res) }}</small>
+                                          <small class="scope-video-card__stats">{{ videoStatsLabel(res) }}</small>
+                                        </div>
+                                      </div>
+                                    </article>
+                                  } @else if (group.key === 'courses') {
+                                    <a
+                                      class="scope-resource-card scope-resource-card--course"
+                                      [href]="res.url"
+                                      target="_blank"
+                                      rel="noopener">
+                                      <span class="scope-resource-card__badge scope-resource-card__badge--course">
+                                        {{ resourceBadgeLabel(res, group.key) }}
+                                      </span>
+                                      <div class="scope-resource-course__thumb">
+                                        @if (courseThumbnailUrl(res); as thumb) {
+                                          <img [src]="thumb" [alt]="res.title" loading="lazy" />
+                                        } @else {
+                                          <div class="scope-resource-course__placeholder">
+                                            <lucide-icon name="graduation-cap" [size]="20"></lucide-icon>
+                                          </div>
+                                        }
+                                        <div class="scope-resource-course__overlay">
+                                          <span>Start Course</span>
+                                        </div>
+                                      </div>
+                                      <div class="scope-resource-course__meta">
+                                        <strong>{{ res.title }}</strong>
+                                        <small>{{ courseInstructorName(res) }}</small>
+                                        <p>&#9733;{{ courseRatingLabel(res) }} · {{ courseReviewCountLabel(res) }}</p>
+                                        <div class="scope-resource-course__chips">
+                                          <span>{{ courseDifficultyLabel(res) }}</span>
+                                          <small>{{ courseDurationLabel(res) }}</small>
+                                        </div>
+                                      </div>
+                                    </a>
+                                  } @else {
+                                    <a
+                                      class="scope-resource-card scope-resource-card--doc"
+                                      [href]="res.url"
+                                      target="_blank"
+                                      rel="noopener">
+                                      <span class="scope-resource-card__badge scope-resource-card__badge--doc">Docs</span>
+                                      <div class="scope-doc-card__body">
+                                        <span class="scope-doc-card__icon">
+                                          <lucide-icon name="link" [size]="14"></lucide-icon>
+                                        </span>
+                                        <span class="scope-doc-card__meta">
+                                          <strong>{{ res.title }}</strong>
+                                          <small>{{ documentationDescription(res) }}</small>
+                                        </span>
+                                      </div>
+                                    </a>
+                                  }
+                                }
+                              </div>
+
+                              @if (showResourceCarouselArrows(step.number, group.key)) {
+                                <button
+                                  type="button"
+                                  class="scope-resource-carousel__arrow scope-resource-carousel__arrow--next"
+                                  [disabled]="!canScrollResourceNext(step.number, group.key)"
+                                  (click)="scrollResourceGroup(step.number, group.key, 1)"
+                                  aria-label="Next resources">
+                                  <lucide-icon name="chevron-right" [size]="14"></lucide-icon>
+                                </button>
                               }
                             </div>
                           }
-
-                          <div class="scope-challenge-card__actions">
-                            <button
-                              type="button"
-                              class="challenge-action-btn"
-                              (click)="openChallengeWorkspace(step, challenge.id)">
-                              Open In Challenge Tab
-                            </button>
-                          </div>
-                        </article>
+                        </section>
+                      }
+                    }
+                  </div>
+                } @else {
+                  <div class="scope-tutor">
+                    <div class="scope-tutor__head">
+                      <p class="scope-tutor__title">Personalized AI tutor prompts</p>
+                      @if (step.tutorLoading) {
+                        <span class="scope-tutor__status">Thinking...</span>
                       }
                     </div>
-                  }
-                </div>
 
-                <div class="scope-project-lab">
-                  <div class="scope-project-lab__head">
-                    <p class="scope-project-lab__title">Node Project Lab</p>
-                    <button
-                      type="button"
-                      class="btn-project-lab"
-                      [disabled]="step.projectLabLoading"
-                      (click)="openProjectLabWorkspace(step, !step.projectLab)">
-                      {{
-                        step.projectLabLoading
-                          ? 'Loading...'
-                          : (step.projectLab ? 'Open Lab Tab' : 'Generate In New Tab')
-                      }}
-                    </button>
-                  </div>
-
-                  @if (step.projectLabLoading) {
-                    <p class="scope-project-lab__state">Loading mini-project trace...</p>
-                  } @else if (!step.projectLab) {
-                    <p class="scope-project-lab__state">Generate and open this node project lab in a dedicated interactive tab.</p>
-                  } @else {
-                    <article class="project-lab-card">
-                      <div class="project-lab-card__meta">
-                        <h5>{{ step.projectLab.projectTitle }}</h5>
-                        <div class="project-lab-card__chips">
-                          <span>{{ step.projectLab.language }}</span>
-                          <span>~{{ step.projectLab.estimatedHours }}h</span>
-                          <span>{{ step.projectLab.aiGenerated ? 'AI-generated lab' : 'Guided fallback lab' }}</span>
-                          @if (step.projectLab.generatedAt) {
-                            <span>{{ step.projectLab.generatedAt | date:'medium' }}</span>
-                          }
-                        </div>
-                      </div>
-
-                      <p class="project-lab-card__scenario">{{ step.projectLab.scenario }}</p>
-
-                      <div class="project-lab-card__actions">
+                    <div class="scope-tutor__prompt-grid">
+                      @for (prompt of getTutorPrompts(step); track prompt) {
                         <button
                           type="button"
-                          class="btn-project-validate"
-                          (click)="openProjectLabWorkspace(step, false, step.projectLab.historyId, step.projectLab.generatedAt || '')">
-                          Open Interactive Lab Tab
+                          class="scope-tutor__prompt-btn"
+                          [disabled]="step.tutorLoading"
+                          (click)="triggerTutorPrompt(step, prompt)">
+                          {{ prompt }}
                         </button>
-                      </div>
-                    </article>
+                      }
+                    </div>
 
-                    @if (step.projectLabHistoryLoading) {
-                      <p class="scope-project-lab__state">Loading mini-project history...</p>
-                    }
+                    <div class="scope-tutor__custom">
+                      <input
+                        type="text"
+                        class="scope-tutor__input"
+                        placeholder="Ask your own question about this node..."
+                        [value]="tutorPromptDraft()"
+                        (input)="tutorPromptDraft.set($any($event.target).value)" />
+                      <button
+                        type="button"
+                        class="scope-tutor__ask-btn"
+                        [disabled]="step.tutorLoading"
+                        (click)="submitCustomTutorPrompt(step)">
+                        {{ step.tutorLoading ? 'Thinking...' : 'Ask Tutor' }}
+                      </button>
+                    </div>
 
-                    @if (step.projectLabHistory.length > 0) {
-                      <div class="scope-project-lab-history">
-                        <p class="scope-project-lab-history__title">Mini-project trace</p>
-                        <div class="scope-project-lab-history__list">
-                          @for (version of step.projectLabHistory; track version.historyId || version.generatedAt || $index) {
-                            <button
-                              type="button"
-                              class="scope-project-lab-history__item"
-                              [class.scope-project-lab-history__item--active]="(step.projectLab.historyId || step.projectLab.generatedAt) === (version.historyId || version.generatedAt)"
-                              (click)="openProjectLabWorkspace(step, false, version.historyId, version.generatedAt || '')">
-                              <strong>{{ version.projectTitle }}</strong>
-                              <small>
-                                {{ version.generatedAt ? (version.generatedAt | date:'short') : 'Saved version' }}
-                                • {{ version.aiGenerated ? 'AI' : 'Fallback' }}
-                              </small>
-                            </button>
+                    @if (step.tutorResponse; as tutorResponse) {
+                      <article class="scope-tutor-response">
+                        <p class="scope-tutor-response__meta">
+                          {{ tutorResponse.aiGenerated ? 'AI tutor response' : 'Guided response' }}
+                          @if (tutorResponse.respondedAt) {
+                            • {{ tutorResponse.respondedAt | date:'medium' }}
                           }
-                        </div>
-                      </div>
-                    }
-                  }
-                </div>
-              }
+                        </p>
+                        <p class="scope-tutor-response__answer">{{ tutorResponse.answer }}</p>
 
-              <div class="scope-quiz-gate" *ngIf="step.status !== 'done'">
-                <div class="scope-quiz-gate__text">
-                  @if (hasQuizPassed(step.number)) {
-                    @if (isStepCompletable(step)) {
-                      <p class="scope-quiz-gate__status scope-quiz-gate__status--passed">
-                        Quiz passed @if (getQuizScore(step.number) !== null) { ({{ getQuizScore(step.number) }}%) }
-                      </p>
-                      <p class="scope-quiz-gate__hint">Great work. This node is now eligible for completion.</p>
+                        @if (tutorResponse.keyTakeaways.length > 0) {
+                          <div class="scope-tutor-response__block">
+                            <h6>Key takeaways</h6>
+                            <ul>
+                              @for (item of tutorResponse.keyTakeaways; track item) {
+                                <li>{{ item }}</li>
+                              }
+                            </ul>
+                          </div>
+                        } @else {
+                          <div class="scope-tutor-response__block">
+                            <h6>Key takeaways</h6>
+                            <p class="scope-resources__state">No highlights yet.</p>
+                          </div>
+                        }
+
+                        @if (tutorResponse.nextActions.length > 0) {
+                          <div class="scope-tutor-response__block">
+                            <h6>Next actions</h6>
+                            <ul>
+                              @for (item of tutorResponse.nextActions; track item) {
+                                <li>{{ item }}</li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                      </article>
+                    }
+                  </div>
+                }
+
+                <div class="scope-quiz-gate" *ngIf="step.status !== 'done' && activeResourceTab() === 'resources'">
+                  <div class="scope-quiz-gate__text">
+                    @if (hasQuizPassed(step.number)) {
+                      @if (isStepCompletable(step)) {
+                        <p class="scope-quiz-gate__status scope-quiz-gate__status--passed">
+                          Quiz passed @if (getQuizScore(step.number) !== null) { ({{ getQuizScore(step.number) }}%) }
+                        </p>
+                        <p class="scope-quiz-gate__hint">Great work. This node is now eligible for completion.</p>
+                      } @else {
+                        <p class="scope-quiz-gate__status scope-quiz-gate__status--locked">
+                          Quiz passed, but this node is still locked.
+                        </p>
+                        <p class="scope-quiz-gate__hint">Complete required previous nodes to unlock completion.</p>
+                      }
                     } @else {
                       <p class="scope-quiz-gate__status scope-quiz-gate__status--locked">
-                        Quiz passed, but this node is still locked.
+                        Quiz required to unlock completion.
                       </p>
-                      <p class="scope-quiz-gate__hint">Complete required previous nodes to unlock completion.</p>
+                      <p class="scope-quiz-gate__hint">Take a short checkpoint test to verify understanding.</p>
                     }
-                  } @else {
-                    <p class="scope-quiz-gate__status scope-quiz-gate__status--locked">
-                      Quiz required to unlock completion.
-                    </p>
-                    <p class="scope-quiz-gate__hint">Take a short checkpoint test to verify understanding.</p>
-                  }
+                  </div>
+
+                  <button
+                    type="button"
+                    class="btn-node-quiz"
+                    (click)="startNodeQuiz(step)"
+                    [disabled]="isStepLocked(step)">
+                    {{ hasQuizPassed(step.number) ? 'Retake Node Quiz' : 'Start Node Quiz' }}
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  class="btn-node-quiz"
-                  (click)="startNodeQuiz(step)"
-                  [disabled]="isStepLocked(step)">
-                  {{ hasQuizPassed(step.number) ? 'Retake Node Quiz' : 'Start Node Quiz' }}
-                </button>
-              </div>
-
-              <div class="scope-actions">
-                @if (step.status !== 'done') {
-                  <button
-                    class="btn-mark-complete"
-                    [disabled]="!hasQuizPassed(step.number) || !isStepCompletable(step)"
-                    (click)="markComplete(step)">
-                    Mark as Complete
-                  </button>
-                }
-                <a class="btn-skip" [routerLink]="['/dashboard/roadmap/step', step.nodeId || step.number]">Open Step Detail</a>
-              </div>
+                <div class="scope-actions">
+                  @if (step.status !== 'done') {
+                    <button
+                      class="btn-mark-complete"
+                      [disabled]="!hasQuizPassed(step.number) || !isStepCompletable(step)"
+                      (click)="markComplete(step)">
+                      Mark as Complete
+                    </button>
+                  }
+                  <a class="btn-skip" [routerLink]="['/dashboard/roadmap/step', step.nodeId || step.number]">Open Step Detail</a>
+                </div>
+              </section>
             </section>
-          } @else {
-            <section class="scope-panel__placeholder">
-              <p>Select a node on the roadmap to see its full detail here.</p>
-            </section>
-          }
-        </section>
+          </section>
+        }
       </aside>
     </section>
   } @else {
@@ -756,6 +1070,40 @@
       <h3 class="empty-state__heading">{{ emptyHeading() }}</h3>
       <p class="empty-state__sub">{{ emptySubtext() }}</p>
       <a class="btn-primary-grad empty-state__cta" routerLink="/dashboard/roadmap/replan">Open Replan Wizard &rarr;</a>
+    </section>
+  }
+
+  @if (videoPreview(); as preview) {
+    <section
+      class="scope-video-preview__overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Video preview"
+      (click)="closeVideoPreview()">
+      <article class="scope-video-preview" (click)="$event.stopPropagation()">
+        <header class="scope-video-preview__head">
+          <h5>{{ preview.title }}</h5>
+          <button
+            type="button"
+            class="scope-video-preview__close"
+            (click)="closeVideoPreview()"
+            aria-label="Close video preview">
+            <lucide-icon name="x" [size]="16"></lucide-icon>
+          </button>
+        </header>
+        <iframe
+          class="scope-video-preview__frame"
+          [src]="preview.embedUrl"
+          title="Video preview"
+          loading="lazy"
+          allowfullscreen>
+        </iframe>
+        <div class="scope-video-preview__actions">
+          <button type="button" class="scope-video-preview__open" (click)="openVideoSourceFromPreview()">
+            Open on source
+          </button>
+        </div>
+      </article>
     </section>
   }
 

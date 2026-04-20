@@ -263,6 +263,13 @@ export interface StepResourceDto {
   price?: number;
   isFree?: boolean;
   externalId?: string;
+  thumbnailUrl?: string;
+  channelName?: string;
+  viewCount?: number;
+  likeCount?: number;
+  instructorName?: string;
+  reviewCount?: number;
+  difficultyLevel?: string;
 }
 
 export interface CreateStepResourceRequest {
@@ -275,6 +282,13 @@ export interface CreateStepResourceRequest {
   price?: number;
   isFree?: boolean;
   externalId?: string;
+  thumbnailUrl?: string;
+  channelName?: string;
+  viewCount?: number;
+  likeCount?: number;
+  instructorName?: string;
+  reviewCount?: number;
+  difficultyLevel?: string;
 }
 
 export interface PaceSnapshotDto {

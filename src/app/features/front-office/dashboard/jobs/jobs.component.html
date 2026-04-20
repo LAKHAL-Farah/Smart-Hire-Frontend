@@ -9,7 +9,7 @@
         <div class="filter-search">
           <lucide-icon name="search" [size]="16" class="filter-search__icon"></lucide-icon>
           <input class="filter-search__input" type="text" placeholder="Search jobs…"
-            [(ngModel)]="searchQuery" (input)="applySearch()"/>
+            [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" (input)="applySearch()"/>
         </div>
 
         <!-- Location Type -->
@@ -82,7 +82,7 @@
           <span class="filter-group__label">Tech Stack</span>
           <div class="tech-input-wrap">
             <input class="tech-input" type="text" placeholder="Type a skill…"
-              [(ngModel)]="techQuery"
+              [ngModel]="techQuery()" (ngModelChange)="techQuery.set($event)"
               (keydown.enter)="addTechTag()" />
           </div>
           @if (techSuggestions().length > 0) {
@@ -116,7 +116,7 @@
         <span class="job-list__count">{{ filteredJobs().length }} open positions</span>
         <div class="job-list__sort">
           <span class="job-list__sort-label">Sort by:</span>
-          <select class="job-list__sort-select" [(ngModel)]="sortOption">
+          <select class="job-list__sort-select" [ngModel]="sortOption()" (ngModelChange)="sortOption.set($event)">
             <option value="match">Best Match</option>
             <option value="recent">Most Recent</option>
             <option value="salary">Highest Salary</option>
@@ -183,14 +183,14 @@
               </div>
               <!-- Bottom row -->
               <div class="job-card__bottom">
-                <span class="job-card__date">{{ job.postedDate }}</span>
+                <span class="job-card__date">{{ getTimeAgo(job.postedDate)  }}</span>
                 <div class="job-card__btns">
                   <button class="btn-save" [class.btn-save--saved]="job.saved"
                     (click)="toggleSave(job, $event)">
                     <lucide-icon name="bookmark" [size]="14"></lucide-icon>
                     {{ job.saved ? 'Saved' : 'Save' }}
                   </button>
-                  <button class="btn-apply" (click)="$event.stopPropagation()">Apply</button>
+                  <button class="btn-apply" (click)="openApplyModal(job.id); $event.stopPropagation()">Apply</button>
                 </div>
               </div>
             </div>
@@ -312,7 +312,7 @@
               <lucide-icon name="bookmark" [size]="15"></lucide-icon>
               {{ job.saved ? 'Saved' : 'Save Job' }}
             </button>
-            <button class="btn-detail-apply">Apply Now</button>
+            <button class="btn-detail-apply" (click)="openApplyModal(job.id)">Apply Now</button>
           </div>
         </div>
       }
@@ -320,3 +320,51 @@
 
   </div>
 </div>
+
+<!-- ═══════════════════════ APPLY MODAL ═══════════════════════ -->
+@if (applyModalOpen()) {
+  <div class="modal-overlay" (click)="closeApplyModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-card__header">
+        <h2 class="modal-card__title">Apply to this job</h2>
+        <button class="modal-card__close" (click)="closeApplyModal()" [disabled]="isSubmitting()">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-field">
+        <label class="modal-field__label">Resume</label>
+        <input
+          class="resume-input"
+          type="file"
+          accept=".pdf,.doc,.docx"
+          (change)="onResumeSelected($event)"
+          [disabled]="isSubmitting()"
+        />
+        @if (resumeFile(); as f) {
+          <div class="resume-filename">Selected: {{ f.name }}</div>
+        }
+        <div class="resume-hint">Accepted: PDF, DOC, DOCX</div>
+      </div>
+
+      @if (submitError()) {
+        <div class="modal-error">{{ submitError() }}</div>
+      }
+
+      @if (lastApplication()) {
+        <div class="modal-success">Application submitted.</div>
+      }
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="closeApplyModal()" [disabled]="isSubmitting()">Cancel</button>
+        <button
+          class="btn-primary"
+          (click)="submitApplication()"
+          [disabled]="!resumeFile() || isSubmitting()"
+        >
+          {{ isSubmitting() ? 'Submitting…' : 'Upload & Apply' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

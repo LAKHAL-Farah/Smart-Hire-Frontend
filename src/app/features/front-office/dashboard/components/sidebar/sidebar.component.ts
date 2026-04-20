@@ -35,6 +35,7 @@ export class SidebarComponent {
 
   recruitItems: NavItem[] = [
     { icon: 'briefcase', label: 'Jobs', route: '/dashboard/jobs' },
+    { icon: 'square-pen', label: 'Post Job', route: '/dashboard/post-job' },
   ];
 
   constructor(private authService: AuthService) {}

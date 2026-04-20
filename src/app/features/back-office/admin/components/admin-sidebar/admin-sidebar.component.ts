@@ -30,6 +30,7 @@ export class AdminSidebarComponent {
     { icon: 'briefcase', label: 'Job Offers', route: '/admin/jobs' },
     { icon: 'circle-question-mark', label: 'Interview Questions', route: '/admin/questions' },
     { icon: 'book-open', label: 'Skill assessments', route: '/admin/skill-assessments' },
+    { icon: 'file-text', label: 'Interview Dashboard', route: '/admin/interview' },
     { icon: 'clock', label: 'Career Paths', route: '/admin/careers' },
   ];
 

@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { ThemeService } from './shared/services/theme.service';
 import { ChatWidgetComponent } from './shared/chat-widget/chat-widget.component';
 
 @Component({
@@ -11,4 +12,8 @@ import { ChatWidgetComponent } from './shared/chat-widget/chat-widget.component'
 })
 export class AppComponent {
   title = 'smarthire-frontend';
+
+  constructor(private readonly themeService: ThemeService) {
+    void this.themeService;
+  }
 }

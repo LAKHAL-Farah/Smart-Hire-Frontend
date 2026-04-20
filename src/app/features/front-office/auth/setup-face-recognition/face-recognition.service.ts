@@ -26,7 +26,7 @@ export class FaceRecognitionService {
    * Charger l'ID utilisateur depuis le contexte d'authentification
    */
   private loadCurrentUserId(): void {
-    const userId = localStorage.getItem('UserId') || 
+    const userId = localStorage.getItem('userId') || 
                    sessionStorage.getItem('userId');
     this.currentUserIdSubject.next(userId);
   }

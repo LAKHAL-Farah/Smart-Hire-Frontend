@@ -77,6 +77,37 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'interview/live/start',
+    redirectTo: 'dashboard/interview/live/start',
+    pathMatch: 'full',
+  },
+  {
+    path: 'interview/live/:sessionId',
+    redirectTo: 'dashboard/interview/live/:sessionId',
+    pathMatch: 'full',
+  },
+  {
+    path: 'interview/report/:sessionId',
+    loadComponent: () =>
+      import('./interview/report/live-report.component').then(
+        (m) => m.LiveReportComponent
+      ),
+  },
+  {
+    path: 'dashboard/interview/live/start',
+    loadComponent: () =>
+      import('./interview/live-start/live-start.component').then(
+        (m) => m.LiveStartComponent
+      ),
+  },
+  {
+    path: 'dashboard/interview/live/:sessionId',
+    loadComponent: () =>
+      import('./interview/live-mode/live-mode.component').then(
+        (m) => m.LiveModeComponent
+      ),
+  },
+  {
     path: 'dashboard',
     loadComponent: () =>
       import('./features/front-office/dashboard/dashboard-layout.component').then(
@@ -152,7 +183,36 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'interview/setup',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/setup/interview-setup.component').then(
+            (m) => m.InterviewSetupComponent
+          ),
+      },
+      {
+        path: 'interview/history',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/history/interview-history.component').then(
+            (m) => m.InterviewHistoryComponent
+          ),
+      },
+      {
+        path: 'interview/bookmarks',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/bookmarks/interview-bookmarks.component').then(
+            (m) => m.InterviewBookmarksComponent
+          ),
+      },
+      {
+        path: 'interview/discover',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/discover/interview-discover.component').then(
+            (m) => m.InterviewDiscoverComponent
+          ),
+      },
+      {
         path: 'interview',
+        pathMatch: 'full',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(
             (m) => m.InterviewComponent
@@ -163,6 +223,27 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/session/interview-session.component').then(
             (m) => m.InterviewSessionComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/code',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/code-screen/interview-code-screen.component').then(
+            (m) => m.InterviewCodeScreenComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/cloud',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/cloud-screen/interview-cloud-screen.component').then(
+            (m) => m.InterviewCloudScreenComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/ml',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/ml-screen/interview-ml-screen.component').then(
+            (m) => m.InterviewMlScreenComponent
           ),
       },
       {
@@ -227,6 +308,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/back-office/admin/skill-assessments/skill-assessment-admin.component').then(
             (m) => m.SkillAssessmentAdminComponent
+          ),
+      },
+      {
+        path: 'interview',
+        loadComponent: () =>
+          import('./admin/interview-dashboard/interview-dashboard.component').then(
+            (m) => m.InterviewDashboardComponent
           ),
       },
       {

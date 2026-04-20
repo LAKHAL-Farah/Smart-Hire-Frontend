@@ -17,6 +17,34 @@
     <!-- ═══ RIGHT: Content ═══ -->
     <main class="settings-content">
 
+      <!-- ══ APPEARANCE ══ -->
+      @if (activeCategory() === 'appearance') {
+        <section class="section-card">
+          <h2 class="section-card__heading">Appearance & Theme</h2>
+
+          <div class="appearance-group">
+            <h3 class="appearance-label">Mode</h3>
+            <div class="mode-switches">
+              <button class="mode-btn" [class.mode-btn--active]="themeMode() === 'light'" (click)="selectThemeMode('light')">Light</button>
+              <button class="mode-btn" [class.mode-btn--active]="themeMode() === 'dark'" (click)="selectThemeMode('dark')">Dark</button>
+            </div>
+          </div>
+
+          <div class="appearance-group">
+            <h3 class="appearance-label">Palette</h3>
+            <div class="palette-grid">
+              @for (palette of themePalettes; track palette) {
+                <button class="palette-btn"
+                        [class.palette-btn--active]="themePalette() === palette"
+                        (click)="selectThemePalette(palette)">
+                  {{ formatPaletteName(palette) }}
+                </button>
+              }
+            </div>
+          </div>
+        </section>
+      }
+
       <!-- ══ ACCOUNT ══ -->
       @if (activeCategory() === 'account') {
         <section class="section-card">

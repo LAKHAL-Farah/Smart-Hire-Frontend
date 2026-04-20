@@ -6,7 +6,7 @@
   left: 0;
   width: 240px;
   height: 100vh;
-  background: #111D2B;
+  background: var(--bg-secondary);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
@@ -32,14 +32,14 @@
   justify-content: center;
   font-size: 13px;
   font-weight: 900;
-  color: #0a0a0f;
+  color: var(--bg-primary);
 }
 
 .logo-text {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   font-size: 16px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .logo-badge {
@@ -65,7 +65,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: rgba(255,255,255,.25);
+  color: var(--text-muted);
   padding: 18px 12px 6px;
 }
 
@@ -75,7 +75,7 @@
   gap: 12px;
   padding: 10px 12px;
   border-radius: var(--radius-sm);
-  color: rgba(255,255,255,.5);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 13px;
   font-weight: 500;
@@ -88,14 +88,14 @@
   position: relative;
 
   &:hover {
-    color: rgba(255,255,255,.8);
-    background: rgba(255,255,255,.04);
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--bg-tertiary) 84%, var(--color-primary) 16%);
   }
 }
 
 .nav-item--active {
   color: var(--accent-teal) !important;
-  background: rgba(46,232,165,.08) !important;
+  background: color-mix(in srgb, var(--accent-teal) 11%, var(--bg-secondary) 89%) !important;
 
   &::before {
     content: '';
@@ -140,4 +140,46 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+:host-context([data-mode='light']) {
+  .sidebar {
+    background: color-mix(in srgb, var(--bg-secondary) 95%, #ffffff 5%);
+    border-right-color: var(--border-subtle);
+  }
+
+  .logo-text {
+    color: var(--text-primary);
+  }
+
+  .nav-group {
+    color: var(--text-muted);
+  }
+
+  .nav-item {
+    color: var(--text-secondary);
+  }
+
+  .nav-item:hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-tertiary) 90%);
+  }
+
+  .nav-item--active {
+    color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--bg-secondary) 86%) !important;
+  }
+
+  .nav-item--active::before {
+    background: var(--color-primary);
+  }
+
+  .nav-item--logout {
+    color: rgba(220, 38, 38, 0.72);
+  }
+
+  .nav-item--logout:hover {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
+  }
 }

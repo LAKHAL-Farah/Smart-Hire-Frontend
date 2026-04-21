@@ -2,6 +2,8 @@
   "/api": {
     "target": "http://127.0.0.1:8084",
     "secure": false,
-    "changeOrigin": true
+    "changeOrigin": true,
+    "proxyTimeout": 120000,
+    "timeout": 120000
   }
 }

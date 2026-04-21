@@ -333,10 +333,18 @@
             · {{ cat.questionCount }} question(s) saved · expand a row to edit <strong>choices</strong> (correct answer is set here only)
           </p>
         </div>
-        <button type="button" class="saa-btn saa-btn--gradient saa-btn--icon" [disabled]="loading" (click)="startNewQuestion()">
-          <lucide-icon name="plus" [size]="16"></lucide-icon>
-          New question
-        </button>
+        <div class="saa-workspace__actions">
+          <button type="button" class="saa-btn saa-btn--gradient saa-btn--icon" [disabled]="loading" (click)="startNewQuestion()">
+            <lucide-icon name="plus" [size]="16"></lucide-icon>
+            New question
+          </button>
+          @if (ollamaAvailable) {
+            <button type="button" class="saa-btn saa-btn--secondary saa-btn--icon" [disabled]="loading || generationLoading" (click)="openGenerationPanel()">
+              <lucide-icon name="wand2" [size]="16"></lucide-icon>
+              AI Generate
+            </button>
+          }
+        </div>
       </div>
 
       <div class="saa-panel saa-panel--question">
@@ -469,6 +477,108 @@
 
       @if (questions.length === 0) {
         <p class="saa-empty saa-empty--pad">No questions in this category yet. Write one in the form above, then add choices below each question.</p>
+      }
+
+      <!-- AI Question Generation Panel -->
+      @if (generationPanelOpen) {
+        <div class="saa-generation-panel">
+          <div class="saa-generation-panel__head">
+            <h3 class="saa-generation-panel__title">
+              <lucide-icon name="wand2" [size]="18"></lucide-icon>
+              Generate questions with AI
+            </h3>
+            <button type="button" class="saa-icon-btn" (click)="closeGenerationPanel()" title="Close">
+              <lucide-icon name="x" [size]="16"></lucide-icon>
+            </button>
+          </div>
+
+          @if (generatedQuestions.length === 0) {
+            <div class="saa-generation-panel__form">
+              <p class="saa-generation-panel__desc">
+                Ollama will generate multiple-choice questions based on the category name and description. Review them before saving.
+              </p>
+              <div class="saa-generation-panel__input-group">
+                <label class="saa-field-label">Number of questions</label>
+                <input 
+                  type="number" 
+                  class="saa-input" 
+                  min="1" 
+                  max="20" 
+                  [(ngModel)]="generationCount"
+                  [disabled]="generationLoading"
+                />
+              </div>
+              <button 
+                type="button" 
+                class="saa-btn saa-btn--gradient"
+                [disabled]="generationLoading"
+                (click)="generateQuestions()"
+              >
+                @if (generationLoading) {
+                  <lucide-icon name="loader" [size]="16" class="saa-spin"></lucide-icon>
+                  Generating...
+                } @else {
+                  <lucide-icon name="sparkles" [size]="16"></lucide-icon>
+                  Generate
+                }
+              </button>
+            </div>
+          } @else {
+            <div class="saa-generation-panel__preview">
+              <p class="saa-generation-panel__count">{{ generatedQuestions.length }} question(s) generated</p>
+              <ul class="saa-generation-questions">
+                @for (q of generatedQuestions; track $index) {
+                  <li class="saa-gen-question">
+                    <div class="saa-gen-question__header">
+                      <span class="saa-chip saa-chip--diff">{{ q.difficulty }}</span>
+                      <span class="saa-gen-question__num">Q{{ $index + 1 }}</span>
+                    </div>
+                    <p class="saa-gen-question__prompt">{{ q.prompt }}</p>
+                    <ul class="saa-gen-question__choices">
+                      @for (choice of q.choices; track $index; let i = $index) {
+                        <li class="saa-gen-choice" [class.saa-gen-choice--correct]="i === q.correctIndex">
+                          <span class="saa-gen-choice__letter">{{ ['A', 'B', 'C', 'D'][$index] }}</span>
+                          <span class="saa-gen-choice__text">{{ choice }}</span>
+                          @if (i === q.correctIndex) {
+                            <span class="saa-chip saa-chip--ok saa-chip--sm">✓ Correct</span>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </li>
+                }
+              </ul>
+              <div class="saa-generation-panel__actions">
+                <button 
+                  type="button" 
+                  class="saa-btn saa-btn--ghost"
+                  (click)="discardGeneratedQuestions()"
+                >
+                  Discard
+                </button>
+                <button 
+                  type="button" 
+                  class="saa-btn saa-btn--gradient"
+                  [disabled]="savingGenerated"
+                  (click)="saveGeneratedQuestions()"
+                >
+                  @if (savingGenerated) {
+                    <lucide-icon name="loader" [size]="16" class="saa-spin"></lucide-icon>
+                    Saving...
+                  } @else {
+                    Save all questions
+                  }
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (generationMessage) {
+            <div class="saa-generation-panel__message" [class.saa-generation-panel__message--error]="generationMessageType === 'error'">
+              {{ generationMessage }}
+            </div>
+          }
+        </div>
       }
     </section>
   } @else {

@@ -10,6 +10,8 @@ import {
   CategoryAdminRow,
   CategorySuggestionResult,
   ChoiceAdminRow,
+  GeneratedQuestionDto,
+  GenerateQuestionsResponse,
   PendingAssignmentRow,
   QuestionAdminRow,
   SessionResultAdminDto,
@@ -104,6 +106,16 @@ export class SkillAssessmentAdminComponent implements OnInit {
   /** Expanded user in table */
   expandedUserId: string | null = null;
 
+  /** Question generation panel */
+  generationPanelOpen = false;
+  generationLoading = false;
+  generationCount = 5;
+  generatedQuestions: GeneratedQuestionDto[] = [];
+  generationMessage = '';
+  generationMessageType: 'success' | 'error' | null = null;
+  ollamaAvailable = false;
+  savingGenerated = false;
+
   /** Grouped sessions by user */
   groupedByUser = computed(() => {
     const grouped = new Map<string, AssessmentSessionAdminRow[]>();
@@ -148,6 +160,108 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.refreshPendingRelease();
     this.refreshCompletedSessions();
     this.assessmentNotif.refreshAdmin();
+    this.checkOllamaStatus();
+  }
+
+  checkOllamaStatus(): void {
+    this.api.checkOllamaStatus().subscribe({
+      next: (res) => {
+        console.log('[Ollama] Status check result:', res);
+        this.ollamaAvailable = res.available;
+        console.log('[Ollama] Available:', this.ollamaAvailable);
+      },
+      error: (err) => {
+        console.error('[Ollama] Status check error:', err);
+        this.ollamaAvailable = false;
+      },
+    });
+  }
+
+  openGenerationPanel(): void {
+    if (this.selectedCategoryId == null) {
+      this.apiError = 'Select a category first.';
+      return;
+    }
+    this.generationPanelOpen = true;
+    this.generationCount = 5;
+    this.generatedQuestions = [];
+    this.generationMessage = '';
+    this.generationMessageType = null;
+  }
+
+  closeGenerationPanel(): void {
+    this.generationPanelOpen = false;
+    this.generatedQuestions = [];
+    this.generationMessage = '';
+    this.generationMessageType = null;
+  }
+
+  generateQuestions(): void {
+    if (this.selectedCategoryId == null) {
+      return;
+    }
+    if (this.generationCount < 1 || this.generationCount > 20) {
+      this.generationMessage = 'Generate between 1 and 20 questions.';
+      this.generationMessageType = 'error';
+      return;
+    }
+
+    console.log('[Generation] Starting generation for category:', this.selectedCategoryId, 'count:', this.generationCount);
+    this.generationLoading = true;
+    this.generationMessage = 'Generating questions...';
+    this.generationMessageType = null;
+    this.generatedQuestions = [];
+
+    this.api.generateQuestionsPreview(this.selectedCategoryId, this.generationCount).subscribe({
+      next: (response: GenerateQuestionsResponse) => {
+        console.log('[Generation] Response received:', response);
+        this.generationLoading = false;
+        if (response.success) {
+          this.generatedQuestions = response.questions;
+          this.generationMessage = `Generated ${response.generatedCount} questions. Review and save them.`;
+          this.generationMessageType = 'success';
+          console.log('[Generation] Success! Generated questions:', this.generatedQuestions);
+        } else {
+          this.generationMessage = response.message || 'Failed to generate questions.';
+          this.generationMessageType = 'error';
+          console.error('[Generation] Failed:', response.message);
+        }
+      },
+      error: (err) => {
+        console.error('[Generation] Error:', err);
+        this.generationLoading = false;
+        this.generationMessage = 'Error generating questions. Check console for details.';
+        this.generationMessageType = 'error';
+      },
+    });
+  }
+
+  saveGeneratedQuestions(): void {
+    if (this.selectedCategoryId == null || this.generatedQuestions.length === 0) {
+      return;
+    }
+
+    this.savingGenerated = true;
+    this.api.saveGeneratedQuestions(this.selectedCategoryId, this.generatedQuestions).subscribe({
+      next: () => {
+        this.savingGenerated = false;
+        this.generationMessage = `Saved ${this.generatedQuestions.length} questions successfully!`;
+        this.generationMessageType = 'success';
+        this.loadQuestions();
+        setTimeout(() => this.closeGenerationPanel(), 2000);
+      },
+      error: (err) => {
+        this.savingGenerated = false;
+        this.generationMessage = 'Error saving questions.';
+        this.generationMessageType = 'error';
+      },
+    });
+  }
+
+  discardGeneratedQuestions(): void {
+    this.generatedQuestions = [];
+    this.generationMessage = '';
+    this.generationMessageType = null;
   }
 
   refreshPendingRelease(): void {

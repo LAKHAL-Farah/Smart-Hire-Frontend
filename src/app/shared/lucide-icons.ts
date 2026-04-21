@@ -85,6 +85,9 @@ import {
   Upload,
   User,
   Users,
+  Loader,
+  Sparkles,
+  Wand2,
   X,
   Zap,
 } from 'lucide-angular';
@@ -99,7 +102,7 @@ const icons = {
   Lock, LogOut, Mail, MapPin, MessageSquare, Play, Plus, Radio, RefreshCw, Search,
   Send, Server, Settings, Shield, ShieldCheck, SquarePen, Star, StarHalf,
   TrendingDown, TrendingUp, Trash2, TriangleAlert, Twitter, Upload, User, Users,
-  X, Zap,
+  Wand2, X, Zap, Sparkles, Loader,
 };
 
 /**

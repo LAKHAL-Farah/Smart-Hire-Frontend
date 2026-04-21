@@ -1,6 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { timeout } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { assessmentApiBaseUrl } from '../../../core/assessment-api-url';
 
@@ -109,6 +110,27 @@ export interface QuestionAdminRow {
   /** Tag for topic-based quizzes (e.g. java). */
   topic?: string | null;
   choices: ChoiceAdminRow[];
+}
+
+export interface GeneratedQuestionDto {
+  prompt: string;
+  choices: string[];
+  correctIndex: number;
+  difficulty: string;
+  points: number;
+}
+
+export interface GenerateQuestionsResponse {
+  categoryId: number;
+  categoryTitle: string | null;
+  generatedCount: number;
+  questions: GeneratedQuestionDto[];
+  success: boolean;
+  message: string;
+}
+
+export interface OllamaStatusResponse {
+  available: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -317,6 +339,34 @@ export class AssessmentAdminApiService {
   getUserAssignedAssessments(userId: string): Observable<Array<{ id: number; code: string; title: string; status: string; completed: boolean }>> {
     return this.http.get<Array<{ id: number; code: string; title: string; status: string; completed: boolean }>>(
       `${this.base()}/admin/users/${userId}/assigned-assessments`,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** Generate questions for a category using Ollama (preview mode). */
+  generateQuestionsPreview(categoryId: number, count: number): Observable<GenerateQuestionsResponse> {
+    return this.http.post<GenerateQuestionsResponse>(
+      `${this.base()}/admin/generate/preview`,
+      { categoryId, count },
+      { headers: this.adminHeaders() }
+    ).pipe(
+      timeout(120000) // 2 minutes — Ollama can be slow on first run
+    );
+  }
+
+  /** Save generated questions to the database. */
+  saveGeneratedQuestions(categoryId: number, questions: GeneratedQuestionDto[]): Observable<void> {
+    return this.http.post<void>(
+      `${this.base()}/admin/generate/save?categoryId=${categoryId}`,
+      questions,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** Check if Ollama service is available. */
+  checkOllamaStatus(): Observable<OllamaStatusResponse> {
+    return this.http.get<OllamaStatusResponse>(
+      `${this.base()}/admin/generate/status`,
       { headers: this.adminHeaders() }
     );
   }

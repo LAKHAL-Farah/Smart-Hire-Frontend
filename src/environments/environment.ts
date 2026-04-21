@@ -2,7 +2,7 @@ export const environment = {
   production: false,
 
   // Authentication & Fallback Settings
-  localAuthFallback: true,
+  localAuthFallback: false,
 
   // MS-User Service (profiles, onboarding persistence)
   userApiUrl: 'http://127.0.0.1:8082/api/v1',

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { assessmentApiBaseUrl } from '../core/assessment-api-url';
 
 export interface RoadmapResponse {
   id: number;
@@ -263,6 +264,13 @@ export interface StepResourceDto {
   price?: number;
   isFree?: boolean;
   externalId?: string;
+  thumbnailUrl?: string;
+  channelName?: string;
+  viewCount?: number;
+  likeCount?: number;
+  instructorName?: string;
+  reviewCount?: number;
+  difficultyLevel?: string;
 }
 
 export interface CreateStepResourceRequest {
@@ -275,6 +283,13 @@ export interface CreateStepResourceRequest {
   price?: number;
   isFree?: boolean;
   externalId?: string;
+  thumbnailUrl?: string;
+  channelName?: string;
+  viewCount?: number;
+  likeCount?: number;
+  instructorName?: string;
+  reviewCount?: number;
+  difficultyLevel?: string;
 }
 
 export interface PaceSnapshotDto {
@@ -406,11 +421,153 @@ export interface CreateCareerPathRequestDto {
   estimatedWeeks?: number;
 }
 
+export type RoadmapExperienceLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
+
+export interface AssessmentRoadmapInsights {
+  skillGaps: string[];
+  strongSkills: string[];
+  experienceLevel: RoadmapExperienceLevel;
+}
+
+export interface BuildRoadmapGenerationRequestFromAssessmentInput {
+  userId: number;
+  careerPathId: number;
+  careerPathName: string;
+  result: AssessmentResultDto;
+  weeklyHoursAvailable?: number;
+  preferredLanguage?: string;
+}
+
+const EXPERIENCE_LEVEL_ALIASES: Record<string, RoadmapExperienceLevel> = {
+  BEGINNER: 'BEGINNER',
+  JUNIOR: 'BEGINNER',
+  INTERMEDIATE: 'INTERMEDIATE',
+  MID: 'INTERMEDIATE',
+  ADVANCED: 'ADVANCED',
+  SENIOR: 'ADVANCED',
+};
+
+function requirePositiveNumber(value: number, fieldName: string): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${fieldName} must be a positive number.`);
+  }
+  return Math.floor(value);
+}
+
+function normalizeCareerPathName(value: string): string {
+  const normalized = (value || '').trim();
+  if (!normalized) {
+    throw new Error('careerPathName is required to generate a roadmap from assessment data.');
+  }
+  return normalized;
+}
+
+function normalizeWeeklyHours(value: number | undefined): number {
+  if (!Number.isFinite(value)) {
+    return 10;
+  }
+  return Math.max(1, Math.min(80, Math.floor(value!)));
+}
+
+function normalizePreferredLanguage(value: string | undefined): string {
+  const normalized = (value || 'EN').trim().toUpperCase();
+  if (!normalized) {
+    return 'EN';
+  }
+  return /^[A-Z-]{2,10}$/.test(normalized) ? normalized : 'EN';
+}
+
+export function parseAssessmentStringList(value: string | string[] | undefined | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => (item ?? '').toString().trim())
+          .filter((item) => item.length > 0)
+      )
+    );
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return Array.from(
+        new Set(
+          parsed
+            .map((item) => (item ?? '').toString().trim())
+            .filter((item) => item.length > 0)
+        )
+      );
+    }
+  } catch {
+    // Fallback to delimiter parsing.
+  }
+
+  return Array.from(
+    new Set(
+      trimmed
+        .split(/[\n,;]+/)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    )
+  );
+}
+
+export function normalizeAssessmentExperienceLevel(value: string | undefined | null): RoadmapExperienceLevel {
+  const normalized = (value || '').trim().toUpperCase();
+  return EXPERIENCE_LEVEL_ALIASES[normalized] ?? 'INTERMEDIATE';
+}
+
+export function assessmentInsightsFromResult(
+  result: AssessmentResultDto | null | undefined
+): AssessmentRoadmapInsights {
+  return {
+    skillGaps: parseAssessmentStringList(result?.skillGaps),
+    strongSkills: parseAssessmentStringList(result?.strongSkills),
+    experienceLevel: normalizeAssessmentExperienceLevel(result?.experienceLevel),
+  };
+}
+
+export function buildRoadmapGenerationRequestFromAssessment(
+  input: BuildRoadmapGenerationRequestFromAssessmentInput
+): RoadmapGenerationRequestDto {
+  if (!input?.result) {
+    throw new Error('Assessment result is required before generating a roadmap.');
+  }
+
+  const insights = assessmentInsightsFromResult(input.result);
+
+  return {
+    userId: requirePositiveNumber(input.userId, 'userId'),
+    careerPathId: requirePositiveNumber(input.careerPathId, 'careerPathId'),
+    careerPathName: normalizeCareerPathName(input.careerPathName),
+    skillGaps: insights.skillGaps,
+    strongSkills: insights.strongSkills,
+    experienceLevel: insights.experienceLevel,
+    weeklyHoursAvailable: normalizeWeeklyHours(input.weeklyHoursAvailable),
+    preferredLanguage: normalizePreferredLanguage(input.preferredLanguage),
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class RoadmapApiService {
   private http = inject(HttpClient);
   private roadmapApiUrl = environment.apiUrls.roadmap.replace(/\/$/, '');
-  private assessmentUrl = (environment.apiUrls.assessment || environment.assessmentApiUrl).replace(/\/$/, '');
+  private assessmentUrl = (
+    assessmentApiBaseUrl() ||
+    environment.apiUrls.assessment ||
+    environment.assessmentApiUrl ||
+    ''
+  ).replace(/\/$/, '');
 
   // Roadmap CRUD
   getUserRoadmap(userId: number): Observable<RoadmapResponse> {
@@ -432,6 +589,13 @@ export class RoadmapApiService {
   // Visual Roadmap
   generateVisualRoadmap(request: RoadmapGenerationRequestDto): Observable<RoadmapVisualResponse> {
     return this.http.post<RoadmapVisualResponse>(`${this.roadmapApiUrl}/roadmaps/visual/generate`, request);
+  }
+
+  generateVisualRoadmapFromAssessment(
+    input: BuildRoadmapGenerationRequestFromAssessmentInput
+  ): Observable<RoadmapVisualResponse> {
+    const request = buildRoadmapGenerationRequestFromAssessment(input);
+    return this.generateVisualRoadmap(request);
   }
 
   getRoadmapGraph(roadmapId: number): Observable<RoadmapVisualResponse> {

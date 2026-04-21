@@ -51,10 +51,14 @@ export function setProfileUserUuid(uuid: string): void {
 
 /** Browser-only demo when MS-User is unreachable (no server-side user). */
 export function isLocalDemoMode(): boolean {
-  return localStorage.getItem(DEMO_MODE_KEY) === '1';
+  return environment.localAuthFallback && localStorage.getItem(DEMO_MODE_KEY) === '1';
 }
 
 export function setLocalDemoMode(on: boolean): void {
+  if (!environment.localAuthFallback) {
+    localStorage.removeItem(DEMO_MODE_KEY);
+    return;
+  }
   if (on) {
     localStorage.setItem(DEMO_MODE_KEY, '1');
   } else {

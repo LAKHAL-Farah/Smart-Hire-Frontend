@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, finalize, of, switchMap } from 'rxjs';
 import {
-  AssessmentResultDto,
+  assessmentInsightsFromResult,
   RoadmapResponse,
   ReplanRequestDto,
   RoadmapApiService,
@@ -192,14 +192,15 @@ export class ReplanWizardComponent implements OnInit {
   private prefillFromLatestAssessment(userId: number): void {
     this.roadmapApi
       .getLatestAssessment(userId)
-      .pipe(catchError(() => of(null as AssessmentResultDto | null)))
+      .pipe(catchError(() => of(null)))
       .subscribe((result) => {
         if (!result) {
           return;
         }
 
-        const gaps = this.parseStringList(result.skillGaps);
-        const strengths = this.parseStringList(result.strongSkills);
+        const insights = assessmentInsightsFromResult(result);
+        const gaps = insights.skillGaps;
+        const strengths = insights.strongSkills;
 
         if (gaps.length > 0) {
           this.skillGaps.set(gaps);
@@ -208,57 +209,11 @@ export class ReplanWizardComponent implements OnInit {
           this.strongSkills.set(strengths);
         }
 
-        if (result.experienceLevel) {
-          this.experienceLevel.set(this.normalizeExperienceLevel(result.experienceLevel));
-        }
+        this.experienceLevel.set(insights.experienceLevel);
 
         if (gaps.length > 0 || strengths.length > 0 || !!result.experienceLevel) {
           this.autoFilledFromAssessment.set(true);
         }
       });
-  }
-
-  private parseStringList(value: string | string[] | undefined): string[] {
-    if (!value) {
-      return [];
-    }
-
-    if (Array.isArray(value)) {
-      return value
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0);
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => String(item).trim())
-          .filter((item) => item.length > 0);
-      }
-    } catch {
-      // backend can return comma-separated text
-    }
-
-    return trimmed
-      .split(/[\n,;]+/)
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-  }
-
-  private normalizeExperienceLevel(value: string): 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' {
-    const normalized = value.trim().toUpperCase();
-    if (normalized === 'BEGINNER' || normalized === 'JUNIOR') {
-      return 'BEGINNER';
-    }
-    if (normalized === 'ADVANCED' || normalized === 'SENIOR') {
-      return 'ADVANCED';
-    }
-    return 'INTERMEDIATE';
   }
 }

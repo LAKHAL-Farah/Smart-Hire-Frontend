@@ -148,6 +148,12 @@ export class UserManagementService {
     );
   }
 
+  public isMfaEnabled(id: string): Observable<boolean>{
+    return this.http.get<boolean>(`${this.apiUrl}/mfa/${id}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
   private handleError(error: any): Observable<never> {
     console.error('API Error:', error);
     let errorMessage = 'An error occurred while fetching users';

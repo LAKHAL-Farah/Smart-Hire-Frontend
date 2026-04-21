@@ -129,11 +129,11 @@ export class OnboardingComponent implements OnInit {
           this.assignmentApi.register(uid, situation, careerPath, headline, customSit, customCareer).subscribe({
             next: () => {
               this.saving.set(false);
-              void this.router.navigate(['/dashboard/assessments']);
+              void this.router.navigate(['login']);
             },
             error: () => {
               this.saving.set(false);
-              void this.router.navigate(['/dashboard/assessments']);
+              void this.router.navigate(['login']);
             },
           });
         },

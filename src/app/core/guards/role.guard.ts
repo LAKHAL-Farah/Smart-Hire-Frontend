@@ -19,7 +19,7 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const requiredRoles = route.data['requiredRoles'] as string[] | undefined;
 
   if(! auth.isLoggedIn()) {
-    void router.navigate(['/login']);
+    void router.navigate(['/login-mfa']);
     return false;
   }
 

@@ -165,3 +165,41 @@
 @media (max-width: 560px) {
   .q-card { padding: 24px 20px; }
 }
+
+:host-context([data-mode='light']) {
+  .q-card {
+    background: color-mix(in srgb, var(--bg-card) 94%, #ffffff 6%);
+    border-color: var(--border-subtle);
+  }
+
+  .q-option {
+    background: var(--bg-card);
+    border-color: var(--border-subtle);
+    color: var(--text-primary);
+  }
+
+  .q-option:hover {
+    border-color: var(--border-hover);
+    background: color-mix(in srgb, var(--bg-tertiary) 88%, var(--color-primary) 12%);
+  }
+
+  .q-option--active {
+    border-color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-card) 90%);
+  }
+
+  .q-option__letter {
+    background: var(--bg-tertiary);
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  .q-option__letter--active {
+    background: var(--color-primary) !important;
+    border-color: var(--color-primary) !important;
+  }
+
+  .diff-dot--filled {
+    background: var(--color-primary);
+  }
+}

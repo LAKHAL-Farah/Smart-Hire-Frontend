@@ -28,12 +28,14 @@ export class SidebarComponent {
   prepareItems: NavItem[] = [
     { icon: 'circle-check', label: 'Skill assessments', route: '/dashboard/assessments' },
     { icon: 'message-square', label: 'Interview', route: '/dashboard/interview' },
+    { icon: 'globe', label: 'Discover', route: '/dashboard/interview/discover' },
     { icon: 'file-text', label: 'CV Optimizer', route: '/dashboard/cv' },
     { icon: 'user', label: 'Profile', route: '/dashboard/profile' },
   ];
 
   recruitItems: NavItem[] = [
     { icon: 'briefcase', label: 'Jobs', route: '/dashboard/jobs' },
+    { icon: 'square-pen', label: 'Post Job', route: '/dashboard/post-job' },
   ];
 
   constructor(private authService: AuthService) {}

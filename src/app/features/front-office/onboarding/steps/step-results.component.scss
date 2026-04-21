@@ -265,3 +265,38 @@
 @media (max-width: 740px) {
   .result-grid { grid-template-columns: 1fr; }
 }
+
+:host-context([data-mode='light']) {
+  .result-card {
+    background: color-mix(in srgb, var(--bg-card) 94%, #ffffff 6%);
+    border-color: var(--border-subtle);
+  }
+
+  .result-card--readiness {
+    border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--bg-card) 92%);
+  }
+
+  .skill-bar-row__track {
+    background: var(--bg-tertiary);
+  }
+
+  .skill-bar-row__fill {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  }
+
+  .match-tag {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-tertiary) 88%);
+  }
+
+  .next-step-item__num {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-tertiary) 88%);
+  }
+
+  .cta-btn {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    color: var(--color-surface);
+  }
+}

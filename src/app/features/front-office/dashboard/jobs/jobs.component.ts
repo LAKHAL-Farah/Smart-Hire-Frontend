@@ -1,26 +1,10 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
+import { HttpErrorResponse } from '@angular/common/http';
+import { JobService, Job, JobApplication } from '../../../../services/job.service';
 
-/* ── Types ── */
-interface Job {
-  id: number;
-  title: string;
-  company: string;
-  companyInitials: string;
-  companyColor: string;
-  verified: boolean;
-  locationType: string;
-  contractType: string;
-  salaryRange: string;
-  experienceLevel: string;
-  skills: string[];
-  matchScore: number;
-  postedDate: string;
-  description: string;
-  saved: boolean;
-}
 
 @Component({
   selector: 'app-jobs',
@@ -29,16 +13,16 @@ interface Job {
   templateUrl: './jobs.component.html',
   styleUrl: './jobs.component.scss'
 })
-export class JobsComponent {
+export class JobsComponent implements OnInit {
   /* ── User's current skills (for match highlighting) ── */
   userSkills = ['TypeScript', 'Angular', 'Node.js', 'PostgreSQL', 'Docker', 'Python', 'React', 'AWS', 'Git', 'REST APIs'];
 
   /* ── Signals ── */
-  selectedJobId = signal(1);
+  selectedJobId = signal<number>(0);
   breakdownOpen = signal(false);
-  sortOption = 'match';
-  searchQuery = '';
-  techQuery = '';
+  sortOption = signal<'match' | 'recent' | 'salary'>('match');
+  searchQuery = signal('');
+  techQuery = signal('');
 
   /* ── Filter state ── */
   locationFilters = signal<string[]>([]);
@@ -65,152 +49,85 @@ export class JobsComponent {
   matchCircum = 2 * Math.PI * 16; // ≈ 100.53
 
   /* ── Job data ── */
-  allJobs: Job[] = [
-    {
-      id: 1,
-      title: 'Senior Frontend Engineer',
-      company: 'Spotify',
-      companyInitials: 'SP',
-      companyColor: '#1DB954',
-      verified: true,
-      locationType: 'Remote',
-      contractType: 'Full-time',
-      salaryRange: '$130k – $175k',
-      experienceLevel: 'Senior',
-      skills: ['TypeScript', 'React', 'GraphQL', 'Node.js', 'CI/CD', 'Docker'],
-      matchScore: 82,
-      postedDate: 'Feb 23, 2026',
-      description: 'We are looking for a Senior Frontend Engineer to join the Web Player team at Spotify. You will architect and build high-performance UI components that serve millions of daily listeners.\nYou will collaborate with designers, backend engineers, and product managers to ship features across our desktop and web platforms. A strong understanding of state management, accessibility, and performance optimization is essential.\nThis is a fully remote position open to candidates across Europe and North America.',
-      saved: false,
-    },
-    {
-      id: 2,
-      title: 'Full-Stack Developer',
-      company: 'Stripe',
-      companyInitials: 'ST',
-      companyColor: '#635BFF',
-      verified: true,
-      locationType: 'Hybrid',
-      contractType: 'Full-time',
-      salaryRange: '$140k – $190k',
-      experienceLevel: 'Senior',
-      skills: ['TypeScript', 'React', 'Ruby', 'PostgreSQL', 'AWS', 'Kubernetes'],
-      matchScore: 74,
-      postedDate: 'Feb 21, 2026',
-      description: 'Stripe is hiring a Full-Stack Developer to work on the Payments Dashboard. You will own features end-to-end, from database design through API development to polished frontend interfaces.\nOur stack includes React, TypeScript, Ruby on Rails, and PostgreSQL, all deployed on AWS with Kubernetes. You will also contribute to our internal design system and developer tools.\nHybrid role based in San Francisco or New York, with 3 days per week in-office.',
-      saved: true,
-    },
-    {
-      id: 3,
-      title: 'Backend Engineer',
-      company: 'Datadog',
-      companyInitials: 'DD',
-      companyColor: '#632CA6',
-      verified: true,
-      locationType: 'Remote',
-      contractType: 'Full-time',
-      salaryRange: '$120k – $160k',
-      experienceLevel: 'Mid',
-      skills: ['Go', 'Python', 'Kafka', 'PostgreSQL', 'Kubernetes', 'Terraform'],
-      matchScore: 58,
-      postedDate: 'Feb 19, 2026',
-      description: 'Join Datadog as a Backend Engineer to build the next generation of our real-time monitoring pipeline. You will work on high-throughput distributed systems that process billions of events daily.\nThe ideal candidate has experience with Go, message queues (Kafka), and container orchestration. You will contribute to system design, performance profiling, and incident response.\nFully remote within the US and Canada.',
-      saved: false,
-    },
-    {
-      id: 4,
-      title: 'Junior Frontend Developer',
-      company: 'Figma',
-      companyInitials: 'FG',
-      companyColor: '#F24E1E',
-      verified: false,
-      locationType: 'On-site',
-      contractType: 'Full-time',
-      salaryRange: '$75k – $100k',
-      experienceLevel: 'Junior',
-      skills: ['TypeScript', 'React', 'CSS', 'REST APIs', 'Git'],
-      matchScore: 88,
-      postedDate: 'Feb 18, 2026',
-      description: 'Figma is looking for a Junior Frontend Developer to join our growing Design Tools team. You will help build and maintain interactive UI components used by millions of designers and developers.\nYou should be comfortable with TypeScript, React, and modern CSS techniques. Experience with canvas rendering or WebGL is a plus, but not required.\nThis is an on-site position at our San Francisco office with excellent mentorship opportunities.',
-      saved: false,
-    },
-    {
-      id: 5,
-      title: 'DevOps Engineer',
-      company: 'GitLab',
-      companyInitials: 'GL',
-      companyColor: '#FC6D26',
-      verified: true,
-      locationType: 'Remote',
-      contractType: 'Full-time',
-      salaryRange: '$110k – $150k',
-      experienceLevel: 'Mid',
-      skills: ['Docker', 'Kubernetes', 'Terraform', 'AWS', 'Linux', 'CI/CD', 'Python'],
-      matchScore: 65,
-      postedDate: 'Feb 17, 2026',
-      description: 'GitLab seeks a DevOps Engineer to improve our cloud infrastructure and deployment pipelines. You will automate provisioning, enhance monitoring, and ensure high reliability across all production services.\nExperience with Terraform, Kubernetes, and at least one major cloud provider is required. We are a fully remote company with asynchronous communication at its core.\nThis role offers significant autonomy and the opportunity to work across many engineering teams.',
-      saved: false,
-    },
-    {
-      id: 6,
-      title: 'Software Engineer Intern',
-      company: 'Vercel',
-      companyInitials: 'VC',
-      companyColor: '#000',
-      verified: false,
-      locationType: 'Remote',
-      contractType: 'Internship',
-      salaryRange: '$4k – $6k/mo',
-      experienceLevel: 'Junior',
-      skills: ['TypeScript', 'Next.js', 'React', 'Node.js', 'Git'],
-      matchScore: 71,
-      postedDate: 'Feb 15, 2026',
-      description: 'Vercel is offering a summer internship for aspiring Software Engineers. You will work alongside our platform team to build tooling that empowers frontend developers around the world.\nIdeal candidates are comfortable with TypeScript and Next.js, and have a passion for developer experience. You will ship real features used by hundreds of thousands of developers.\nFully remote internship, 12 weeks, with mentorship from senior engineers.',
-      saved: false,
-    },
-    {
-      id: 7,
-      title: 'AI/ML Engineer',
-      company: 'OpenAI',
-      companyInitials: 'OA',
-      companyColor: '#10a37f',
-      verified: true,
-      locationType: 'Hybrid',
-      contractType: 'Full-time',
-      salaryRange: '$180k – $250k',
-      experienceLevel: 'Senior',
-      skills: ['Python', 'PyTorch', 'Kubernetes', 'AWS', 'C++', 'Linux'],
-      matchScore: 42,
-      postedDate: 'Feb 14, 2026',
-      description: 'OpenAI is hiring an AI/ML Engineer to push the boundaries of large language models. You will design and train models at scale, optimize inference performance, and contribute to safety research.\nStrong experience with Python, PyTorch, and distributed training is essential. Familiarity with CUDA, C++, and ML systems engineering is highly valued.\nHybrid role based in San Francisco with flexible remote days.',
-      saved: false,
-    },
-    {
-      id: 8,
-      title: 'Freelance React Developer',
-      company: 'Toptal',
-      companyInitials: 'TT',
-      companyColor: '#204ECF',
-      verified: false,
-      locationType: 'Remote',
-      contractType: 'Freelance',
-      salaryRange: '$70 – $120/hr',
-      experienceLevel: 'Mid',
-      skills: ['React', 'TypeScript', 'Node.js', 'REST APIs', 'MongoDB', 'Git'],
-      matchScore: 79,
-      postedDate: 'Feb 12, 2026',
-      description: 'Toptal is looking for skilled React Developers to join our freelance network and work with Fortune 500 clients. Projects range from greenfield applications to complex platform migrations.\nYou should have at least 3 years of professional React experience and strong communication skills. TypeScript proficiency and Node.js backend knowledge are a plus.\nFlexible hours, fully remote, choose your own projects.',
-      saved: false,
-    },
-  ];
+  allJobs = signal<Job[]>([]);
+
+  /* ── Apply modal state ── */
+  applyModalOpen = signal(false);
+  applyJobId = signal<number | null>(null);
+  resumeFile = signal<File | null>(null);
+  submitError = signal<string | null>(null);
+  isSubmitting = signal(false);
+  lastApplication = signal<JobApplication | null>(null);
+
+  constructor(private jobService: JobService) {}
+  ngOnInit(): void {
+    this.loadJobs();
+  }
+  loadJobs(): void {
+    this.jobService.getJobs().subscribe({
+      next: (jobs) => {
+        const safeJobs: Job[] = (jobs ?? []).map((j: any) => {
+          const company = typeof j?.company === 'string' ? j.company : '';
+          return {
+            ...j,
+            id: typeof j?.id === 'number' ? j.id : (Number(j?.id) || 0),
+            title: typeof j?.title === 'string' ? j.title : '',
+            company,
+            locationType: typeof j?.locationType === 'string' ? j.locationType : '',
+            contractType: typeof j?.contractType === 'string' ? j.contractType : '',
+            experienceLevel: typeof j?.experienceLevel === 'string' ? j.experienceLevel : '',
+            skills: Array.isArray(j?.skills) ? j.skills : [],
+            description: typeof j?.description === 'string' ? j.description : '',
+            postedDate: typeof j?.postedDate === 'string' ? j.postedDate : '',
+            salaryRange: typeof j?.salaryRange === 'string' ? j.salaryRange : '',
+            companyInitials: typeof j?.companyInitials === 'string'
+              ? j.companyInitials
+              : (company.trim() ? company.trim().slice(0, 2).toUpperCase() : 'NA'),
+            companyColor: typeof j?.companyColor === 'string' ? j.companyColor : '#64748b',
+            verified: typeof j?.verified === 'boolean' ? j.verified : false,
+            saved: typeof j?.saved === 'boolean' ? j.saved : false,
+            matchScore: typeof j?.matchScore === 'number' ? j.matchScore : 0,
+          };
+        });
+
+        this.allJobs.set(safeJobs);
+
+        if (safeJobs.length && !this.selectedJobId()) {
+          this.selectedJobId.set(safeJobs[0].id);
+        }
+      },
+      error: (err) => {
+        console.error('Failed to load jobs:', err);
+      }
+    });
+  }
+  getTimeAgo(dateString: string): string {
+  const posted = new Date(dateString);
+  if (Number.isNaN(posted.getTime())) return '';
+  const now = new Date();
+  const diffMs = now.getTime() - posted.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return '1 day ago';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 14) return '1 week ago';
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 60) return '1 month ago';
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  if (diffDays < 730) return '1 year ago';
+  return `${Math.floor(diffDays / 365)} years ago`;
+}
+
 
   /* ── Computed ── */
   filteredJobs = computed(() => {
-    let jobs = [...this.allJobs];
+    let jobs = [...this.allJobs()];
 
     // Search query
-    if (this.searchQuery.trim()) {
-      const q = this.searchQuery.toLowerCase();
+    const search = this.searchQuery().trim();
+    if (search) {
+      const q = search.toLowerCase();
       jobs = jobs.filter(j =>
         j.title.toLowerCase().includes(q) ||
         j.company.toLowerCase().includes(q) ||
@@ -235,21 +152,24 @@ export class JobsComponent {
     if (techs.length) jobs = jobs.filter(j => techs.some(t => j.skills.includes(t)));
 
     // Sort
-    if (this.sortOption === 'match') {
+    if (this.sortOption() === 'match') {
       jobs.sort((a, b) => b.matchScore - a.matchScore);
-    } else if (this.sortOption === 'recent') {
+    } else if (this.sortOption() === 'recent') {
       jobs.sort((a, b) => b.id - a.id);
+    } else if (this.sortOption() === 'salary') {
+      // Backend salaryRange is a string; keep stable ordering for now.
     }
 
     return jobs;
   });
 
   selectedJob = computed(() => {
-    return this.allJobs.find(j => j.id === this.selectedJobId()) ?? this.allJobs[0];
+    const jobs = this.allJobs();
+    return jobs.find(j => j.id === this.selectedJobId()) ?? jobs[0];
   });
 
   techSuggestions = computed(() => {
-    const q = this.techQuery.toLowerCase().trim();
+    const q = this.techQuery().toLowerCase().trim();
     if (!q) return [];
     const active = this.techFilters();
     return this.allTechOptions
@@ -282,20 +202,20 @@ export class JobsComponent {
   }
 
   addTechTag(): void {
-    const q = this.techQuery.trim();
+    const q = this.techQuery().trim();
     if (!q) return;
     const match = this.allTechOptions.find(t => t.toLowerCase() === q.toLowerCase());
     if (match && !this.techFilters().includes(match)) {
       this.techFilters.set([...this.techFilters(), match]);
     }
-    this.techQuery = '';
+    this.techQuery.set('');
   }
 
   pickTechTag(tag: string): void {
     if (!this.techFilters().includes(tag)) {
       this.techFilters.set([...this.techFilters(), tag]);
     }
-    this.techQuery = '';
+    this.techQuery.set('');
   }
 
   removeTechTag(tag: string): void {
@@ -303,14 +223,14 @@ export class JobsComponent {
   }
 
   clearFilters(): void {
-    this.searchQuery = '';
+    this.searchQuery.set('');
     this.locationFilters.set([]);
     this.contractFilters.set([]);
     this.experienceFilters.set([]);
     this.salaryMin.set(0);
     this.salaryMax.set(200000);
     this.techFilters.set([]);
-    this.techQuery = '';
+    this.techQuery.set('');
   }
 
   applySearch(): void {
@@ -320,6 +240,78 @@ export class JobsComponent {
   toggleSave(job: Job, event: Event): void {
     event.stopPropagation();
     job.saved = !job.saved;
+  }
+
+  openApplyModal(jobId: number): void {
+    this.applyJobId.set(jobId);
+    this.resumeFile.set(null);
+    this.submitError.set(null);
+    this.lastApplication.set(null);
+    this.applyModalOpen.set(true);
+  }
+
+  closeApplyModal(): void {
+    this.applyModalOpen.set(false);
+    this.applyJobId.set(null);
+    this.resumeFile.set(null);
+    this.submitError.set(null);
+    this.isSubmitting.set(false);
+  }
+
+  onResumeSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    this.resumeFile.set(file);
+    this.submitError.set(null);
+  }
+
+  submitApplication(): void {
+    const jobId = this.applyJobId();
+    const file = this.resumeFile();
+    if (!jobId) {
+      this.submitError.set('Missing job id. Please retry.');
+      return;
+    }
+    if (!file) {
+      this.submitError.set('Please upload your resume first.');
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.submitError.set(null);
+    this.lastApplication.set(null);
+
+    this.jobService.applyToJob(jobId, file, 1).subscribe({
+      next: (app) => {
+        this.lastApplication.set(app);
+        this.isSubmitting.set(false);
+        // Keep modal open briefly to show success; user can close.
+      },
+      error: (err: unknown) => {
+        this.isSubmitting.set(false);
+        this.submitError.set(this.getApplyErrorMessage(err));
+      }
+    });
+  }
+
+  private getApplyErrorMessage(err: unknown): string {
+    if (err instanceof HttpErrorResponse) {
+      const backendError = (err.error && typeof err.error === 'object') ? (err.error as any).error : null;
+      const message = typeof backendError === 'string' && backendError.trim() ? backendError : null;
+
+      if (err.status === 409) {
+        return message ?? 'You already applied to this job.';
+      }
+      if (err.status === 400) {
+        return message ?? 'Invalid request. Please check your resume file.';
+      }
+      if (err.status === 0) {
+        return 'Cannot reach the Job service. Is MS_JOB running on http://localhost:8085?';
+      }
+      return message ?? 'Failed to submit application.';
+    }
+
+    return 'Failed to submit application.';
   }
 
   getMatchedSkills(job: Job): string[] {

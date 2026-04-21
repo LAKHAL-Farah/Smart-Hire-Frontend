@@ -303,3 +303,55 @@
   .summary-strip { grid-template-columns: 1fr; }
   .donut-wrap { flex-direction: column; }
 }
+
+:host-context([data-mode='light']) {
+  .page-hdr__title,
+  .scard__big,
+  .chart-card__title,
+  .cohort-section__title,
+  .legend-name,
+  .hm-cell,
+  .funnel-count {
+    color: var(--text-primary);
+  }
+
+  .page-hdr__sub,
+  .scard__label,
+  .donut-label,
+  .legend-val,
+  .legend-pct,
+  .hm-day,
+  .hm-module,
+  .hist-label,
+  .hist-stat,
+  .cohort-section__sub,
+  .cohort-th,
+  .cohort-label,
+  .funnel-drop,
+  .funnel-pct--base {
+    color: var(--text-secondary);
+  }
+
+  .range-select {
+    background: var(--bg-tertiary);
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  .range-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .histogram-footer {
+    border-top-color: var(--border-subtle);
+  }
+
+  .funnel-pct--base {
+    background: color-mix(in srgb, var(--bg-tertiary) 92%, var(--color-primary) 8%);
+  }
+
+  .funnel-bar__label {
+    color: #0f172a;
+  }
+}

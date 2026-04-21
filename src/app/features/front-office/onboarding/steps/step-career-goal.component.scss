@@ -119,3 +119,26 @@
 @media (max-width: 480px) {
   .cards-grid { grid-template-columns: 1fr; max-width: 320px; margin: 0 auto; }
 }
+
+:host-context([data-mode='light']) {
+  .career-card {
+    background: color-mix(in srgb, var(--bg-card) 94%, #ffffff 6%);
+    border-color: var(--border-subtle);
+  }
+
+  .career-card:hover {
+    border-color: var(--border-hover);
+    background: color-mix(in srgb, var(--bg-tertiary) 86%, var(--color-primary) 14%);
+  }
+
+  .career-card--active {
+    border-color: var(--color-primary) !important;
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-card) 90%) !important;
+    box-shadow: 0 0 18px rgba(var(--color-primary-rgb), 0.14);
+  }
+
+  .career-card__badge {
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-tertiary) 88%);
+  }
+}

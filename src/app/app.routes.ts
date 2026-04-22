@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { adminCanMatch } from './core/guards/admin.guard';
 import { onboardingCanMatch } from './core/guards/onboarding.guard';
 import { authGuard } from './core/guards/auth.guard';
-import { roleGuard } from './core/guards/role.guard';
 import { noAuthGuard } from './core/guards/no-auth.guard';
 
 export const routes: Routes = [
@@ -62,6 +61,13 @@ export const routes: Routes = [
         path: 'cv',
         loadComponent: () =>
           import('./features/front-office/dashboard/cv-optimizer').then((m) => m.CvOptimizerComponent),
+      },
+      {
+        path: 'profile-optimizer',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/profile-optimizer/profile-optimizer.component').then(
+            (m) => m.ProfileOptimizerComponent
+          ),
       },
       {
         path: 'jobs',
@@ -130,8 +136,6 @@ export const routes: Routes = [
   {
     path: 'admin',
     canMatch: [adminCanMatch],
-    canActivate: [roleGuard],
-    data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent
@@ -146,8 +150,6 @@ export const routes: Routes = [
       },
       {
         path: 'users',
-        canActivate: [roleGuard],
-        data: { requiredRoles: ['recruiter'] },
         loadComponent: () =>
           import('./features/back-office/admin/users/user-management.component').then(
             (m) => m.UserManagementComponent

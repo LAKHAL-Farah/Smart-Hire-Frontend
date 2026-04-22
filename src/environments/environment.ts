@@ -6,7 +6,7 @@ export const environment = {
   /** MS-User service (profiles, onboarding persistence). */
   userApiUrl: 'http://127.0.0.1:8082/api/v1',
   /** M4 profile optimization service. */
-  profileOptimizationApiUrl: 'http://127.0.0.1:8086/api/v1',
+  profileOptimizationApiUrl: 'http://127.0.0.1:8092/api',
 
   /**
    * MS-Assessment — must include `/assessment` so admin calls hit

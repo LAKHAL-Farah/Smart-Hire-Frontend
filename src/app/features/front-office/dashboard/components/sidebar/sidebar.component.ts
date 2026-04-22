@@ -29,6 +29,7 @@ export class SidebarComponent {
     { icon: 'circle-check', label: 'Skill assessments', route: '/dashboard/assessments' },
     { icon: 'message-square', label: 'Interview', route: '/dashboard/interview' },
     { icon: 'file-text', label: 'CV Optimizer', route: '/dashboard/cv' },
+    { icon: 'zap', label: 'Profile Optimizer', route: '/dashboard/profile-optimizer' },
     { icon: 'user', label: 'Profile', route: '/dashboard/profile' },
   ];
 

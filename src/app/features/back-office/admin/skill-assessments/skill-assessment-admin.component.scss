@@ -2594,3 +2594,374 @@
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
+
+/* ═══════════ THEME-AWARE OVERRIDES ═══════════
+   Replace hardcoded dark colors with CSS variables so all themes work correctly.
+   These rules override the hardcoded rgba(255,255,255,...) / rgba(0,0,0,...) values above.
+*/
+
+/* Page text */
+.saa { color: var(--color-text-p); }
+.saa__hero-title { color: var(--color-text-p); }
+.saa__hero-sub { color: var(--color-text-s); strong { color: var(--color-text-p); } }
+
+/* Tables */
+.saa-table {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+
+  th {
+    background: var(--color-surface);
+    color: var(--color-text-s);
+    border-bottom-color: var(--color-border);
+  }
+
+  td { color: var(--color-text-p); border-bottom-color: var(--color-border); }
+
+  .saa-table__row {
+    &:hover { background: var(--bg-card-hover); }
+    &--selected { background: rgba(var(--color-primary-rgb), 0.08); }
+  }
+
+  .saa-table__cell-title { color: var(--color-text-p); }
+  .saa-table__cell-desc { color: var(--color-text-s); }
+  .saa-table__count { color: var(--color-text-p); }
+}
+
+.saa-table-wrap {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Sections */
+.saa-release, .saa-bank, .saa-history, .saa-users {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.saa-release__title, .saa-bank__title, .saa-history__title, .saa-workspace__title {
+  color: var(--color-text-p);
+}
+
+.saa-release__sub, .saa-bank__hint, .saa-history__sub, .saa-workspace__sub {
+  color: var(--color-text-s);
+}
+
+.saa-release__empty { color: var(--color-text-s); }
+
+/* Release cards */
+.saa-release__card {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  &:hover { background: var(--bg-card-hover); }
+}
+
+.saa-release__cat { color: var(--color-text-p); }
+.saa-release__name { color: var(--color-text-p); }
+.saa-release__uid { color: var(--color-text-s); }
+.saa-release__when { color: var(--color-text-s); }
+.saa-release__score-val { color: var(--color-text-p); }
+.saa-release__score-lbl { color: var(--color-text-s); }
+
+/* Panels */
+.saa-panel {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.saa-panel__head-title { color: var(--color-text-p); }
+.saa-panel__label { color: var(--color-text-s); }
+
+/* Forms */
+.saa-input {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+
+  &:focus {
+    border-color: var(--color-primary);
+    outline: none;
+  }
+
+  &::placeholder { color: var(--color-text-s); }
+}
+
+.saa-field-label { color: var(--color-text-s); }
+.saa-check { color: var(--color-text-p); }
+
+/* Question blocks */
+.saa-q-block {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  &--open { border-color: rgba(var(--color-primary-rgb), 0.3); }
+}
+
+.saa-q-block__prompt { color: var(--color-text-p); }
+.saa-q-block__meta { color: var(--color-text-s); }
+
+.saa-q-block__body {
+  background: var(--color-surface);
+  border-top-color: var(--color-border);
+}
+
+.saa-q-block__lead { color: var(--color-text-s); }
+
+/* Choices */
+.saa-choice-row {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+}
+
+.saa-choice-row__label { color: var(--color-text-p); }
+.saa-choice-row__order { color: var(--color-text-s); }
+
+/* Modals */
+.saa-modal {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+}
+
+.saa-modal__title { color: var(--color-text-p); }
+.saa-modal__loading { color: var(--color-text-s); }
+.saa-modal__uid { color: var(--color-text-s); }
+.saa-modal__name { color: var(--color-text-p); }
+.saa-modal__badge { color: var(--color-text-p); }
+.saa-modal__score { color: var(--color-text-p); }
+
+.saa-modal-ans {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+
+  &--ok { border-color: rgba(var(--color-accent-rgb), 0.35); background: rgba(var(--color-accent-rgb), 0.04); }
+  &--bad { border-color: rgba(248, 113, 113, 0.35); background: rgba(248, 113, 113, 0.04); }
+}
+
+.saa-modal-ans__prompt { color: var(--color-text-p); }
+.saa-modal-ans__line { color: var(--color-text-p); }
+.saa-modal-ans__pts { color: var(--color-text-s); }
+
+/* Publish modal */
+.saa-publish__intro { color: var(--color-text-s); }
+.saa-publish__label { color: var(--color-text-s); }
+.saa-publish__ta {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+  &::placeholder { color: var(--color-text-s); }
+}
+
+/* Generation panel */
+.saa-generation-panel {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.saa-generation-panel__title { color: var(--color-text-p); }
+.saa-generation-panel__desc { color: var(--color-text-s); }
+.saa-generation-panel__count { color: var(--color-text-s); }
+
+.saa-gen-question {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+}
+
+.saa-gen-question__prompt { color: var(--color-text-p); }
+
+.saa-gen-choice {
+  color: var(--color-text-p);
+  &--correct { color: var(--accent-teal); }
+}
+
+/* Breadcrumb */
+.saa-crumb__root { color: var(--color-text-s); }
+.saa-crumb__current { color: var(--color-text-p); }
+
+/* Empty states */
+.saa-empty { color: var(--color-text-s); }
+.saa-placeholder__title { color: var(--color-text-p); }
+.saa-placeholder__text { color: var(--color-text-s); }
+
+/* Buttons */
+.saa-btn--ghost {
+  color: var(--color-text-p);
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  &:hover:not(:disabled) { background: var(--bg-card-hover); border-color: var(--color-primary); }
+}
+
+.saa-btn--secondary {
+  color: var(--color-text-p);
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  &:hover:not(:disabled) { background: var(--bg-card-hover); }
+}
+
+/* Icon buttons */
+.saa-icon-btn {
+  color: var(--color-text-s);
+  &:hover { color: var(--color-text-p); background: var(--bg-card-hover); }
+  &--danger:hover { color: #f87171; }
+}
+
+/* Chips */
+.saa-chip {
+  &--code { background: rgba(var(--color-primary-rgb), 0.12); color: var(--color-primary); }
+  &--topic { background: rgba(var(--color-accent-rgb), 0.12); color: var(--accent-teal); }
+  &--ok { background: rgba(52, 211, 153, 0.12); color: #34d399; }
+  &--wait { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+  &--warn { background: rgba(239, 68, 68, 0.12); color: #f87171; }
+  &--diff { background: var(--bg-card); color: var(--color-text-s); border: 1px solid var(--color-border); }
+}
+
+/* Users section */
+.saa-users__title { color: var(--color-text-p); }
+.saa-users__sub { color: var(--color-text-s); }
+
+.saa-user-card {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+
+  &:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(var(--color-primary-rgb), 0.4);
+  }
+}
+
+.saa-user-card__name { color: var(--color-text-p); }
+.saa-user-card__uid { color: var(--color-text-s); }
+.saa-user-card__count { color: var(--color-text-s); }
+.saa-user-card__none { color: var(--color-text-s); }
+
+/* UDM modal */
+.udm-backdrop { background: rgba(0, 0, 0, 0.6); }
+
+.udm {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+}
+
+.udm__header {
+  background: var(--color-surface);
+  border-bottom-color: var(--color-border);
+}
+
+.udm__name { color: var(--color-text-p); }
+.udm__uid { color: var(--color-text-s); }
+
+.udm__loading { color: var(--color-text-s); }
+
+.udm__stat {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+}
+
+.udm__stat-val { color: var(--color-text-p); }
+.udm__stat-lbl { color: var(--color-text-s); }
+
+.udm__section-title { color: var(--color-text-s); }
+
+.udm__hist-row {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  &:hover { background: var(--bg-card-hover); border-color: rgba(var(--color-primary-rgb), 0.25); }
+}
+
+.udm__hist-cat { color: var(--color-text-p); }
+.udm__hist-date { color: var(--color-text-s); }
+
+.udm__empty {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-s);
+}
+
+.udm__add-panel {
+  background: rgba(var(--color-primary-rgb), 0.05);
+  border-color: rgba(var(--color-primary-rgb), 0.2);
+}
+
+.udm__suggest-msg {
+  background: rgba(var(--color-primary-rgb), 0.08);
+  border-color: rgba(var(--color-primary-rgb), 0.2);
+  color: var(--color-primary);
+}
+
+.udm__cat-item {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+  &:hover { border-color: rgba(var(--color-primary-rgb), 0.35); background: var(--bg-card-hover); }
+  &--selected { border-color: var(--color-primary) !important; background: rgba(var(--color-primary-rgb), 0.1) !important; }
+}
+
+.udm__cat-title { color: var(--color-text-p); }
+.udm__cat-code { color: var(--color-text-s); }
+
+.udm__no-cats { color: var(--color-text-s); }
+
+.udm__msg--ok { background: rgba(52, 211, 153, 0.1); color: #34d399; border-color: rgba(52, 211, 153, 0.2); }
+.udm__msg--err { background: rgba(239, 68, 68, 0.1); color: #f87171; border-color: rgba(239, 68, 68, 0.2); }
+
+.udm__footer {
+  background: var(--color-surface);
+  border-top-color: var(--color-border);
+}
+
+/* Manage assessments modal */
+.saa-manage-assessments-modal {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+}
+
+.saa-manage-assessments__header {
+  background: var(--color-surface);
+  border-bottom-color: var(--color-border);
+}
+
+.saa-manage-assessments__title { color: var(--color-text-p); }
+.saa-manage-assessments__subtitle { color: var(--color-text-s); }
+
+.saa-manage-assessments__user-card {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+}
+
+.saa-manage-assessments__user-name { color: var(--color-text-p); }
+.saa-manage-assessments__user-id { color: var(--color-text-s); }
+.saa-manage-assessments__stat-value { color: var(--color-text-p); }
+.saa-manage-assessments__stat-label { color: var(--color-text-s); }
+
+.saa-manage-assessments__column-header h3 { color: var(--color-text-p); }
+
+.saa-manage-assessments__card {
+  background: var(--bg-card);
+  border-color: var(--color-border);
+  color: var(--color-text-p);
+  &:hover { background: var(--bg-card-hover); }
+}
+
+.saa-manage-assessments__card-title { color: var(--color-text-p); }
+.saa-manage-assessments__card-code { color: var(--color-text-s); }
+
+.saa-manage-assessments__footer {
+  background: var(--color-surface);
+  border-top-color: var(--color-border);
+}
+
+/* Delete confirm modal */
+.saa-delete-confirm {
+  background: var(--color-surface);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--color-text-p);
+}
+
+.saa-delete-confirm__title { color: var(--color-text-p); }
+.saa-delete-confirm__text { color: var(--color-text-s); }
+.saa-delete-confirm__warning { color: var(--color-text-s); }

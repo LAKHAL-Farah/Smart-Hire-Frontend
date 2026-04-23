@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
-import { timeout } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map, timeout } from 'rxjs/operators';
 import { environment } from '../../../../environments/environment';
 import { assessmentApiBaseUrl } from '../../../core/assessment-api-url';
 
@@ -131,6 +131,29 @@ export interface GenerateQuestionsResponse {
 
 export interface OllamaStatusResponse {
   available: boolean;
+}
+
+export interface UserProfileAdminDto {
+  userId: string;
+  headline: string | null;
+  situation: string | null;
+  careerPath: string | null;
+  customSituation: string | null;
+  customCareerPath: string | null;
+  createdAt: string | null;
+  status: string;
+  assessmentHistory: {
+    sessionId: number;
+    categoryTitle: string;
+    categoryCode: string;
+    scorePercent: number | null;
+    completedAt: string | null;
+    scoreReleased: boolean;
+    integrityViolation: boolean;
+  }[];
+  averageScore: number;
+  weakAreas: { categoryCode: string; score: number }[];
+  strongAreas: { categoryCode: string; score: number }[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -336,8 +359,8 @@ export class AssessmentAdminApiService {
   }
 
   /** Get user's assigned assessments (finished or not). */
-  getUserAssignedAssessments(userId: string): Observable<Array<{ id: number; code: string; title: string; status: string; completed: boolean }>> {
-    return this.http.get<Array<{ id: number; code: string; title: string; status: string; completed: boolean }>>(
+  getUserAssignedAssessments(userId: string): Observable<Array<{ categoryId: number; categoryCode: string; categoryTitle: string; status: string; completed: boolean }>> {
+    return this.http.get<Array<{ categoryId: number; categoryCode: string; categoryTitle: string; status: string; completed: boolean }>>(
       `${this.base()}/admin/users/${userId}/assigned-assessments`,
       { headers: this.adminHeaders() }
     );
@@ -367,6 +390,34 @@ export class AssessmentAdminApiService {
   checkOllamaStatus(): Observable<OllamaStatusResponse> {
     return this.http.get<OllamaStatusResponse>(
       `${this.base()}/admin/generate/status`,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** Get complete user profile with assessment history (admin view). */
+  getUserProfile(userId: string): Observable<UserProfileAdminDto> {
+    return this.http.get<UserProfileAdminDto>(
+      `${this.base()}/admin/assignments/users/${userId}/profile`,
+      { headers: this.adminHeaders() }
+    );
+  }
+
+  /** Get user display name from MS-User service. */
+  getMsUserName(userId: string): Observable<{ firstName: string | null; lastName: string | null } | null> {
+    return this.http.get<any>(`http://localhost:8080/MS-USER/api/v1/users/${userId}`).pipe(
+      map((r: any) => ({
+        firstName: r?.profile?.firstName ?? null,
+        lastName: r?.profile?.lastName ?? null,
+      })),
+      catchError(() => of(null))
+    );
+  }
+
+  /** Add assessments to an existing user (merges, does not replace). */
+  addAssessmentsToUser(userId: string, categoryIds: number[]): Observable<unknown> {
+    return this.http.post(
+      `${this.base()}/admin/assignments/${userId}/add-assessments`,
+      { categoryIds },
       { headers: this.adminHeaders() }
     );
   }

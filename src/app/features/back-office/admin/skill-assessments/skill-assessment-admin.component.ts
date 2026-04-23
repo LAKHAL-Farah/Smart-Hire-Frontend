@@ -16,6 +16,7 @@ import {
   QuestionAdminRow,
   SessionResultAdminDto,
   UserScoresSummaryRow,
+  UserProfileAdminDto,
 } from '../../service/assessment-admin-api.service';
 
 @Component({
@@ -96,7 +97,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   manageAssessmentsOpen = false;
   manageAssessmentsUserId = '';
   manageAssessmentsCandidateName = '';
-  manageAssessmentsData: { id: number; code: string; title: string; status: string; completed: boolean }[] = [];
+  manageAssessmentsData: { categoryId: number; categoryCode: string; categoryTitle: string; status: string; completed: boolean }[] = [];
   manageAssessmentsLoading = false;
   manageAssessmentsMessage = '';
   manageAssessmentsMessageType: 'success' | 'error' | null = null;
@@ -108,6 +109,198 @@ export class SkillAssessmentAdminComponent implements OnInit {
 
   /** Question generation panel */
   generationPanelOpen = false;
+
+  // ── User Detail Modal ──────────────────────────────────────────────────────
+  userDetailOpen = false;
+  userDetailLoading = false;
+  userDetailProfile: UserProfileAdminDto | null = null;
+  userDetailAssigned: { categoryId: number; categoryCode: string; categoryTitle: string; status: string; completed: boolean }[] = [];
+  userDetailUserId = '';
+  userDetailDisplayName = '';
+  userDetailSuggestLoading = false;
+  userDetailSuggestIds: number[] = [];
+  userDetailSuggestMsg = '';
+  userDetailSelectedCatIds: number[] = [];
+  userDetailShowAddPanel = false;
+  userDetailSaving = false;
+  userDetailSaveMsg = '';
+  userDetailSaveMsgType: 'success' | 'error' | null = null;
+
+  /** Cache of userId -> display name fetched from MS-User */
+  userNamesCache: Record<string, string> = {};
+
+  /** All unique users: merge pending + users from completed sessions */
+  get allUsers(): { userId: string; displayName: string | null; situation: string | null; careerPath: string | null; isPending: boolean; sessionCount: number; avgScore: number }[] {
+    const map = new Map<string, { userId: string; displayName: string | null; situation: string | null; careerPath: string | null; isPending: boolean; sessionCount: number; scores: number[] }>();
+
+    for (const s of this.completedSessions()) {
+      if (!map.has(s.userId)) {
+        map.set(s.userId, { userId: s.userId, displayName: s.candidateDisplayName || null, situation: null, careerPath: null, isPending: false, sessionCount: 0, scores: [] });
+      }
+      const u = map.get(s.userId)!;
+      u.sessionCount++;
+      if (s.scorePercent !== null && s.scorePercent !== undefined) u.scores.push(s.scorePercent);
+    }
+
+    for (const p of this.pending) {
+      if (!map.has(p.userId)) {
+        // Use cached name if available
+        const cachedName = this.userNamesCache[p.userId] || null;
+        map.set(p.userId, { userId: p.userId, displayName: cachedName, situation: p.situation, careerPath: p.careerPath, isPending: true, sessionCount: 0, scores: [] });
+      } else {
+        const u = map.get(p.userId)!;
+        u.isPending = true;
+        u.situation = p.situation;
+        u.careerPath = p.careerPath;
+        // Enrich with cached name if we don't have one from sessions
+        if (!u.displayName && this.userNamesCache[p.userId]) {
+          u.displayName = this.userNamesCache[p.userId];
+        }
+      }
+    }
+
+    return Array.from(map.values())
+      .map(u => ({ ...u, avgScore: u.scores.length ? Math.round(u.scores.reduce((a, b) => a + b, 0) / u.scores.length) : 0 }))
+      .sort((a, b) => {
+        // Pending (new) users always first
+        if (a.isPending && !b.isPending) return -1;
+        if (!a.isPending && b.isPending) return 1;
+        // Then by session count descending
+        return b.sessionCount - a.sessionCount;
+      });
+  }
+
+  /** Sessions for a specific user */
+  sessionsForUser(userId: string): AssessmentSessionAdminRow[] {
+    return this.completedSessions()
+      .filter(s => s.userId === userId)
+      .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+  }
+
+  /** Categories not yet assigned to the user being viewed */
+  get userDetailAvailableToAdd(): CategoryAdminRow[] {
+    const assignedIds = new Set(this.userDetailAssigned.map(a => a.categoryId));
+    return this.categories.filter(c => !assignedIds.has(c.id));
+  }
+
+  /** Assigned but not yet started */
+  get userDetailPendingAssessments(): { categoryId: number; categoryCode: string; categoryTitle: string; status: string; completed: boolean }[] {
+    return this.userDetailAssigned.filter(a => !a.completed);
+  }
+
+  /** Get initials: first letter of first name + first letter of last name */
+  getInitials(displayName: string | null): string {
+    if (!displayName || !displayName.trim()) return '?';
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  }
+
+  openUserDetail(userId: string, displayName: string | null): void {    this.userDetailUserId = userId;
+    // Use cached name or passed name
+    const resolvedName = displayName || this.userNamesCache[userId] || null;
+    this.userDetailDisplayName = resolvedName || userId;
+    this.userDetailOpen = true;
+    this.userDetailLoading = true;
+    this.userDetailProfile = null;
+    this.userDetailAssigned = [];
+    this.userDetailShowAddPanel = false;
+    this.userDetailSelectedCatIds = [];
+    this.userDetailSuggestIds = [];
+    this.userDetailSuggestMsg = '';
+    this.userDetailSaveMsg = '';
+    this.userDetailSaveMsgType = null;
+
+    // If no name yet, fetch from MS-User
+    if (!resolvedName) {
+      this.api.getMsUserName(userId).subscribe({
+        next: (name) => {
+          if (name?.firstName || name?.lastName) {
+            const fullName = [name.firstName, name.lastName].filter(Boolean).join(' ');
+            this.userNamesCache[userId] = fullName;
+            this.userDetailDisplayName = fullName;
+          }
+        }
+      });
+    }
+
+    this.api.getUserProfile(userId).subscribe({
+      next: p => { this.userDetailProfile = p; this.userDetailLoading = false; },
+      error: () => { this.userDetailLoading = false; }
+    });
+    this.api.getUserAssignedAssessments(userId).subscribe({
+      next: d => { this.userDetailAssigned = d; },
+      error: () => {}
+    });
+  }
+
+  closeUserDetail(): void {
+    this.userDetailOpen = false;
+    this.userDetailProfile = null;
+    this.userDetailAssigned = [];
+    this.userDetailUserId = '';
+  }
+
+  userDetailToggleCat(id: number): void {
+    const idx = this.userDetailSelectedCatIds.indexOf(id);
+    if (idx >= 0) this.userDetailSelectedCatIds.splice(idx, 1);
+    else this.userDetailSelectedCatIds.push(id);
+  }
+
+  userDetailIsSuggested(id: number): boolean { return this.userDetailSuggestIds.includes(id); }
+  userDetailIsSelected(id: number): boolean { return this.userDetailSelectedCatIds.includes(id); }
+
+  userDetailSuggest(): void {
+    this.userDetailSuggestLoading = true;
+    this.userDetailSuggestMsg = '';
+    this.api.suggestCategories(this.userDetailUserId).subscribe({
+      next: result => {
+        this.userDetailSuggestIds = result.suggestedCategories.map(c => c.id);
+        const available = new Set(this.userDetailAvailableToAdd.map(c => c.id));
+        this.userDetailSuggestIds.forEach(id => {
+          if (available.has(id) && !this.userDetailIsSelected(id)) this.userDetailSelectedCatIds.push(id);
+        });
+        this.userDetailSuggestMsg = `AI suggested ${this.userDetailSuggestIds.length} assessment(s)`;
+        this.userDetailSuggestLoading = false;
+      },
+      error: () => {
+        this.userDetailSuggestMsg = 'AI unavailable — select manually';
+        this.userDetailSuggestLoading = false;
+      }
+    });
+  }
+
+  userDetailSave(): void {
+    if (this.userDetailSelectedCatIds.length === 0) return;
+    this.userDetailSaving = true;
+    this.userDetailSaveMsg = '';
+
+    // Use assign-to-user which works for both new and existing users
+    this.api.assignAssessmentToUser(
+      this.userDetailUserId,
+      this.userDetailSelectedCatIds,
+      undefined,
+      undefined,
+      false
+    ).subscribe({
+      next: () => {
+        this.userDetailSaving = false;
+        this.userDetailSaveMsg = `${this.userDetailSelectedCatIds.length} assessment(s) assigned!`;
+        this.userDetailSaveMsgType = 'success';
+        this.userDetailSelectedCatIds = [];
+        this.userDetailSuggestIds = [];
+        this.api.getUserAssignedAssessments(this.userDetailUserId).subscribe({ next: d => { this.userDetailAssigned = d; } });
+        this.refreshCompletedSessions();
+        this.refreshPendingAssignments();
+        setTimeout(() => { this.userDetailSaveMsg = ''; }, 2500);
+      },
+      error: (err: any) => {
+        this.userDetailSaving = false;
+        this.userDetailSaveMsg = err?.error?.message || 'Failed to assign';
+        this.userDetailSaveMsgType = 'error';
+      }
+    });
+  }
   generationLoading = false;
   generationCount = 5;
   generatedQuestions: GeneratedQuestionDto[] = [];
@@ -361,10 +554,20 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.api.listPendingAssignments().subscribe({
       next: (rows) => {
         this.pending = rows;
+        // Fetch names for pending users that aren't in the cache yet
+        rows.forEach(p => {
+          if (!this.userNamesCache[p.userId]) {
+            this.api.getMsUserName(p.userId).subscribe({
+              next: (name) => {
+                if (name?.firstName || name?.lastName) {
+                  this.userNamesCache[p.userId] = [name.firstName, name.lastName].filter(Boolean).join(' ');
+                }
+              }
+            });
+          }
+        });
       },
-      error: () => {
-        /* keep previous list — do not clear on transient errors */
-      },
+      error: () => { /* keep previous list */ },
     });
   }
 
@@ -941,7 +1144,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   }
 
   isAssessmentAlreadyAssigned(categoryId: number): boolean {
-    return this.manageAssessmentsData.some(a => a.id === categoryId);
+    return this.manageAssessmentsData.some(a => a.categoryId === categoryId);
   }
 
   confirmManageAssessments(): void {
@@ -959,7 +1162,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.manageAssessmentsMessageType = null;
 
     // Get current assigned categories
-    const currentIds = this.manageAssessmentsData.map(a => a.id);
+    const currentIds = this.manageAssessmentsData.map(a => a.categoryId);
     
     // Remove selected ones
     let finalIds = currentIds.filter(id => !this.manageAssessmentsSelectedToRemove.includes(id));

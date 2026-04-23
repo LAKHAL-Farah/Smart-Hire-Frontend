@@ -755,18 +755,22 @@
 
               <!-- LEFT: Assessment overview -->
               <div class="udm__left">
-                @if (userDetailProfile && userDetailProfile.assessmentHistory.length > 0) {
+                @if (sessionsForUser(userDetailUserId).length > 0) {
                   <div class="udm__stats">
-                    <div class="udm__stat"><span class="udm__stat-val">{{ userDetailProfile.assessmentHistory.length }}</span><span class="udm__stat-lbl">Completed</span></div>
+                    <div class="udm__stat"><span class="udm__stat-val">{{ sessionsForUser(userDetailUserId).length }}</span><span class="udm__stat-lbl">Completed</span></div>
                     <div class="udm__stat">
-                      <span class="udm__stat-val" [class.udm__stat-val--good]="userDetailProfile.averageScore >= 70" [class.udm__stat-val--bad]="userDetailProfile.averageScore < 50">{{ userDetailProfile.averageScore | number:'1.0-0' }}%</span>
+                      <span class="udm__stat-val"
+                        [class.udm__stat-val--good]="userDetailAvgScore >= 70"
+                        [class.udm__stat-val--bad]="userDetailAvgScore < 50">
+                        {{ userDetailAvgScore | number:'1.0-0' }}%
+                      </span>
                       <span class="udm__stat-lbl">Avg score</span>
                     </div>
                     <div class="udm__stat"><span class="udm__stat-val">{{ userDetailPendingAssessments.length }}</span><span class="udm__stat-lbl">Not started</span></div>
                   </div>
                 }
 
-                @if (userDetailProfile && userDetailProfile.assessmentHistory.length > 0) {
+                @if (sessionsForUser(userDetailUserId).length > 0) {
                   <div class="udm__section">
                     <h3 class="udm__section-title"><span class="udm__dot udm__dot--done"></span>Completed</h3>
                     <div class="udm__history">
@@ -802,7 +806,7 @@
                   </div>
                 }
 
-                @if (!userDetailProfile || (userDetailProfile.assessmentHistory.length === 0 && userDetailPendingAssessments.length === 0)) {
+                @if (sessionsForUser(userDetailUserId).length === 0 && userDetailPendingAssessments.length === 0) {
                   <div class="udm__empty">
                     <div class="udm__empty-icon">📋</div>
                     <p>No assessments yet.</p>

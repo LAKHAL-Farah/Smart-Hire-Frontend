@@ -177,6 +177,15 @@ export class SkillAssessmentAdminComponent implements OnInit {
       .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
   }
 
+  /** Average score for the user currently open in the modal */
+  get userDetailAvgScore(): number {
+    const sessions = this.sessionsForUser(this.userDetailUserId);
+    const scores = sessions
+      .map(s => s.scorePercent)
+      .filter((s): s is number => s !== null && s !== undefined);
+    return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  }
+
   /** Categories not yet assigned to the user being viewed */
   get userDetailAvailableToAdd(): CategoryAdminRow[] {
     const assignedIds = new Set(this.userDetailAssigned.map(a => a.categoryId));

@@ -116,6 +116,13 @@ export const routes: Routes = [
             (m) => m.InterviewSessionComponent
           ),
       },
+       {
+        path: 'event/:id',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/event-detail/event-detail.component').then(
+            (m) => m.EventDetailsPageComponent
+          ),
+      },
       {
         path: 'interview/report/:id',
         loadComponent: () =>
@@ -216,7 +223,7 @@ export const routes: Routes = [
         path: 'speakers',
         loadComponent: () =>
           import('./features/back-office/admin/event-speaker/event-speaker.component').then(
-            (m) => m.EventSpeakerComponent 
+            (m) => m.EventSpeakersComponent 
           ),
       },
           {

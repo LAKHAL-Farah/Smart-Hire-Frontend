@@ -22,9 +22,7 @@ import * as L from 'leaflet';
         </div>
         <div class="em-map-header-text">
           <div class="em-map-location-name">{{ location }}</div>
-          <div class="em-map-coords" *ngIf="lat && lng">
-            {{ lat.toFixed(4) }}°N · {{ lng.toFixed(4) }}°E
-          </div>
+          
         </div>
         <a
           class="em-map-open-btn"
@@ -158,7 +156,7 @@ export class EventMapComponent implements AfterViewInit, OnDestroy, OnChanges {
     }
     return L.tileLayer(
       'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      { attribution: '© CartoDB', subdomains: 'abcd', maxZoom: 19 }
+      { attribution: '© CartoDB', subdomains: 'abcd', maxZoom: 5 }
     );
   }
 

@@ -55,6 +55,7 @@ import {
   Info,
   Layers,
   LayoutGrid,
+  ListChecks,
   Lightbulb,
   Link,
   Linkedin,
@@ -84,6 +85,9 @@ import {
   Upload,
   User,
   Users,
+  Loader,
+  Sparkles,
+  Wand2,
   X,
   Zap,
 } from 'lucide-angular';
@@ -94,11 +98,11 @@ const icons = {
   ChevronRight, ChevronUp, CircleCheck, CirclePlay, CircleQuestionMark, CircleX,
   Clock, Code, Cpu, CreditCard, Database, DollarSign, Download, EllipsisVertical,
   Eye, EyeOff, File, FileText, Film, Flag, Folder, Github, Globe, GraduationCap,
-  Grid2x2, HardDrive, Image, Info, Layers, LayoutGrid, Lightbulb, Link, Linkedin,
+  Grid2x2, HardDrive, Image, Info, Layers, LayoutGrid, ListChecks, Lightbulb, Link, Linkedin,
   Lock, LogOut, Mail, MapPin, MessageSquare, Play, Plus, Radio, RefreshCw, Search,
   Send, Server, Settings, Shield, ShieldCheck, SquarePen, Star, StarHalf,
   TrendingDown, TrendingUp, Trash2, TriangleAlert, Twitter, Upload, User, Users,
-  X, Zap,
+  Wand2, X, Zap, Sparkles, Loader,
 };
 
 /**

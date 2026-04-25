@@ -16,10 +16,17 @@ export const onboardingCanMatch: CanMatchFn = async () => {
   const postOnboardingTarget = (): string[] => {
     const role = (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
     if (role === 'recruiter') {
-      return ['/dashboard'];
+      return ['/admin'];
     }
     return ['/dashboard/assessments'];
   };
+
+  // Block recruiters from accessing onboarding
+  const role = (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
+  if (role === 'recruiter') {
+    await router.navigate(['/admin']);
+    return false;
+  }
 
   if (isLocalDemoMode()) {
     try {

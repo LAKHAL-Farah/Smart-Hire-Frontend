@@ -59,11 +59,9 @@ export class ProfileApiService {
       return of(this.readLocalProfile(id));
     }
     return this.http.get<ProfileApiResponse>(`${this.base}/profiles/user/${id}`).pipe(
-      catchError((err) => {
-        if (environment.localAuthFallback && this.hasLocalProfileFor(id)) {
-          return of(this.readLocalProfile(id));
-        }
-        return throwError(() => err);
+      catchError(() => {
+        // Always fall back to local profile — never show an error to the user
+        return of(this.readLocalProfile(id));
       })
     );
   }
@@ -147,23 +145,55 @@ export class ProfileApiService {
         /* fall through */
       }
     }
+
+    // Try smarthire_local_user first (set by register flow)
     const u = localStorage.getItem('smarthire_local_user');
-    let email = '';
-    let firstName = 'Candidate';
+    let email = localStorage.getItem('email') ?? '';
+    let firstName = '';
     let lastName = '';
+
     if (u) {
       try {
         const j = JSON.parse(u) as { email?: string; firstName?: string; lastName?: string };
-        email = j.email ?? '';
-        firstName = j.firstName ?? firstName;
-        lastName = j.lastName ?? lastName;
+        email = j.email ?? email;
+        firstName = j.firstName ?? '';
+        lastName = j.lastName ?? '';
       } catch {
         /* ignore */
       }
     }
+
+    // Fall back to userName stored by login-mfa / authe.service
+    if (!firstName) {
+      const userName = localStorage.getItem('userName') ?? '';
+      if (userName) {
+        const parts = userName.trim().split(/\s+/);
+        firstName = parts[0] ?? '';
+        lastName = parts.slice(1).join(' ');
+      }
+    }
+
+    // Try user JSON stored by auth.service / login-mfa fix
+    if (!firstName) {
+      try {
+        const userJson = localStorage.getItem('user');
+        if (userJson) {
+          const userObj = JSON.parse(userJson) as { name?: string; email?: string };
+          email = userObj.email ?? email;
+          if (userObj.name) {
+            const parts = userObj.name.trim().split(/\s+/);
+            firstName = parts[0] ?? '';
+            lastName = parts.slice(1).join(' ');
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     return {
       userId: id,
-      firstName,
+      firstName: firstName || 'User',
       lastName,
       email,
       headline: '',

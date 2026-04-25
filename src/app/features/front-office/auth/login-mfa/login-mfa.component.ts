@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthMfaService } from '../auth-mfa.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
-import { AutheService } from '../authe.service';
+import { setProfileUserUuid } from '../../profile/profile-user-id';
 
 @Component({
   selector: 'app-login-mfa',
@@ -20,7 +20,7 @@ export class LoginMfaComponent {
   error = '';
   loading = false;
 
-  constructor(private auth: AuthMfaService, private router: Router,private authService: AutheService) {}
+  constructor(private auth: AuthMfaService, private router: Router) {}
 
   onLogin(): void {
     this.error = '';
@@ -36,14 +36,24 @@ export class LoginMfaComponent {
           return;
         }
         if (res?.status === 'SUCCESS') {
-          if (res?.status === 'SUCCESS') {
           localStorage.setItem('auth_token', res.data.Token);
+          localStorage.setItem('UserId', res.data.UserId);
           localStorage.setItem('userId', res.data.UserId);
           localStorage.setItem('userName', res.data.userName);
           localStorage.setItem('email', res.data.email);
           localStorage.setItem('role', res.data.roles);
+          // Set smarthire_profile_user_uuid and user JSON so getAssessmentUserId() works
+          if (res.data.UserId) {
+            setProfileUserUuid(res.data.UserId);
+            localStorage.setItem('user', JSON.stringify({
+              id: res.data.UserId,
+              email: res.data.email || this.username,
+              name: res.data.userName || this.username.split('@')[0],
+              role: res.data.roles === 'recruiter' ? 'recruiter' : 'user',
+            }));
+          }
           this.auth.redirectAfterLogin();
-        }
+          return;
         }
         this.error = res?.message || 'Erreur inattendue';
       },

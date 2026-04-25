@@ -64,13 +64,17 @@
     @case (1) {
       <app-step-situation
         [selected]="situationSelection()"
+        [customValue]="customSituation()"
         (selectionChange)="situationSelection.set($event)"
+        (customValueChange)="customSituation.set($event)"
       />
     }
     @case (2) {
       <app-step-career-goal
         [selected]="careerSelection()"
+        [customValue]="customCareerPath()"
         (selectionChange)="careerSelection.set($event)"
+        (customValueChange)="customCareerPath.set($event)"
       />
       <p class="ob-after-career-hint">
         When you continue, your preferences are saved and you’ll open <strong>Skill assessments</strong> while an admin assigns

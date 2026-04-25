@@ -7,9 +7,8 @@ export const environment = {
   // MS-User Service (profiles, onboarding persistence)
   userApiUrl: 'http://127.0.0.1:8082/api/v1',
 
-  // MS-Assessment Configuration
-  // Must include `/assessment` so admin calls hit `/api/v1/assessment/admin/...`
-  assessmentApiUrl: 'http://127.0.0.1:8084/api/v1/assessment',
+  // MS-Assessment Configuration — relative path proxied by Angular dev server (proxy.conf.json → :8084)
+  assessmentApiUrl: '/api/v1/assessment',
   assessmentAdminApiKey: 'dev-assessment-admin',
 
   // MS-Roadmap Service Configuration

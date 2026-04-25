@@ -55,6 +55,20 @@
       <p class="arv__feedback-none">Your reviewer did not add written feedback for this attempt.</p>
     }
 
+    @if (r.session.advice && r.session.advice.length > 0) {
+      <section class="arv__advice" aria-label="Personalised feedback">
+        <h2 class="arv__advice-title">
+          <lucide-icon name="lightbulb" [size]="18"></lucide-icon>
+          Personalised feedback
+        </h2>
+        <ul class="arv__advice-list">
+          @for (tip of r.session.advice; track $index) {
+            <li class="arv__advice-item">{{ tip }}</li>
+          }
+        </ul>
+      </section>
+    }
+
     <section class="arv__answers" aria-label="Question by question">
       <h2 class="arv__sub">Review</h2>
       <ul class="arv__list">

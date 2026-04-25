@@ -19,4 +19,23 @@
       </button>
     }
   </div>
+
+  @if (selected === 'other') {
+    <div class="custom-input-section">
+      <label for="custom-situation" class="custom-input-label">
+        Describe your current situation:
+      </label>
+      <textarea
+        id="custom-situation"
+        class="custom-input-textarea"
+        placeholder="e.g., Freelancer working remotely, Self-taught developer, Bootcamp graduate..."
+        [value]="customValue"
+        (input)="onCustomInput($event)"
+        maxlength="128"
+      ></textarea>
+      <div class="custom-input-hint">
+        This helps our AI suggest the most relevant assessment categories for you.
+      </div>
+    </div>
+  }
 </div>

@@ -7,14 +7,12 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { authInterceptor } from './features/front-office/auth/interceptors/auth.interceptor';
 import { provideMonacoEditor } from 'ngx-monaco-editor-v2';
 
-
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
     provideAnimationsAsync(),
-    provideHttpClient(),
     provideMonacoEditor({
       baseUrl: '/vs',
       defaultOptions: {

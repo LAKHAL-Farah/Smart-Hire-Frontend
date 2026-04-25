@@ -1,10 +1,11 @@
-import { Component, Input, signal, HostListener, computed, Inject } from '@angular/core';
+import { Component, Input, signal, HostListener, computed, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, NavigationEnd } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { filter } from 'rxjs/operators';
 import { AutheService } from '../../../auth/authe.service';
+import { AssessmentNotificationsService } from '../../../../../core/services/assessment-notifications.service';
 
 @Component({
   selector: 'app-topbar',
@@ -13,11 +14,14 @@ import { AutheService } from '../../../auth/authe.service';
   templateUrl: './topbar.component.html',
   styleUrl: './topbar.component.scss'
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit, OnDestroy {
   @Input() quizMode = false;
   searchQuery = '';
   notifOpen = signal(false);
   avatarOpen = signal(false);
+
+  private readonly assessmentNotif = inject(AssessmentNotificationsService);
+  private pollId: ReturnType<typeof setInterval> | null = null;
 
   formattedDate = this.getFormattedDate();
 
@@ -29,10 +33,20 @@ export class TopbarComponent {
     '/dashboard/profile': 'Profile',
     '/dashboard/settings': 'Settings',
     '/dashboard/jobs': 'Jobs',
+    '/dashboard/assessments': 'Skill assessments',
   };
 
   private url = signal('');
-  pageTitle = computed(() => this.pageTitles[this.url()] ?? '');
+  pageTitle = computed(() => {
+    const u = this.url();
+    if (u.startsWith('/dashboard/assessments')) {
+      return 'Skill assessments';
+    }
+    return this.pageTitles[u] ?? '';
+  });
+
+  notifications = computed(() => this.assessmentNotif.candidateItems());
+  notifCount = computed(() => this.assessmentNotif.candidateCount());
 
   constructor(private router: Router, private authService: AutheService) {
     this.url.set(this.router.url);
@@ -41,11 +55,16 @@ export class TopbarComponent {
     });
   }
 
-  notifications = [
-    { text: 'Your roadmap has a new recommended step', time: '2 min ago', color: '#2ee8a5' },
-    { text: 'Practice interview score: 8.4/10', time: '1 hour ago', color: '#8b5cf6' },
-    { text: 'New job match: Frontend Dev @ Spotify', time: '3 hours ago', color: '#3b82f6' },
-  ];
+  ngOnInit(): void {
+    this.assessmentNotif.refreshCandidate();
+    this.pollId = setInterval(() => this.assessmentNotif.refreshCandidate(), 8_000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollId != null) {
+      clearInterval(this.pollId);
+    }
+  }
 
   toggleNotif(): void {
     this.avatarOpen.set(false);

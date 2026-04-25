@@ -25,6 +25,8 @@ export class OnboardingComponent implements OnInit {
 
   situationSelection = signal<string | null>(null);
   careerSelection = signal<string | null>(null);
+  customSituation = signal<string>('');
+  customCareerPath = signal<string>('');
 
   stepMeta = [
     { num: 1, label: 'Who you are' },
@@ -46,8 +48,18 @@ export class OnboardingComponent implements OnInit {
 
   canProceed = computed(() => {
     const step = this.currentStep();
-    if (step === 1) return this.situationSelection() !== null;
-    if (step === 2) return this.careerSelection() !== null;
+    if (step === 1) {
+      const situation = this.situationSelection();
+      if (!situation) return false;
+      if (situation === 'other') return this.customSituation().trim().length > 0;
+      return true;
+    }
+    if (step === 2) {
+      const career = this.careerSelection();
+      if (!career) return false;
+      if (career === 'other') return this.customCareerPath().trim().length > 0;
+      return true;
+    }
     return false;
   });
 
@@ -78,12 +90,21 @@ export class OnboardingComponent implements OnInit {
   }
 
   private savePreferencesAndFinish(): void {
-    const situation = this.situationSelection();
-    const careerPath = this.careerSelection();
+    const situation = this.situationSelection() || 'student';
+    const careerPath = this.careerSelection() || 'fullstack';
+    const customSit = this.customSituation();
+    const customCareer = this.customCareerPath();
 
-    if (!situation || !careerPath) {
-      this.saveError.set('Please complete all onboarding selections before continuing.');
-      return;
+    // Get headline from local profile (set during registration)
+    const localProfile = localStorage.getItem('smarthire_local_profile');
+    let headline = '';
+    if (localProfile) {
+      try {
+        const profile = JSON.parse(localProfile);
+        headline = profile.headline || '';
+      } catch (e) {
+        console.warn('Could not parse local profile for headline');
+      }
     }
 
     this.saveError.set(null);
@@ -105,7 +126,7 @@ export class OnboardingComponent implements OnInit {
             return;
           }
           const uid = getAssessmentUserId();
-          this.assignmentApi.register(uid, situation, careerPath).subscribe({
+          this.assignmentApi.register(uid, situation, careerPath, headline, customSit, customCareer).subscribe({
             next: () => {
               this.saving.set(false);
               void this.router.navigate(['login']);

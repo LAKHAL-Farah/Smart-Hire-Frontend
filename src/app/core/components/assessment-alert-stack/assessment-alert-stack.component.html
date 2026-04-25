@@ -1,0 +1,17 @@
+<div class="aas" aria-live="polite" aria-relevant="additions">
+  @for (t of toastSvc.toasts(); track t.id) {
+    <div
+      class="aas__card"
+      [class.aas__card--info]="t.variant === 'info'"
+      [class.aas__card--success]="t.variant === 'success'"
+      [class.aas__card--warning]="t.variant === 'warning'"
+      role="status"
+    >
+      <div class="aas__content">
+        <p class="aas__title">{{ t.title }}</p>
+        <p class="aas__msg">{{ t.message }}</p>
+      </div>
+      <button type="button" class="aas__close" (click)="dismiss(t.id)" aria-label="Dismiss alert">×</button>
+    </div>
+  }
+</div>

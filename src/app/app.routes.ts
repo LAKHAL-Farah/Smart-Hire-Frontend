@@ -63,11 +63,61 @@ export const routes: Routes = [
           import('./features/front-office/dashboard/cv-optimizer').then((m) => m.CvOptimizerComponent),
       },
       {
-        path: 'profile-optimizer',
+        path: 'optimizer',
         loadComponent: () =>
-          import('./features/front-office/dashboard/profile-optimizer/profile-optimizer.component').then(
-            (m) => m.ProfileOptimizerComponent
+          import('./features/front-office/dashboard/optimizer-home/optimizer-home.component').then(
+            (m) => m.OptimizerHomeComponent
           ),
+      },
+      {
+        path: 'linkedin',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/linkedin/linkedin.component').then(
+            (m) => m.LinkedinComponent
+          ),
+      },
+      {
+        path: 'github',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/github/github.component').then(
+            (m) => m.GithubComponent
+          ),
+      },
+      {
+        path: 'cv-manager',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/cv-manager/cv-manager.component').then(
+            (m) => m.CvManagerComponent
+          ),
+      },
+      {
+        path: 'cv-detail/:cvId',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/cv-detail/cv-detail.component').then(
+            (m) => m.CvDetailComponent
+          ),
+      },
+      {
+        path: 'job-offers',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/job-offers/job-offers.component').then(
+            (m) => m.JobOffersComponent
+          ),
+      },
+      {
+        path: 'job-offers/:jobId',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/job-offer-detail/job-offer-detail.component').then(
+            (m) => m.JobOfferDetailComponent
+          ),
+      },
+      {
+        path: 'profile-optimizer',
+        redirectTo: 'optimizer',
+      },
+      {
+        path: 'cv-history',
+        redirectTo: 'cv-manager',
       },
       {
         path: 'jobs',

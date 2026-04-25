@@ -4,6 +4,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { AssessmentNotificationsService } from '../../../../core/services/assessment-notifications.service';
+import { SearchService } from '../../../../core/services/search.service';
 import {
   AssessmentAdminApiService,
   AssessmentSessionAdminRow,
@@ -29,6 +30,7 @@ import {
 export class SkillAssessmentAdminComponent implements OnInit {
   private readonly api = inject(AssessmentAdminApiService);
   private readonly assessmentNotif = inject(AssessmentNotificationsService);
+  readonly searchService = inject(SearchService);
 
   loading = false;
   apiError: string | null = null;
@@ -49,7 +51,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   choiceForm = { label: '', correct: false, sortOrder: 1 };
   editingChoiceId: number | null = null;
 
-  pending: PendingAssignmentRow[] = [];
+  pending = signal<PendingAssignmentRow[]>([]);
   /** Submitted assessments waiting for admin to publish score */
   pendingRelease: AssessmentSessionAdminRow[] = [];
   /** All completed attempts (history) */
@@ -130,7 +132,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   userNamesCache: Record<string, string> = {};
 
   /** All unique users: merge pending + users from completed sessions */
-  get allUsers(): { userId: string; displayName: string | null; situation: string | null; careerPath: string | null; isPending: boolean; sessionCount: number; avgScore: number }[] {
+  allUsers = computed(() => {
     const map = new Map<string, { userId: string; displayName: string | null; situation: string | null; careerPath: string | null; isPending: boolean; sessionCount: number; scores: number[] }>();
 
     for (const s of this.completedSessions()) {
@@ -142,9 +144,8 @@ export class SkillAssessmentAdminComponent implements OnInit {
       if (s.scorePercent !== null && s.scorePercent !== undefined) u.scores.push(s.scorePercent);
     }
 
-    for (const p of this.pending) {
+    for (const p of this.pending()) {
       if (!map.has(p.userId)) {
-        // Use cached name if available
         const cachedName = this.userNamesCache[p.userId] || null;
         map.set(p.userId, { userId: p.userId, displayName: cachedName, situation: p.situation, careerPath: p.careerPath, isPending: true, sessionCount: 0, scores: [] });
       } else {
@@ -152,7 +153,6 @@ export class SkillAssessmentAdminComponent implements OnInit {
         u.isPending = true;
         u.situation = p.situation;
         u.careerPath = p.careerPath;
-        // Enrich with cached name if we don't have one from sessions
         if (!u.displayName && this.userNamesCache[p.userId]) {
           u.displayName = this.userNamesCache[p.userId];
         }
@@ -162,13 +162,24 @@ export class SkillAssessmentAdminComponent implements OnInit {
     return Array.from(map.values())
       .map(u => ({ ...u, avgScore: u.scores.length ? Math.round(u.scores.reduce((a, b) => a + b, 0) / u.scores.length) : 0 }))
       .sort((a, b) => {
-        // Pending (new) users always first
         if (a.isPending && !b.isPending) return -1;
         if (!a.isPending && b.isPending) return 1;
-        // Then by session count descending
         return b.sessionCount - a.sessionCount;
       });
-  }
+  });
+
+  /** Users filtered by topbar search query */
+  filteredUsers = computed(() => {
+    const q = this.searchService.query().trim().toLowerCase();
+    const users = this.allUsers();
+    if (!q) return users;
+    return users.filter(u =>
+      (u.displayName?.toLowerCase().includes(q)) ||
+      (u.situation?.toLowerCase().includes(q)) ||
+      (u.careerPath?.toLowerCase().includes(q)) ||
+      u.userId.toLowerCase().includes(q)
+    );
+  });
 
   /** Sessions for a specific user */
   sessionsForUser(userId: string): AssessmentSessionAdminRow[] {
@@ -562,7 +573,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   refreshPendingAssignments(): void {
     this.api.listPendingAssignments().subscribe({
       next: (rows) => {
-        this.pending = rows;
+        this.pending.set(rows);
         // Fetch names for pending users that aren't in the cache yet
         rows.forEach(p => {
           if (!this.userNamesCache[p.userId]) {
@@ -570,6 +581,8 @@ export class SkillAssessmentAdminComponent implements OnInit {
               next: (name) => {
                 if (name?.firstName || name?.lastName) {
                   this.userNamesCache[p.userId] = [name.firstName, name.lastName].filter(Boolean).join(' ');
+                  // Trigger recompute by updating the signal
+                  this.pending.update(v => [...v]);
                 }
               }
             });
@@ -606,7 +619,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.api.approveAssignment(userId, ids).subscribe({
       next: () => {
         delete this.approvalPicks[userId];
-        this.pending = this.pending.filter((p) => p.userId !== userId);
+        this.pending.update(rows => rows.filter((p: PendingAssignmentRow) => p.userId !== userId));
         this.refreshPendingAssignments();
         this.loading = false;
         this.assessmentNotif.refreshAdmin();

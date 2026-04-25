@@ -25,11 +25,13 @@
       <h2 class="saa-users__title">Users</h2>
       <p class="saa-users__sub">Click a user to view their profile, assessment history, and assign new assessments.</p>
     </div>
-    @if (allUsers.length === 0) {
+    @if (allUsers().length === 0) {
       <p class="saa-release__empty">No users yet. They appear here once they register or complete assessments.</p>
+    } @else if (filteredUsers().length === 0) {
+      <p class="saa-release__empty">No users match "<strong>{{ searchService.query() }}</strong>".</p>
     } @else {
       <div class="saa-users__grid">
-        @for (u of allUsers; track u.userId) {
+        @for (u of filteredUsers(); track u.userId) {
           <button type="button" class="saa-user-card" [class.saa-user-card--new]="u.isPending" (click)="openUserDetail(u.userId, u.displayName)">
             <div class="saa-user-card__avatar">{{ getInitials(u.displayName) }}</div>
             <div class="saa-user-card__info">

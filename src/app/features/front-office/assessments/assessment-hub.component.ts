@@ -17,6 +17,7 @@ import {
 } from './candidate-session-api.service';
 import { collectCandidateUserIdsForSessions } from './assessment-canonical-user';
 import { getAssessmentUserId } from '../profile/profile-user-id';
+import { SearchService } from '../../../core/services/search.service';
 
 interface PendingStart {
   categoryId: number;
@@ -42,6 +43,7 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
   private readonly assignmentApi = inject(CandidateAssignmentApiService);
   private readonly sessionApi = inject(CandidateSessionApiService);
   private readonly router = inject(Router);
+  private readonly searchService = inject(SearchService);
 
   loading = signal(false);
   errorMsg = signal<string | null>(null);
@@ -53,10 +55,25 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
   startConfirmOpen = signal(false);
   pendingStart = signal<PendingStart | null>(null);
 
+  /** Search query for filtering assigned categories */
+  // driven by topbar SearchService — no local signal needed
+
   /** Sessions that are completed (used for history section). */
   history = computed(() =>
     this.sessions().filter((s) => isSessionCompleted(s))
   );
+
+  /** Assigned categories filtered by topbar search query */
+  filteredCategories = computed(() => {
+    const plan = this.plan();
+    if (!plan || plan.status !== 'APPROVED') return [];
+    const q = this.searchService.query().trim().toLowerCase();
+    if (!q) return plan.assignedCategories;
+    return plan.assignedCategories.filter(c =>
+      c.title.toLowerCase().includes(q) ||
+      c.code.toLowerCase().includes(q)
+    );
+  });
 
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 

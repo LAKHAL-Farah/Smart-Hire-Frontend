@@ -91,6 +91,26 @@
   color: var(--accent-teal);
 }
 
+.sidebar__item--linkedin.sidebar__item--active {
+  border-left-color: #0a66c2 !important;
+  background: rgba(10, 102, 194, 0.12) !important;
+  color: #0a66c2 !important;
+}
+
+.sidebar__item--linkedin.sidebar__item--active .sidebar__icon {
+  color: #0a66c2;
+}
+
+.sidebar__item--github.sidebar__item--active {
+  border-left-color: #8b5cf6 !important;
+  background: rgba(139, 92, 246, 0.12) !important;
+  color: #8b5cf6 !important;
+}
+
+.sidebar__item--github.sidebar__item--active .sidebar__icon {
+  color: #8b5cf6;
+}
+
 .sidebar__icon {
   display: flex;
   align-items: center;

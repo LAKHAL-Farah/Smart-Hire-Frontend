@@ -1,12 +1,21 @@
 import { CommonModule, DatePipe } from '@angular/common';
-import { Component, DestroyRef, HostBinding, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   animate,
   query,
   stagger,
-  state,
   style,
   transition,
   trigger,
@@ -25,6 +34,8 @@ import {
 } from '../../../../core/services/profile-optimizer.service';
 
 type ToastType = 'success' | 'error';
+type UploadState = 'empty' | 'selected' | 'parsing' | 'success' | 'error';
+type ScrollTarget = 'tailor' | 'upload' | null;
 
 type Toast = {
   id: number;
@@ -48,12 +59,10 @@ type ErrorState = {
   page: string | null;
 };
 
-type CvViewState = 'EMPTY' | 'PARSING' | 'LOADED';
-
 @Component({
   selector: 'app-profile-optimizer',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, LUCIDE_ICONS],
+  imports: [CommonModule, FormsModule, DatePipe, RouterLink, LUCIDE_ICONS],
   templateUrl: './profile-optimizer.component.html',
   styleUrl: './profile-optimizer.component.scss',
   animations: [
@@ -67,14 +76,22 @@ type CvViewState = 'EMPTY' | 'PARSING' | 'LOADED';
       ]),
     ]),
     trigger('expandBlock', [
-      state('closed', style({ height: '0px', opacity: 0, overflow: 'hidden' })),
-      state('open', style({ height: '*', opacity: 1, overflow: 'hidden' })),
-      transition('closed <=> open', animate('200ms ease')),
+      transition(':enter', [
+        style({ height: '0px', opacity: 0, overflow: 'hidden' }),
+        animate('200ms ease', style({ height: '*', opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('180ms ease', style({ height: '0px', opacity: 0 })),
+      ]),
     ]),
     trigger('versionExpand', [
-      state('closed', style({ height: '0px', opacity: 0, overflow: 'hidden' })),
-      state('open', style({ height: '*', opacity: 1, overflow: 'hidden' })),
-      transition('closed <=> open', animate('250ms ease')),
+      transition(':enter', [
+        style({ height: '0px', opacity: 0, overflow: 'hidden' }),
+        animate('250ms ease', style({ height: '*', opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('200ms ease', style({ height: '0px', opacity: 0 })),
+      ]),
     ]),
     trigger('toastSlide', [
       transition(':enter', [
@@ -82,13 +99,13 @@ type CvViewState = 'EMPTY' | 'PARSING' | 'LOADED';
         animate('250ms ease-out', style({ transform: 'translateX(0)', opacity: 1 })),
       ]),
       transition(':leave', [
-        animate('200ms ease-in', style({ transform: 'translateX(100%)', opacity: 0 })),
+        animate('180ms ease-in', style({ transform: 'translateX(100%)', opacity: 0 })),
       ]),
     ]),
     trigger('statusBarStagger', [
       transition(':enter', [
         query(
-          '.status-chip',
+          '.po-stat',
           [
             style({ opacity: 0, transform: 'translateY(-8px)' }),
             stagger(150, animate('220ms ease-out', style({ opacity: 1, transform: 'translateY(0)' }))),
@@ -97,19 +114,40 @@ type CvViewState = 'EMPTY' | 'PARSING' | 'LOADED';
         ),
       ]),
     ]),
+    trigger('slideOverBackdrop', [
+      transition(':enter', [
+        style({ opacity: 0 }),
+        animate('280ms ease-out', style({ opacity: 1 })),
+      ]),
+      transition(':leave', [
+        animate('220ms ease-in', style({ opacity: 0 })),
+      ]),
+    ]),
+    trigger('slideOverPanel', [
+      transition(':enter', [
+        style({ opacity: 0, transform: 'translateY(16px) scale(0.96)' }),
+        animate('220ms ease-out', style({ opacity: 1, transform: 'translateY(0) scale(1)' })),
+      ]),
+      transition(':leave', [
+        animate('180ms ease-in', style({ opacity: 0, transform: 'translateY(8px) scale(0.96)' })),
+      ]),
+    ]),
   ],
 })
-export class ProfileOptimizerComponent implements OnInit {
-  // NOTE: This codebase uses shared `LUCIDE_ICONS` for standalone components.
-  // Explicit per-icon imports are not used here to stay consistent with existing patterns.
+export class ProfileOptimizerComponent implements OnInit, OnDestroy {
+  // NOTE: Lucide icons remain registered through the shared dashboard icon module used by this codebase.
   private readonly optimizerApi = inject(ProfileOptimizerService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly activeCv = signal<CandidateCvDto | null>(null);
+  readonly cvs = signal<CandidateCvDto[]>([]);
   readonly cvVersions = signal<CvVersionDto[]>([]);
   readonly jobOffers = signal<JobOfferDto[]>([]);
   readonly selectedJobOfferId = signal<string | null>(null);
   readonly expandedVersionId = signal<string | null>(null);
+  readonly jobOfferPanelOpen = signal(false);
 
   readonly loading = signal<LoadingState>({
     page: true,
@@ -128,193 +166,214 @@ export class ProfileOptimizerComponent implements OnInit {
   });
 
   readonly toasts = signal<Toast[]>([]);
-
-  readonly addJobOfferOpen = signal<boolean>(false);
-  readonly tailorStatus = signal<string>('');
+  readonly uploadState = signal<UploadState>('empty');
+  readonly uploadErrorMessage = signal<string | null>(null);
+  readonly jobOfferSubmitted = signal(false);
+  readonly selectedFile = signal<File | null>(null);
+  readonly dragOver = signal(false);
+  readonly tailorStatus = signal('');
+  readonly focusedCvId = signal<string | null>(null);
+  readonly pendingScrollTarget = signal<ScrollTarget>(null);
 
   readonly canTailor = computed(() => this.activeCv() !== null && this.selectedJobOfferId() !== null);
-
-  readonly originalVersion = computed(
-    () => this.cvVersions().find((v) => v.versionType === 'ORIGINAL') ?? null
-  );
-
-  readonly tailoredVersions = computed(() =>
-    this.cvVersions().filter((v) => v.versionType !== 'ORIGINAL')
-  );
-
-  readonly selectedJobOffer = computed(
-    () => this.jobOffers().find((j) => j.id === this.selectedJobOfferId()) ?? null
-  );
-
   readonly statusScore = computed(() => this.activeCv()?.atsScore ?? 0);
+  readonly scorePercent = computed(() => Math.min(100, Math.max(0, Number(this.statusScore()) || 0)));
+  readonly currentUserCvs = computed(() =>
+    [...this.cvs()].sort((left, right) => new Date(right.uploadedAt).getTime() - new Date(left.uploadedAt).getTime())
+  );
+  readonly recentCvs = computed(() => this.currentUserCvs().slice(0, 3));
+  readonly originalVersion = computed(() => this.cvVersions().find((version) => version.versionType === 'ORIGINAL') ?? null);
+  readonly tailoredVersions = computed(() => this.cvVersions().filter((version) => version.versionType !== 'ORIGINAL'));
+  readonly selectedJobOffer = computed(() => this.jobOffers().find((offer) => offer.id === this.selectedJobOfferId()) ?? null);
 
-  readonly cvState = computed<CvViewState>(() => {
-    const cv = this.activeCv();
-    if (!cv) {
-      return 'EMPTY';
-    }
-    if (cv.parseStatus === 'PENDING' || cv.parseStatus === 'IN_PROGRESS' || this.loading().upload) {
-      return 'PARSING';
-    }
-    return 'LOADED';
-  });
-
-  readonly scoreRingColor = computed(() => {
-    const score = this.statusScore();
-    if (score >= 80) {
-      return 'var(--accent-teal)';
-    }
-    if (score >= 60) {
-      return 'var(--accent-blue)';
-    }
-    return 'var(--accent-pink)';
-  });
-
-  readonly scorePercent = computed(() => {
-    const raw = this.statusScore();
-    const bounded = Math.min(100, Math.max(0, Number(raw) || 0));
-    return bounded;
-  });
-
-  @HostBinding('style.--po-score-angle')
-  get scoreAngleVar(): string {
-    return `${this.scorePercent() * 3.6}deg`;
-  }
-
-  selectedFile: File | null = null;
-  dragOver = false;
-
+  selectedFileName = '';
   jobTitle = '';
   jobCompany = '';
   jobDescription = '';
   jobSourceUrl = '';
-
   confirmingDeleteJobOfferId: string | null = null;
   downloadedVersionId = signal<string | null>(null);
 
   private toastCounter = 0;
   private tailorStatusIntervalId: number | null = null;
+  private uploadSuccessTimeoutId: number | null = null;
 
   ngOnInit(): void {
+    this.route.queryParamMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((params) => {
+        this.focusedCvId.set(params.get('cvId'));
+        const action = params.get('action');
+        const scroll = params.get('scroll');
+        if (action === 'tailor') {
+          this.pendingScrollTarget.set('tailor');
+        } else if (scroll === 'upload') {
+          this.pendingScrollTarget.set('upload');
+        }
+      });
+
     this.loadInitial();
+  }
+
+  ngOnDestroy(): void {
+    this.stopTailorStatusCycle();
+    if (this.uploadSuccessTimeoutId != null) {
+      window.clearTimeout(this.uploadSuccessTimeoutId);
+      this.uploadSuccessTimeoutId = null;
+    }
+    document.body.style.overflow = '';
+  }
+
+  @HostListener('document:keydown.escape')
+  handleEscape(): void {
+    if (this.jobOfferPanelOpen()) {
+      this.closeJobOfferPanel();
+    }
+  }
+
+  openJobOfferPanel(): void {
+    this.jobOfferSubmitted.set(false);
+    this.errors.update((current) => ({ ...current, jobOffer: null }));
+    this.jobOfferPanelOpen.set(true);
+    document.body.style.overflow = 'hidden';
+  }
+
+  closeJobOfferPanel(): void {
+    this.jobOfferPanelOpen.set(false);
+    this.resetJobOfferForm();
+    this.jobOfferSubmitted.set(false);
+    this.errors.update((current) => ({ ...current, jobOffer: null }));
+    document.body.style.overflow = '';
   }
 
   loadInitial(): void {
     this.patchLoading({ page: true });
     this.patchErrors({ page: null });
 
-    const activeCv$ = this.optimizerApi.listCvs().pipe(
-      map((rows) => this.pickUserActiveCv(rows)),
+    const cvs$ = this.optimizerApi.getAllCvs().pipe(
+      map((rows) => rows.filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID)),
       catchError((err: Error) => {
         this.patchErrors({ page: err.message });
-        return of(null);
+        return of([] as CandidateCvDto[]);
       })
     );
 
     const offers$ = this.optimizerApi.listJobOffers().pipe(
-      map((rows) => rows.filter((o) => o.userId === PROFILE_OPTIMIZER_USER_ID)),
+      map((rows) => rows.filter((offer) => offer.userId === PROFILE_OPTIMIZER_USER_ID)),
       catchError((err: Error) => {
         this.patchErrors({ page: this.errors().page ? this.errors().page : err.message });
         return of([] as JobOfferDto[]);
       })
     );
 
-    forkJoin({ cv: activeCv$, offers: offers$ })
+    forkJoin({ cvs: cvs$, offers: offers$ })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ cv, offers }) => {
-        this.activeCv.set(cv);
-        this.jobOffers.set(offers);
-        this.addJobOfferOpen.set(offers.length === 0);
-        this.selectedJobOfferId.set(offers[0]?.id ?? null);
+      .subscribe(({ cvs, offers }) => {
+        const sortedCvs = this.sortCvs(cvs);
+        this.cvs.set(sortedCvs);
+        this.jobOffers.set(this.sortJobOffers(offers));
+        this.selectedJobOfferId.set(this.jobOffers()[0]?.id ?? null);
 
-        if (!cv) {
+        const active = this.pickInitialCv(sortedCvs);
+        this.activeCv.set(active);
+
+        if (!active) {
           this.patchLoading({ page: false });
+          this.runPendingScrollAction();
           return;
         }
 
-        forkJoin({
-          versions: this.optimizerApi.getCvVersions(cv.id).pipe(catchError(() => of([] as CvVersionDto[]))),
-          score: this.optimizerApi.getCvScore(cv.id).pipe(catchError(() => of(null))),
-        })
-          .pipe(
-            finalize(() => this.patchLoading({ page: false })),
-            takeUntilDestroyed(this.destroyRef)
-          )
-          .subscribe(({ versions, score }) => {
-            this.cvVersions.set(versions);
-            if (score?.atsScore != null) {
-              this.activeCv.update((cur) => (cur ? { ...cur, atsScore: score.atsScore } : cur));
-            }
-          });
+        this.refreshScoreAndVersions(active.id, true);
       });
   }
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
-    this.dragOver = true;
+    this.dragOver.set(true);
   }
 
   onDragLeave(event: DragEvent): void {
     event.preventDefault();
-    this.dragOver = false;
+    this.dragOver.set(false);
   }
 
   onDrop(event: DragEvent): void {
     event.preventDefault();
-    this.dragOver = false;
-    const file = event.dataTransfer?.files?.item(0) ?? null;
-    if (file) {
-      this.selectedFile = file;
-      this.patchErrors({ upload: null });
-    }
+    this.dragOver.set(false);
+    this.setSelectedFile(event.dataTransfer?.files?.item(0) ?? null);
   }
 
   onFilePicked(event: Event): void {
     const input = event.target as HTMLInputElement;
-    this.selectedFile = input.files?.item(0) ?? null;
-    this.patchErrors({ upload: null });
+    this.setSelectedFile(input.files?.item(0) ?? null);
     input.value = '';
   }
 
-  uploadAndParse(): void {
-    if (!this.selectedFile) {
-      this.patchErrors({ upload: 'Please choose a CV file before uploading.' });
+  parseSelectedCv(): void {
+    const file = this.selectedFile();
+    if (!file) {
+      this.uploadErrorMessage.set('Please choose a CV file before uploading.');
+      this.uploadState.set('error');
       return;
     }
 
     this.patchErrors({ upload: null });
+    this.uploadErrorMessage.set(null);
+    this.uploadState.set('parsing');
     this.patchLoading({ upload: true });
 
     this.optimizerApi
-      .uploadCv(this.selectedFile, PROFILE_OPTIMIZER_USER_ID)
+      .uploadCv(file, PROFILE_OPTIMIZER_USER_ID)
       .pipe(
         finalize(() => this.patchLoading({ upload: false })),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe({
         next: (cv) => {
+          this.cvs.update((rows) => this.insertOrReplaceCv(rows, cv));
           this.activeCv.set(cv);
-          this.selectedFile = null;
-          this.refreshScoreAndVersions(cv.id);
-          this.pushToast('success', 'CV uploaded and parsed successfully.');
+          this.selectedFile.set(null);
+          this.selectedFileName = '';
+          this.uploadState.set('success');
+
+          if (this.uploadSuccessTimeoutId != null) {
+            window.clearTimeout(this.uploadSuccessTimeoutId);
+          }
+
+          this.uploadSuccessTimeoutId = window.setTimeout(() => {
+            this.uploadState.set('empty');
+            this.uploadErrorMessage.set(null);
+            void this.router.navigate(['/dashboard/cv-detail', cv.id]);
+          }, 1500);
         },
         error: (err: Error) => {
+          this.uploadState.set('error');
+          this.uploadErrorMessage.set(err.message);
           this.patchErrors({ upload: err.message });
-          this.pushToast('error', err.message);
         },
       });
   }
 
-  replaceCv(): void {
-    this.activeCv.set(null);
-    this.cvVersions.set([]);
-    this.selectedFile = null;
-    this.patchErrors({ upload: null });
+  removeSelectedFile(): void {
+    this.resetUploadState();
+  }
+
+  retryUpload(): void {
+    this.resetUploadState();
+  }
+
+  openCvDetail(cv: CandidateCvDto): void {
+    if (cv.parseStatus !== 'COMPLETED') {
+      return;
+    }
+
+    void this.router.navigate(['/dashboard/cv-detail', cv.id]);
   }
 
   saveJobOffer(): void {
+    this.jobOfferSubmitted.set(true);
+
     if (!this.jobTitle.trim() || !this.jobDescription.trim()) {
-      this.patchErrors({ jobOffer: 'Job title and description are required.' });
       return;
     }
 
@@ -336,15 +395,13 @@ export class ProfileOptimizerComponent implements OnInit {
       )
       .subscribe({
         next: (created) => {
-          this.jobOffers.update((rows) => [created, ...rows]);
+          this.jobOffers.update((rows) => this.sortJobOffers([created, ...rows.filter((offer) => offer.id !== created.id)]));
           this.selectedJobOfferId.set(created.id);
-          this.addJobOfferOpen.set(false);
-          this.resetJobOfferForm();
-          this.pushToast('success', 'Job offer saved. Keywords extracted.');
+          this.pushToast('success', 'Job offer saved');
+          this.closeJobOfferPanel();
         },
-        error: (err: Error) => {
-          this.patchErrors({ jobOffer: err.message });
-          this.pushToast('error', err.message);
+        error: () => {
+          this.patchErrors({ jobOffer: 'Failed to save. Please try again.' });
         },
       });
   }
@@ -368,7 +425,7 @@ export class ProfileOptimizerComponent implements OnInit {
             this.selectedJobOfferId.set(this.jobOffers()[0]?.id ?? null);
           }
           this.confirmingDeleteJobOfferId = null;
-          this.pushToast('success', 'Job offer deleted.');
+          this.pushToast('success', 'Job offer deleted');
         },
         error: (err: Error) => {
           this.pushToast('error', err.message);
@@ -400,7 +457,7 @@ export class ProfileOptimizerComponent implements OnInit {
         next: (newVersion) => {
           this.cvVersions.update((rows) => [newVersion, ...rows]);
           this.refreshScore(cv.id);
-          this.pushToast('success', 'Tailored version created.');
+          this.pushToast('success', 'Tailored version created');
         },
         error: (err: Error) => {
           this.patchErrors({ tailor: err.message });
@@ -440,57 +497,48 @@ export class ProfileOptimizerComponent implements OnInit {
   }
 
   scoreTone(score: number | null): 'high' | 'mid' | 'low' {
-    const s = score ?? 0;
-    if (s >= 80) {
+    const value = score ?? 0;
+    if (value >= 80) {
       return 'high';
     }
-    if (s >= 60) {
+    if (value >= 60) {
       return 'mid';
     }
     return 'low';
   }
 
-  fileSizeLabel(file: File | null): string {
-    if (!file) {
-      return '';
-    }
-    const kb = file.size / 1024;
-    if (kb < 1024) {
-      return `${Math.round(kb)} KB`;
-    }
-    return `${(kb / 1024).toFixed(2)} MB`;
+  formatCvDate(value: string): string {
+    return new Date(value).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
 
-  parsedKeywords(cv: CandidateCvDto | null): string[] {
-    if (!cv?.parsedContent) {
-      return [];
-    }
-    try {
-      const parsed = JSON.parse(cv.parsedContent) as {
-        keywords?: unknown;
-        skills?: unknown;
-      };
-      const source = Array.isArray(parsed.keywords)
-        ? parsed.keywords
-        : Array.isArray(parsed.skills)
-          ? parsed.skills
-          : [];
-      return source.map((x) => String(x)).filter((x) => x.trim().length > 0);
-    } catch {
-      return [];
-    }
+  jobTitleError(): boolean {
+    return this.jobOfferSubmitted() && !this.jobTitle.trim();
+  }
+
+  jobDescriptionError(): boolean {
+    return this.jobOfferSubmitted() && !this.jobDescription.trim();
+  }
+
+  jobDescriptionChars(): number {
+    return this.jobDescription.length;
+  }
+
+  canSaveJobOffer(): boolean {
+    return !!this.jobTitle.trim() && !!this.jobDescription.trim() && !this.loading().jobOffer;
   }
 
   offerKeywords(offer: JobOfferDto): string[] {
     if (!offer.extractedKeywords) {
       return [];
     }
+
     try {
       const parsed = JSON.parse(offer.extractedKeywords) as unknown;
-      if (Array.isArray(parsed)) {
-        return parsed.map((x) => String(x));
-      }
-      return [];
+      return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
     } catch {
       return [];
     }
@@ -500,18 +548,106 @@ export class ProfileOptimizerComponent implements OnInit {
     if (!version.jobOfferId) {
       return 'General optimization';
     }
-    const offer = this.jobOffers().find((j) => j.id === version.jobOfferId);
+
+    const offer = this.jobOffers().find((job) => job.id === version.jobOfferId);
     return offer?.title ?? 'Unknown job offer';
   }
 
-  private refreshScoreAndVersions(cvId: string): void {
+  parseStatusLabel(status: CandidateCvDto['parseStatus']): string {
+    switch (status) {
+      case 'COMPLETED':
+        return 'Parsed';
+      case 'PENDING':
+        return 'Pending';
+      case 'IN_PROGRESS':
+        return 'Processing';
+      case 'FAILED':
+      default:
+        return 'Failed';
+    }
+  }
+
+  setSelectedJobOfferId(id: string): void {
+    this.selectedJobOfferId.set(id);
+  }
+
+  trackById(_: number, item: { id: string }): string {
+    return item.id;
+  }
+
+  trackByToast(_: number, item: Toast): number {
+    return item.id;
+  }
+
+  private setSelectedFile(file: File | null): void {
+    this.selectedFile.set(file);
+    this.selectedFileName = file?.name ?? '';
+    this.uploadErrorMessage.set(null);
+    this.patchErrors({ upload: null });
+    this.uploadState.set(file ? 'selected' : 'empty');
+  }
+
+  private resetUploadState(): void {
+    this.selectedFile.set(null);
+    this.selectedFileName = '';
+    this.dragOver.set(false);
+    this.uploadErrorMessage.set(null);
+    this.patchErrors({ upload: null });
+    this.uploadState.set('empty');
+
+    if (this.uploadSuccessTimeoutId != null) {
+      window.clearTimeout(this.uploadSuccessTimeoutId);
+      this.uploadSuccessTimeoutId = null;
+    }
+  }
+
+  private resetJobOfferForm(): void {
+    this.jobTitle = '';
+    this.jobCompany = '';
+    this.jobDescription = '';
+    this.jobSourceUrl = '';
+  }
+
+  private sortJobOffers(offers: JobOfferDto[]): JobOfferDto[] {
+    return [...offers].sort(
+      (left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+    );
+  }
+
+  private sortCvs(cvs: CandidateCvDto[]): CandidateCvDto[] {
+    return [...cvs].sort((left, right) => new Date(right.uploadedAt).getTime() - new Date(left.uploadedAt).getTime());
+  }
+
+  private pickInitialCv(cvs: CandidateCvDto[]): CandidateCvDto | null {
+    if (cvs.length === 0) {
+      return null;
+    }
+
+    const focusId = this.focusedCvId();
+    if (focusId) {
+      const focused = cvs.find((cv) => cv.id === focusId);
+      if (focused) {
+        return focused;
+      }
+    }
+
+    return cvs.find((cv) => cv.isActive) ?? cvs[0] ?? null;
+  }
+
+  private refreshScoreAndVersions(cvId: string, initialLoad = false): void {
     this.patchLoading({ score: true });
     forkJoin({
       versions: this.optimizerApi.getCvVersions(cvId).pipe(catchError(() => of([] as CvVersionDto[]))),
       score: this.optimizerApi.getCvScore(cvId).pipe(catchError(() => of(null))),
     })
       .pipe(
-        finalize(() => this.patchLoading({ score: false })),
+        finalize(() => {
+          this.patchLoading({ score: false });
+          if (initialLoad) {
+            this.patchLoading({ page: false });
+            this.runPendingScrollAction();
+          }
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(({ versions, score }) => {
@@ -537,12 +673,10 @@ export class ProfileOptimizerComponent implements OnInit {
       });
   }
 
-  private pickUserActiveCv(cvs: CandidateCvDto[]): CandidateCvDto | null {
-    const mine = cvs.filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID);
-    if (mine.length === 0) {
-      return null;
-    }
-    return mine.find((cv) => cv.isActive) ?? mine[0] ?? null;
+  private insertOrReplaceCv(rows: CandidateCvDto[], cv: CandidateCvDto): CandidateCvDto[] {
+    const next = rows.filter((row) => row.id !== cv.id);
+    next.unshift(cv);
+    return next;
   }
 
   private startTailorStatusCycle(): void {
@@ -570,27 +704,40 @@ export class ProfileOptimizerComponent implements OnInit {
     this.tailorStatus.set('');
   }
 
-  private resetJobOfferForm(): void {
-    this.jobTitle = '';
-    this.jobCompany = '';
-    this.jobDescription = '';
-    this.jobSourceUrl = '';
+  private runPendingScrollAction(): void {
+    const target = this.pendingScrollTarget();
+    if (!target) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      this.scrollToElement(target === 'upload' ? 'po-upload-zone' : 'po-job-offers');
+      this.pendingScrollTarget.set(null);
+    }, 120);
+  }
+
+  private scrollToElement(id: string): void {
+    const element = document.getElementById(id);
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   private pushToast(type: ToastType, message: string): void {
     const id = ++this.toastCounter;
-    const toast: Toast = { id, type, message };
-    this.toasts.update((rows) => [...rows, toast]);
+    this.toasts.update((rows) => [...rows, { id, type, message }]);
     window.setTimeout(() => {
-      this.toasts.update((rows) => rows.filter((t) => t.id !== id));
+      this.toasts.update((rows) => rows.filter((toast) => toast.id !== id));
     }, 3000);
   }
 
   private patchLoading(patch: Partial<LoadingState>): void {
-    this.loading.update((cur) => ({ ...cur, ...patch }));
+    this.loading.update((current) => ({ ...current, ...patch }));
   }
 
   private patchErrors(patch: Partial<ErrorState>): void {
-    this.errors.update((cur) => ({ ...cur, ...patch }));
+    this.errors.update((current) => ({ ...current, ...patch }));
   }
 }

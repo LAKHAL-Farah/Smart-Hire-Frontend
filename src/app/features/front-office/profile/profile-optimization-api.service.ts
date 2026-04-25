@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, map, of, tap, throwError } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { getProfileUserUuid, isLocalDemoMode } from './profile-user-id';
 
@@ -190,7 +190,18 @@ export class ProfileOptimizationApiService {
     if (isLocalDemoMode()) {
       return of(this.readLocalSnapshot(id).activeCvScore);
     }
-    return this.http.get<CvScoreResponse>(`${this.base}/cv/${id}/score`).pipe(
+
+    return this.http.get<CandidateCvDto[]>(`${this.base}/cv`).pipe(
+      switchMap((cvs) => {
+        const active = cvs.find((cv) => cv.isActive) ?? cvs[0];
+        if (!active?.id) {
+          if (environment.localAuthFallback) {
+            return of(this.readLocalSnapshot(id).activeCvScore);
+          }
+          return throwError(() => new Error('No CV available to compute ATS score'));
+        }
+        return this.http.get<CvScoreResponse>(`${this.base}/cv/${encodeURIComponent(active.id)}/score`);
+      }),
       catchError((err) => {
         if (environment.localAuthFallback) {
           return of(this.readLocalSnapshot(id).activeCvScore);

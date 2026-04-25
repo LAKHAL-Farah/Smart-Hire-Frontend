@@ -1,11 +1,16 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, map } from 'rxjs/operators';
 import {
+  AuditGitHubRequest,
   AtsScoreDto,
   CandidateCvDto,
   CreateJobOfferRequest,
+  GitHubProfileDto,
+  GitHubRepoDto,
+  LinkedInProfileDto,
+  ProfileTipDto,
   CvVersionDto,
   JobOfferDto,
 } from '../models/profile-optimizer.models';
@@ -18,6 +23,7 @@ export const PROFILE_OPTIMIZER_USER_ID = '00000000-0000-0000-0000-000000000001';
 export class ProfileOptimizerService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://localhost:8092';
+  private readonly githubBaseUrl = 'http://localhost:8092';
 
   // ─── CV ───────────────────────────────────────────
 
@@ -36,6 +42,11 @@ export class ProfileOptimizerService {
     return this.http.get<CandidateCvDto[]>(`${this.baseUrl}/api/cv`).pipe(
       catchError(() => this.toUserError('Unable to load CVs right now.'))
     );
+  }
+
+  /** Endpoint: GET http://localhost:8092/api/cv */
+  getAllCvs(): Observable<CandidateCvDto[]> {
+    return this.listCvs();
   }
 
   /** Endpoint: GET http://localhost:8092/api/cv/{cvId} */
@@ -61,11 +72,28 @@ export class ProfileOptimizerService {
       .pipe(catchError(() => this.toUserError('Unable to tailor CV right now. Please try again.')));
   }
 
+  /** Endpoint: POST http://localhost:8092/api/cv/{cvId}/optimize */
+  optimizeCv(cvId: string): Observable<CvVersionDto> {
+    return this.http
+      .post<CvVersionDto>(`${this.baseUrl}/api/cv/${encodeURIComponent(cvId)}/optimize`, {})
+      .pipe(catchError(() => this.toUserError('Unable to optimize CV right now. Please try again.')));
+  }
+
   /** Endpoint: GET http://localhost:8092/api/cv/{cvId}/versions */
   getCvVersions(cvId: string): Observable<CvVersionDto[]> {
     return this.http.get<CvVersionDto[]>(`${this.baseUrl}/api/cv/${encodeURIComponent(cvId)}/versions`).pipe(
       catchError(() => this.toUserError('Unable to load CV versions right now.'))
     );
+  }
+
+  /**
+   * NOTE: This endpoint is exposed by the backend legacy CVVersion controller.
+   * Endpoint: GET http://localhost:8092/api/v1/cv-versions/job-offer/{jobOfferId}
+   */
+  getCvVersionsForJobOffer(jobOfferId: string): Observable<CvVersionDto[]> {
+    return this.http
+      .get<CvVersionDto[]>(`${this.baseUrl}/api/v1/cv-versions/job-offer/${encodeURIComponent(jobOfferId)}`)
+      .pipe(catchError(() => this.toUserError('Unable to load CV versions for this job offer right now.')));
   }
 
   /** Endpoint: GET http://localhost:8092/api/cv/versions/{versionId} */
@@ -89,6 +117,73 @@ export class ProfileOptimizerService {
     return this.http.delete<void>(`${this.baseUrl}/api/cv/${encodeURIComponent(cvId)}`).pipe(
       catchError(() => this.toUserError('Unable to delete this CV right now.'))
     );
+  }
+
+  // ─── TIPS ─────────────────────────────────────────
+
+  /** Endpoint: GET http://localhost:8092/api/v1/profile-tips */
+  getTips(type?: 'CV' | 'LINKEDIN' | 'GITHUB'): Observable<ProfileTipDto[]> {
+    return this.http.get<ProfileTipDto[]>(`${this.baseUrl}/api/v1/profile-tips`).pipe(
+      catchError(() => this.toUserError('Unable to load profile tips right now.')),
+      map((tips) => (type ? tips.filter((tip) => tip.profileType === type) : tips))
+    );
+  }
+
+  /** Endpoint: PATCH http://localhost:8092/api/tips/{tipId}/resolve */
+  resolveTip(tipId: string): Observable<void> {
+    return this.http.patch<void>(`${this.baseUrl}/api/tips/${encodeURIComponent(tipId)}/resolve`, {}).pipe(
+      catchError(() => this.toUserError('Unable to resolve this tip right now.'))
+    );
+  }
+
+  // ─── LINKEDIN ───────────────────────────────────
+
+  /** Endpoint: POST http://localhost:8092/api/linkedin/analyze */
+  analyzeLinkedIn(payload: {
+    rawContent: string;
+    currentHeadline?: string;
+    currentSummary?: string;
+    currentSkills?: string;
+  }): Observable<LinkedInProfileDto> {
+    return this.http
+      .post<LinkedInProfileDto>(`${this.baseUrl}/api/linkedin/analyze`, payload)
+      .pipe(catchError(() => this.toUserError('Unable to analyze LinkedIn profile right now.')));
+  }
+
+  /** Endpoint: GET http://localhost:8092/api/linkedin */
+  getLinkedInProfile(): Observable<LinkedInProfileDto> {
+    return this.http.get<LinkedInProfileDto>(`${this.baseUrl}/api/linkedin`);
+  }
+
+  /** Endpoint: POST http://localhost:8092/api/linkedin/align */
+  alignLinkedInToJob(jobOfferId: string): Observable<LinkedInProfileDto> {
+    return this.http
+      .post<LinkedInProfileDto>(`${this.baseUrl}/api/linkedin/align`, { jobOfferId })
+      .pipe(catchError(() => this.toUserError('Unable to align LinkedIn profile right now.')));
+  }
+
+  /** Endpoint: POST http://localhost:8092/api/github/audit */
+  auditGitHub(request: AuditGitHubRequest): Observable<GitHubProfileDto> {
+    return this.http
+      .post<GitHubProfileDto>(`${this.githubBaseUrl}/api/github/audit`, request)
+      .pipe(catchError(() => this.toUserError('Unable to audit GitHub profile right now.')));
+  }
+
+  /** Endpoint: GET http://localhost:8092/api/github */
+  getGitHubProfile(): Observable<GitHubProfileDto> {
+    return this.http.get<GitHubProfileDto>(`${this.githubBaseUrl}/api/github`);
+  }
+
+  /** Endpoint: POST http://localhost:8092/api/github/reaudit */
+  reauditGitHub(request: AuditGitHubRequest): Observable<GitHubProfileDto> {
+    return this.http
+      .post<GitHubProfileDto>(`${this.githubBaseUrl}/api/github/reaudit`, request)
+      .pipe(catchError(() => this.toUserError('Unable to re-audit GitHub profile right now.')));
+  }
+
+  /** Endpoint: GET http://localhost:8092/api/github/repositories */
+  getGitHubRepositories(): Observable<GitHubRepoDto[]> {
+    return this.http.get<GitHubRepoDto[]>(`${this.githubBaseUrl}/api/github/repositories`);
   }
 
   // ─── JOB OFFERS ───────────────────────────────────

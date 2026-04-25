@@ -5,7 +5,6 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthMfaService } from '../auth-mfa.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
-import { AutheService } from '../authe.service';
 import { setProfileUserUuid } from '../../profile/profile-user-id';
 
 @Component({
@@ -21,7 +20,7 @@ export class LoginMfaComponent {
   error = '';
   loading = false;
 
-  constructor(private auth: AuthMfaService, private router: Router, private authService: AutheService) {}
+  constructor(private auth: AuthMfaService, private router: Router) {}
 
   onLogin(): void {
     this.error = '';

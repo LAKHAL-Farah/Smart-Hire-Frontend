@@ -78,8 +78,13 @@ export class OnboardingComponent implements OnInit {
   }
 
   private savePreferencesAndFinish(): void {
-    const situation = this.situationSelection() || 'student';
-    const careerPath = this.careerSelection() || 'fullstack';
+    const situation = this.situationSelection();
+    const careerPath = this.careerSelection();
+
+    if (!situation || !careerPath) {
+      this.saveError.set('Please complete all onboarding selections before continuing.');
+      return;
+    }
 
     this.saveError.set(null);
     this.saving.set(true);
@@ -103,11 +108,11 @@ export class OnboardingComponent implements OnInit {
           this.assignmentApi.register(uid, situation, careerPath).subscribe({
             next: () => {
               this.saving.set(false);
-              void this.router.navigate(['/dashboard/assessments']);
+              void this.router.navigate(['login']);
             },
             error: () => {
               this.saving.set(false);
-              void this.router.navigate(['/dashboard/assessments']);
+              void this.router.navigate(['login']);
             },
           });
         },

@@ -58,6 +58,29 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+.state-banner {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(46, 232, 165, 0.25);
+  background: rgba(46, 232, 165, 0.08);
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.state-banner--error {
+  border-color: rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.12);
+  color: #fecdd3;
+}
+
+.empty-message {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ─── Readiness ─── */
 .readiness {
   display: flex;
   align-items: center;

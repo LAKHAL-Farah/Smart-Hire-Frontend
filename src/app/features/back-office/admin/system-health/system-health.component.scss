@@ -462,3 +462,152 @@
   .svc-card__right { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; }
   .uptime-row { grid-template-columns: 80px 1fr 42px; }
 }
+
+:host-context([data-mode='light']) {
+  .page-hdr__title,
+  .banner-title,
+  .svc-card__name,
+  .inc-card__title,
+  .deploy-row__value,
+  .modal__title,
+  .metric-chip__value {
+    color: var(--text-primary);
+  }
+
+  .page-hdr__sub,
+  .refresh-label,
+  .banner-sub,
+  .section-label,
+  .count-pill,
+  .subsection-hdr,
+  .svc-card__desc,
+  .metric-chip__label,
+  .inc-card__desc,
+  .svc-tag,
+  .inc-duration,
+  .inc-ts,
+  .log-ts,
+  .log-msg,
+  .rt-legend__item,
+  .sla-target,
+  .uptime-row__name,
+  .uptime-row__pct,
+  .infra-sub,
+  .infra-bar-label,
+  .infra-bar-val,
+  .deploy-row__label,
+  .modal__sub,
+  .log-msg-full,
+  .confirm-text,
+  .form-label,
+  .rollback-warn,
+  .stream-pill,
+  .status-pill,
+  .resolve-badge,
+  .view-logs-link,
+  .btn-ghost,
+  .btn-danger-ghost {
+    color: var(--text-secondary);
+  }
+
+  .svc-card,
+  .inc-card,
+  .chart-card,
+  .uptime-card,
+  .infra-card,
+  .deploy-card,
+  .status-banner,
+  .modal,
+  .error-stream,
+  .count-pill,
+  .svc-tag,
+  .stream-toggle,
+  .stream-pill--active,
+  .metric-chip,
+  .funnel-row,
+  .rollback-warn,
+  .stack-block {
+    background: var(--bg-card) !important;
+    border-color: var(--border-subtle) !important;
+  }
+
+  .btn-ghost,
+  .btn-danger-ghost,
+  .btn-danger,
+  .log-filter,
+  .form-input,
+  .form-select,
+  .copy-btn,
+  .range-pill {
+    background: var(--bg-tertiary) !important;
+    border-color: var(--border-subtle) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .btn-ghost:hover,
+  .btn-danger-ghost:hover,
+  .copy-btn:hover,
+  .range-pill:hover,
+  .view-logs-link:hover {
+    background: color-mix(in srgb, var(--bg-tertiary) 84%, var(--color-primary) 16%) !important;
+    border-color: var(--border-hover) !important;
+    color: var(--text-primary) !important;
+  }
+
+  .range-pill--active,
+  .stream-pill--active {
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--bg-tertiary) 86%) !important;
+    color: var(--text-primary) !important;
+    border-color: rgba(var(--color-primary-rgb), 0.35) !important;
+  }
+
+  .log-filter option,
+  .form-select option {
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  .error-stream {
+    background: var(--bg-tertiary) !important;
+  }
+
+  .log-line {
+    border-bottom-color: var(--border-subtle) !important;
+  }
+
+  .log-line:hover {
+    background: color-mix(in srgb, var(--bg-tertiary) 86%, var(--color-primary) 14%) !important;
+  }
+
+  .infra-bar-track,
+  .metric-bar,
+  .uptime-sq.sq--none,
+  .inc-line {
+    background: color-mix(in srgb, var(--bg-tertiary) 88%, var(--bg-card) 12%) !important;
+  }
+
+  .deploy-row,
+  .modal__header,
+  .modal,
+  .form-input,
+  .form-select,
+  .stream-toggle {
+    border-color: var(--border-subtle) !important;
+  }
+
+  .modal-overlay {
+    background: rgba(var(--color-bg-rgb), 0.45);
+  }
+
+  .modal__close {
+    color: var(--text-secondary);
+  }
+
+  .modal__close:hover {
+    color: var(--text-primary);
+  }
+
+  .stack-pre {
+    color: var(--text-secondary);
+  }
+}

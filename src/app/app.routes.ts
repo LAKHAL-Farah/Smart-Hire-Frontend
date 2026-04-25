@@ -3,6 +3,7 @@ import { adminCanMatch } from './core/guards/admin.guard';
 import { onboardingCanMatch } from './core/guards/onboarding.guard';
 import { authGuard } from './core/guards/auth.guard';
 import { noAuthGuard } from './core/guards/no-auth.guard';
+import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   {
@@ -14,10 +15,49 @@ export const routes: Routes = [
   },
   {
     canActivate: [noAuthGuard],
-    path: 'login',
+    path: 'login-mfa',
     loadComponent: () =>
       import('./features/front-office/auth/login/login.component').then(
         (m) => m.LoginComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'login',
+    loadComponent: () =>
+      import('./features/front-office/auth/login-mfa/login-mfa.component').then(
+        (m) => m.LoginMfaComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./features/front-office/auth/forgot-password/forgot-password.component').then(
+        (m) => m.ForgotPasswordComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'verify-face',
+    loadComponent: () =>
+      import('./features/front-office/auth/verify-face/verify-face.component').then(
+        (m) => m.VerifyFaceComponent
+      ),
+  },
+  {
+    path: 'setup-face-recognition',
+    loadComponent: () =>
+      import('./features/front-office/auth/setup-face-recognition/setup-face-recognition.component').then(
+        (m) => m.SetupFaceRecognitionComponent
+      ),
+  },
+  {
+    canActivate: [noAuthGuard],
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./features/front-office/auth/reset-password/reset-password.component').then(
+        (m) => m.ResetPasswordComponent
       ),
   },
   {
@@ -34,6 +74,37 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/front-office/onboarding/onboarding.component').then(
         (m) => m.OnboardingComponent
+      ),
+  },
+  {
+    path: 'interview/live/start',
+    redirectTo: 'dashboard/interview/live/start',
+    pathMatch: 'full',
+  },
+  {
+    path: 'interview/live/:sessionId',
+    redirectTo: 'dashboard/interview/live/:sessionId',
+    pathMatch: 'full',
+  },
+  {
+    path: 'interview/report/:sessionId',
+    loadComponent: () =>
+      import('./interview/report/live-report.component').then(
+        (m) => m.LiveReportComponent
+      ),
+  },
+  {
+    path: 'dashboard/interview/live/start',
+    loadComponent: () =>
+      import('./interview/live-start/live-start.component').then(
+        (m) => m.LiveStartComponent
+      ),
+  },
+  {
+    path: 'dashboard/interview/live/:sessionId',
+    loadComponent: () =>
+      import('./interview/live-mode/live-mode.component').then(
+        (m) => m.LiveModeComponent
       ),
   },
   {
@@ -127,6 +198,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'post-job',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/post-job/post-job.component').then(
+            (m) => m.PostJobComponent
+          ),
+      },
+      {
         path: 'profile',
         loadComponent: () =>
           import('./features/front-office/dashboard/profile/profile.component').then(
@@ -160,7 +238,36 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'interview/setup',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/setup/interview-setup.component').then(
+            (m) => m.InterviewSetupComponent
+          ),
+      },
+      {
+        path: 'interview/history',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/history/interview-history.component').then(
+            (m) => m.InterviewHistoryComponent
+          ),
+      },
+      {
+        path: 'interview/bookmarks',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/bookmarks/interview-bookmarks.component').then(
+            (m) => m.InterviewBookmarksComponent
+          ),
+      },
+      {
+        path: 'interview/discover',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/discover/interview-discover.component').then(
+            (m) => m.InterviewDiscoverComponent
+          ),
+      },
+      {
         path: 'interview',
+        pathMatch: 'full',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/interview.component').then(
             (m) => m.InterviewComponent
@@ -171,6 +278,27 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/session/interview-session.component').then(
             (m) => m.InterviewSessionComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/code',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/code-screen/interview-code-screen.component').then(
+            (m) => m.InterviewCodeScreenComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/cloud',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/cloud-screen/interview-cloud-screen.component').then(
+            (m) => m.InterviewCloudScreenComponent
+          ),
+      },
+      {
+        path: 'interview/session/:id/ml',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/interview/ml-screen/interview-ml-screen.component').then(
+            (m) => m.InterviewMlScreenComponent
           ),
       },
       {
@@ -185,7 +313,9 @@ export const routes: Routes = [
 
   {
     path: 'admin',
-    canMatch: [adminCanMatch],
+    //canMatch: [adminCanMatch],
+    canActivate: [roleGuard],
+    data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(
         (m) => m.AdminLayoutComponent
@@ -200,6 +330,8 @@ export const routes: Routes = [
       },
       {
         path: 'users',
+        //canActivate: [roleGuard],
+      // data: { requiredRoles: ['recruiter'] },
         loadComponent: () =>
           import('./features/back-office/admin/users/user-management.component').then(
             (m) => m.UserManagementComponent
@@ -231,6 +363,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/back-office/admin/skill-assessments/skill-assessment-admin.component').then(
             (m) => m.SkillAssessmentAdminComponent
+          ),
+      },
+      {
+        path: 'interview',
+        loadComponent: () =>
+          import('./admin/interview-dashboard/interview-dashboard.component').then(
+            (m) => m.InterviewDashboardComponent
           ),
       },
       {

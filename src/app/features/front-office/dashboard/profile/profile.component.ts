@@ -162,6 +162,9 @@ export class ProfileComponent implements OnInit {
     if (p?.firstName || p?.lastName) {
       return [p.firstName, p.lastName].filter(Boolean).join(' ').trim();
     }
+    // Fallback to userName stored by login
+    const userName = localStorage.getItem('userName')?.trim();
+    if (userName) return userName;
     return 'Your profile';
   });
 
@@ -170,7 +173,16 @@ export class ProfileComponent implements OnInit {
     const f = p?.firstName?.charAt(0) ?? '';
     const l = p?.lastName?.charAt(0) ?? '';
     const s = `${f}${l}`.toUpperCase();
-    return s || '?';
+    if (s) return s;
+    // Fallback to userName initials
+    const userName = localStorage.getItem('userName')?.trim() ?? '';
+    if (userName) {
+      const parts = userName.split(/\s+/);
+      const fi = parts[0]?.charAt(0) ?? '';
+      const li = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+      return `${fi}${li}`.toUpperCase() || '?';
+    }
+    return '?';
   });
 
   displayHeadline = computed(() => {

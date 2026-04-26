@@ -58,7 +58,7 @@
           <path d="M12 2a10 10 0 1010 10"/><path d="M22 2l-4 4 4 4"/>
         </svg>
         {{ recoLoading ? 'Analyse…' : '✨ Mes recommandations' }}
-        <span class="reco-trigger-badge" *ngIf="recommendations.length">{{ recommendations.length }}</span>
+        <span class="reco-trigger-badge" *ngIf="recommendations">{{ recommendations.experience_level }}</span>
       </button>
     </div>
   </header>
@@ -107,19 +107,22 @@
       <div class="ecard__inner">
         <div class="ecard__top">
           <span class="ecard__type-badge" [style.color]="typeColor(e.type)">{{ e.type }}</span>
-          <span class="ecard__status" [ngClass]="'ecard__status--' + (e.status || 'upcoming')">{{ e.status || 'upcoming' }}</span>
-
+          <span class="ecard__status" [ngClass]="'ecard__status--' + (e.status || 'upcoming')">
+            {{ e.status || 'upcoming' }}
+          </span>
           <span class="ecard__full-badge" *ngIf="isEventFull(e)">
             <span class="ecard__full-badge__dot"></span>
             Saturé
           </span>
-
           <button class="ecard__qr-badge" (click)="$event.stopPropagation(); openQrModal(e)" title="Show QR Code">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
               <rect x="3" y="14" width="7" height="7" rx="1"/>
-              <rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/>
-              <rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/>
+              <rect x="14" y="14" width="3" height="3"/>
+              <rect x="18" y="14" width="3" height="3"/>
+              <rect x="14" y="18" width="3" height="3"/>
+              <rect x="18" y="18" width="3" height="3"/>
             </svg>
           </button>
         </div>
@@ -128,7 +131,6 @@
         <p class="ecard__desc" *ngIf="e.description">{{ e.description }}</p>
 
         <div class="ecard__meta">
-          <!-- ══ AMÉLIORATION AGENDA : badge date moderne + horaire ══ -->
           <div class="ecard__meta-item modern-date">
             <div class="date-badge" [style.background]="typeColor(e.type)">
               <span class="day">{{ e.startDate | date:'d' }}</span>
@@ -163,7 +165,6 @@
           </div>
         </div>
 
-        <!-- FIX #7 : pct() protégé contre NaN -->
         <div class="ecard__progress" *ngIf="e.capacity">
           <div
             class="ecard__progress-fill"
@@ -173,8 +174,8 @@
         </div>
 
         <div class="ecard__actions">
-          <button class="ecard__btn ecard__btn--edit" (click)="openModal(e)">✏️ Edit</button>
-          <button class="ecard__btn ecard__btn--del" (click)="confirmDelete(e)">🗑️ Delete</button>
+          <button class="ecard__btn ecard__btn--edit"   (click)="openModal(e)">✏️ Edit</button>
+          <button class="ecard__btn ecard__btn--del"    (click)="confirmDelete(e)">🗑️ Delete</button>
           <button class="ecard__btn ecard__btn--detail" (click)="openDetailModal(e.id!)">🔍 Details</button>
         </div>
       </div>
@@ -194,7 +195,10 @@
   <div class="modal modal--qr" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
     <div class="modal__header modal__header--qr">
       <div class="modal__header-left">
-        <span class="modal__header-badge" *ngIf="qrEvent" [style.background]="typeColor(qrEvent.type) + '18'" [style.color]="typeColor(qrEvent.type)">
+        <span class="modal__header-badge"
+              *ngIf="qrEvent"
+              [style.background]="typeColor(qrEvent.type) + '18'"
+              [style.color]="typeColor(qrEvent.type)">
           {{ qrEvent.type }}
         </span>
         <h2 class="modal__title">Share Event</h2>
@@ -212,9 +216,9 @@
           </div>
           <div class="qr-veil__icon">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="3"  y="3"  width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3"  width="7" height="7" rx="1.5"/>
+              <rect x="3"  y="14" width="7" height="7" rx="1.5"/>
               <rect x="14" y="14" width="3" height="3"/>
               <rect x="18" y="14" width="3" height="3"/>
               <rect x="14" y="18" width="3" height="3"/>
@@ -225,7 +229,11 @@
         </div>
         <div class="qr-frame" *ngIf="qrRevealed">
           <div class="qr-scanner-line"></div>
-          <img [src]="getQrUrl(qrEvent.id!)" alt="QR Code" class="qr-image" (load)="qrImageLoaded = true" [class.qr-image--loaded]="qrImageLoaded" />
+          <img [src]="getQrUrl(qrEvent.id!)"
+               alt="QR Code"
+               class="qr-image"
+               (load)="qrImageLoaded = true"
+               [class.qr-image--loaded]="qrImageLoaded" />
           <span class="qr-corner qr-corner--tl"></span>
           <span class="qr-corner qr-corner--tr"></span>
           <span class="qr-corner qr-corner--bl"></span>
@@ -251,9 +259,11 @@
         </button>
         <button class="qr-btn qr-btn--share" (click)="nativeShare(qrEvent)" *ngIf="canNativeShare">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            <circle cx="18" cy="5"  r="3"/>
+            <circle cx="6"  cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59"  y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51"  x2="8.59"  y2="10.49"/>
           </svg>
           Share
         </button>
@@ -340,42 +350,59 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ -->
-<!-- DETAIL MODAL + MAP + REVIEWS + QR + GOOGLE CALENDAR           -->
+<!-- DETAIL MODAL                                                   -->
 <!-- ══════════════════════════════════════════════════════════════ -->
 <div class="modal-backdrop" *ngIf="detailModalOpen" (click)="closeDetailModal()">
   <div class="modal modal--detail" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
     <div class="modal__header">
       <div class="modal__header-left">
-        <span class="modal__header-badge" *ngIf="detailEvent" [style.background]="typeColor(detailEvent.type) + '18'" [style.color]="typeColor(detailEvent.type)">
+        <span class="modal__header-badge"
+              *ngIf="detailEvent"
+              [style.background]="typeColor(detailEvent.type) + '18'"
+              [style.color]="typeColor(detailEvent.type)">
           {{ detailEvent.type }}
         </span>
         <h2 class="modal__title">Event Details</h2>
       </div>
       <button class="modal__close" (click)="closeDetailModal()">×</button>
     </div>
+
+    <!-- Loading -->
     <div class="modal__body detail-loading" *ngIf="detailLoading">
       <span class="spinner"></span> Loading event details…
     </div>
+
+    <!-- Content -->
     <div class="modal__body modal__body--scrollable" *ngIf="!detailLoading && detailEvent">
       <div class="detail-layout">
-        <!-- LEFT COLUMN -->
+
+        <!-- ── LEFT COLUMN ── -->
         <div class="detail-left">
           <div class="detail-card" [class.detail-card--full]="isEventFull(detailEvent)">
-            <div class="detail-card__accent" [style.background]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)"></div>
+            <div class="detail-card__accent"
+                 [style.background]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
+            </div>
             <div class="detail-card__header">
-              <span class="detail-card__type" [style.color]="typeColor(detailEvent.type)">{{ detailEvent.type }}</span>
-              <span class="detail-card__status" [ngClass]="'ecard__status--' + (detailEvent.status || 'upcoming')">{{ detailEvent.status || 'upcoming' }}</span>
+              <span class="detail-card__type" [style.color]="typeColor(detailEvent.type)">
+                {{ detailEvent.type }}
+              </span>
+              <span class="detail-card__status"
+                    [ngClass]="'ecard__status--' + (detailEvent.status || 'upcoming')">
+                {{ detailEvent.status || 'upcoming' }}
+              </span>
               <span class="detail-full-badge" *ngIf="isEventFull(detailEvent)">
                 <span class="detail-full-badge__dot"></span> Saturé
               </span>
             </div>
+
             <h3 class="detail-card__title">{{ detailEvent.title }}</h3>
             <span class="google-cal-badge">Google</span>
             <p class="detail-card__desc">{{ detailEvent.description || 'No description provided.' }}</p>
+
             <div class="detail-full-banner" *ngIf="isEventFull(detailEvent)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="8"  x2="12"    y2="12"/>
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
               Cet événement est complet — les inscriptions sont fermées.
@@ -385,12 +412,16 @@
             <div class="detail-progress-wrap" *ngIf="detailEvent.capacity">
               <div class="detail-progress-header">
                 <span class="detail-progress-label">Registrations</span>
-                <span class="detail-progress-count" [style.color]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
+                <span class="detail-progress-count"
+                      [style.color]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
                   {{ detailEvent.currentRegistrations ?? detailEvent.registered ?? 0 }} / {{ detailEvent.capacity }}
                 </span>
               </div>
               <div class="detail-progress-track">
-                <div class="detail-progress-fill" [style.width.%]="pct(detailEvent.currentRegistrations ?? detailEvent.registered, detailEvent.capacity)" [style.background]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)"></div>
+                <div class="detail-progress-fill"
+                     [style.width.%]="pct(detailEvent.currentRegistrations ?? detailEvent.registered, detailEvent.capacity)"
+                     [style.background]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
+                </div>
               </div>
               <div class="detail-progress-pct" [class.detail-progress-pct--full]="isEventFull(detailEvent)">
                 {{ pct(detailEvent.currentRegistrations ?? detailEvent.registered, detailEvent.capacity) }}% capacity
@@ -405,8 +436,8 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2">
                     <rect x="3" y="4" width="18" height="18" rx="2"/>
                     <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
+                    <line x1="8"  y1="2" x2="8"  y2="6"/>
+                    <line x1="3"  y1="10" x2="21" y2="10"/>
                   </svg>
                 </div>
                 <div>
@@ -452,7 +483,7 @@
               </div>
             </div>
 
-            <!-- AI SUMMARY -->
+            <!-- AI Summary -->
             <div class="ai-summary" *ngIf="detailEvent.aiSummary">
               <div class="ai-summary__header">
                 <span class="ai-summary__icon">✨</span>
@@ -467,165 +498,244 @@
             <!-- Actions -->
             <div class="detail-card__actions">
               <button class="modal-btn modal-btn--cancel" (click)="closeDetailModal()">Close</button>
-              <button class="modal-btn modal-btn--ai" (click)="generateSummary(detailEvent.id!)" [disabled]="generatingSummary && summaryEventId === detailEvent.id">
+              <button class="modal-btn modal-btn--ai"
+                      (click)="generateSummary(detailEvent.id!)"
+                      [disabled]="generatingSummary && summaryEventId === detailEvent.id">
                 <span class="spinner spinner--sm" *ngIf="generatingSummary && summaryEventId === detailEvent.id"></span>
                 {{ (generatingSummary && summaryEventId === detailEvent.id) ? 'Generating…' : '✨ AI Summary' }}
               </button>
-              <button class="modal-btn" [class.modal-btn--register]="!isEventFull(detailEvent)" [class.modal-btn--full]="isEventFull(detailEvent)" (click)="!isEventFull(detailEvent) && registerForEvent(detailEvent.id!)" [disabled]="registering || isEventFull(detailEvent)">
+              <button class="modal-btn"
+                      [class.modal-btn--register]="!isEventFull(detailEvent)"
+                      [class.modal-btn--full]="isEventFull(detailEvent)"
+                      (click)="!isEventFull(detailEvent) && registerForEvent(detailEvent.id!)"
+                      [disabled]="registering || isEventFull(detailEvent)">
                 <span class="spinner spinner--sm" *ngIf="registering"></span>
-                <ng-container *ngIf="!isEventFull(detailEvent)">{{ registering ? 'Registering…' : '📝 Register' }}</ng-container>
+                <ng-container *ngIf="!isEventFull(detailEvent)">
+                  {{ registering ? 'Registering…' : '📝 Register' }}
+                </ng-container>
                 <ng-container *ngIf="isEventFull(detailEvent)">🔴 Complet</ng-container>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- RIGHT COLUMN : Map + QR + Google Calendar -->
+        <!-- ── RIGHT COLUMN ── -->
         <div class="detail-right">
+
+          <!-- Speakers + Map -->
           <div class="detail-map-section" *ngIf="detailEvent.location">
             <div class="detail-map-header">
-              <app-event-speakers *ngIf="selectedEventIdForSpeakers" [eventId]="selectedEventIdForSpeakers" [eventDescription]="detailEvent.description ?? ''"></app-event-speakers>
+              <app-event-speakers
+                *ngIf="selectedEventIdForSpeakers"
+                [eventId]="selectedEventIdForSpeakers"
+                [eventDescription]="detailEvent.description ?? ''">
+              </app-event-speakers>
             </div>
             <div class="detail-map-canvas">
-              <app-event-map [location]="detailEvent.location" [lat]="detailEvent.lat" [lng]="detailEvent.lng"></app-event-map>
+              <app-event-map
+                [location]="detailEvent.location"
+                [lat]="detailEvent.lat"
+                [lng]="detailEvent.lng">
+              </app-event-map>
             </div>
           </div>
+
+          <!-- QR -->
           <div class="detail-qr-section">
             <app-event-qrcode [eventId]="detailEvent.id!"></app-event-qrcode>
           </div>
 
-          <!-- ══ GOOGLE CALENDAR BUTTON AMÉLIORÉ ══ -->
-         <div class="google-cal-wrap">
-  <a class="google-cal-btn"
-     [href]="getGoogleCalendarUrl(detailEvent)"
-     target="_blank"
-     rel="noopener noreferrer">
-
-    <span class="google-cal-btn__icon">
-      <svg width="16" height="16" viewBox="0 0 24 24"
-           fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-        <line x1="16" y1="2" x2="16" y2="6"></line>
-        <line x1="8" y1="2" x2="8" y2="6"></line>
-        <line x1="3" y1="10" x2="21" y2="10"></line>
-      </svg>
-    </span>
-
-    <span class="google-cal-btn__text">
-      Ajouter à Google Agenda
-    </span>
-
-    <span class="google-cal-btn__glow"></span>
-  </a>
-</div>
-
-      <!-- ══ REVIEWS SECTION ══════════════════════════════════════ -->
-      <div class="rv-section">
-        <div class="rv-section__header">
-          <div class="rv-section__title-group">
-            <h3 class="rv-section__title"><span>💬</span> Reviews <span class="rv-section__count" *ngIf="reviews.length">({{ reviews.length }})</span></h3>
-            <p class="rv-section__sub" *ngIf="reviews.length">Community feedback for this event</p>
+          <!-- Google Calendar -->
+          <div class="google-cal-wrap">
+            <a class="google-cal-btn"
+               [href]="getGoogleCalendarUrl(detailEvent)"
+               target="_blank"
+               rel="noopener noreferrer">
+              <span class="google-cal-btn__icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8"  y1="2" x2="8"  y2="6"/>
+                  <line x1="3"  y1="10" x2="21" y2="10"/>
+                </svg>
+              </span>
+              <span class="google-cal-btn__text">Ajouter à Google Agenda</span>
+              <span class="google-cal-btn__glow"></span>
+            </a>
           </div>
-          <button class="rv-add-btn" (click)="openReviewForm()" *ngIf="!reviewFormOpen">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            Write a Review
-          </button>
-        </div>
-        <div class="rv-summary" *ngIf="reviews.length">
-          <div class="rv-summary__score">
-            <span class="rv-summary__avg">{{ reviewAverage }}</span>
-            <div class="rv-summary__stars">
-              <span class="rv-sum-star" *ngFor="let s of stars" [class.rv-sum-star--filled]="s <= reviewAverage">★</span>
+
+          <!-- ══ REVIEWS ══════════════════════════════════════════ -->
+          <div class="rv-section">
+            <div class="rv-section__header">
+              <div class="rv-section__title-group">
+                <h3 class="rv-section__title">
+                  <span>💬</span> Reviews
+                  <span class="rv-section__count" *ngIf="reviews.length">({{ reviews.length }})</span>
+                </h3>
+                <p class="rv-section__sub" *ngIf="reviews.length">Community feedback for this event</p>
+              </div>
+              <button class="rv-add-btn" (click)="openReviewForm()" *ngIf="!reviewFormOpen">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5"  y1="12" x2="19" y2="12"/>
+                </svg>
+                Write a Review
+              </button>
             </div>
-            <span class="rv-summary__label">out of 5</span>
-          </div>
-          <div class="rv-summary__bars">
-            <div class="rv-bar-row" *ngFor="let d of reviewDistribution">
-              <span class="rv-bar-row__lbl">{{ d.star }}★</span>
-              <div class="rv-bar-row__track"><div class="rv-bar-row__fill" [style.width.%]="d.pct"></div></div>
-              <span class="rv-bar-row__cnt">{{ d.count }}</span>
-            </div>
-          </div>
-        </div>
-        <div class="rv-loading" *ngIf="reviewsLoading"><span class="spinner"></span> Loading reviews…</div>
-        <div class="rv-error" *ngIf="reviewsError && !reviewsLoading">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          {{ reviewsError }}
-        </div>
-        <div class="rv-empty" *ngIf="!reviewsLoading && !reviewsError && reviews.length === 0 && !reviewFormOpen">
-          <div class="rv-empty__icon">💭</div>
-          <p class="rv-empty__text">No reviews yet — be the first to share your thoughts!</p>
-          <button class="rv-add-btn" (click)="openReviewForm()">Write a Review</button>
-        </div>
-        <div class="rv-form-card" *ngIf="reviewFormOpen">
-          <div class="rv-form-card__header">
-            <span class="rv-form-card__title">Your Review</span>
-            <button class="rv-form-card__close" (click)="closeReviewForm()">×</button>
-          </div>
-          <div class="rv-star-picker">
-            <button class="rv-star-btn" *ngFor="let s of stars" (mouseenter)="reviewHover = s" (mouseleave)="reviewHover = 0" (click)="reviewForm.rating = s" [class.rv-star-btn--on]="reviewStarFilled(s, reviewForm.rating, reviewHover)" type="button">★</button>
-            <span class="rv-star-label" *ngIf="reviewForm.rating || reviewHover">{{ reviewRatingLabel(reviewHover || reviewForm.rating) }}</span>
-          </div>
-          <textarea class="rv-textarea" [(ngModel)]="reviewForm.comment" placeholder="Share your experience…" rows="3" maxlength="500"></textarea>
-          <div class="rv-char-count">{{ reviewForm.comment.length }}/500</div>
-          <div class="rv-form-actions">
-            <button class="modal-btn modal-btn--cancel" (click)="closeReviewForm()">Cancel</button>
-            <button class="modal-btn modal-btn--save" (click)="submitReview()" [disabled]="reviewSubmitting">
-              <span class="spinner spinner--sm" *ngIf="reviewSubmitting"></span>
-              {{ reviewSubmitting ? 'Submitting…' : 'Submit Review' }}
-            </button>
-          </div>
-        </div>
-        <div class="rv-list" *ngIf="!reviewsLoading && reviews.length">
-          <div class="rv-card" *ngFor="let r of reviews; let i = index" [style.animation-delay]="i * 50 + 'ms'">
-            <ng-container *ngIf="reviewEditingId !== r.id">
-              <div class="rv-card__top">
-                <div class="rv-card__user">
-                  <div class="rv-card__avatar">U</div>
-                  <div><span class="rv-card__username">User #{{ r?.userId }}</span><span class="rv-card__date" *ngIf="r.reviewedAt">{{ r.reviewedAt | date:'d MMM yyyy' }}</span></div>
+
+            <!-- Summary bar -->
+            <div class="rv-summary" *ngIf="reviews.length">
+              <div class="rv-summary__score">
+                <span class="rv-summary__avg">{{ reviewAverage }}</span>
+                <div class="rv-summary__stars">
+                  <span class="rv-sum-star"
+                        *ngFor="let s of stars"
+                        [class.rv-sum-star--filled]="s <= reviewAverage">★</span>
                 </div>
-                <div class="rv-card__stars">
-                  <span class="rv-card__star" *ngFor="let s of stars" [class.rv-card__star--on]="s <= r.rating">★</span>
-                  <span class="rv-card__rnum">{{ r.rating }}/5</span>
+                <span class="rv-summary__label">out of 5</span>
+              </div>
+              <div class="rv-summary__bars">
+                <div class="rv-bar-row" *ngFor="let d of reviewDistribution">
+                  <span class="rv-bar-row__lbl">{{ d.star }}★</span>
+                  <div class="rv-bar-row__track">
+                    <div class="rv-bar-row__fill" [style.width.%]="d.pct"></div>
+                  </div>
+                  <span class="rv-bar-row__cnt">{{ d.count }}</span>
                 </div>
               </div>
-              <p class="rv-card__comment">{{ r.comment }}</p>
-              <div class="rv-card__actions">
-                <button class="rv-card__btn rv-card__btn--edit" (click)="startEditReview(r)">✏️ Edit</button>
-                <button class="rv-card__btn rv-card__btn--del" (click)="deleteReview(r.id!)" [disabled]="reviewDeletingId === r.id">
-                  <span class="spinner spinner--sm" *ngIf="reviewDeletingId === r.id"></span>
-                  {{ reviewDeletingId === r.id ? 'Deleting…' : '🗑️ Delete' }}
+            </div>
+
+            <!-- States -->
+            <div class="rv-loading" *ngIf="reviewsLoading">
+              <span class="spinner"></span> Loading reviews…
+            </div>
+            <div class="rv-error" *ngIf="reviewsError && !reviewsLoading">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8"  x2="12"    y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ reviewsError }}
+            </div>
+            <div class="rv-empty"
+                 *ngIf="!reviewsLoading && !reviewsError && reviews.length === 0 && !reviewFormOpen">
+              <div class="rv-empty__icon">💭</div>
+              <p class="rv-empty__text">No reviews yet — be the first to share your thoughts!</p>
+              <button class="rv-add-btn" (click)="openReviewForm()">Write a Review</button>
+            </div>
+
+            <!-- Review form -->
+            <div class="rv-form-card" *ngIf="reviewFormOpen">
+              <div class="rv-form-card__header">
+                <span class="rv-form-card__title">Your Review</span>
+                <button class="rv-form-card__close" (click)="closeReviewForm()">×</button>
+              </div>
+              <div class="rv-star-picker">
+                <button class="rv-star-btn"
+                        *ngFor="let s of stars"
+                        (mouseenter)="reviewHover = s"
+                        (mouseleave)="reviewHover = 0"
+                        (click)="reviewForm.rating = s"
+                        [class.rv-star-btn--on]="reviewStarFilled(s, reviewForm.rating, reviewHover)"
+                        type="button">★</button>
+                <span class="rv-star-label" *ngIf="reviewForm.rating || reviewHover">
+                  {{ reviewRatingLabel(reviewHover || reviewForm.rating) }}
+                </span>
+              </div>
+              <textarea class="rv-textarea"
+                        [(ngModel)]="reviewForm.comment"
+                        placeholder="Share your experience…"
+                        rows="3"
+                        maxlength="500">
+              </textarea>
+              <div class="rv-char-count">{{ reviewForm.comment.length }}/500</div>
+              <div class="rv-form-actions">
+                <button class="modal-btn modal-btn--cancel" (click)="closeReviewForm()">Cancel</button>
+                <button class="modal-btn modal-btn--save" (click)="submitReview()" [disabled]="reviewSubmitting">
+                  <span class="spinner spinner--sm" *ngIf="reviewSubmitting"></span>
+                  {{ reviewSubmitting ? 'Submitting…' : 'Submit Review' }}
                 </button>
               </div>
-            </ng-container>
-            <ng-container *ngIf="reviewEditingId === r.id">
-              <div class="rv-edit-mode">
-                <div class="rv-star-picker">
-                  <button class="rv-star-btn" *ngFor="let s of stars" (mouseenter)="reviewEditHover = s" (mouseleave)="reviewEditHover = 0" (click)="reviewEditForm.rating = s" [class.rv-star-btn--on]="reviewStarFilled(s, reviewEditForm.rating, reviewEditHover)" type="button">★</button>
-                  <span class="rv-star-label" *ngIf="reviewEditForm.rating || reviewEditHover">{{ reviewRatingLabel(reviewEditHover || reviewEditForm.rating) }}</span>
-                </div>
-                <textarea class="rv-textarea" [(ngModel)]="reviewEditForm.comment" rows="3" maxlength="500"></textarea>
-                <div class="rv-form-actions">
-                  <button class="modal-btn modal-btn--cancel" (click)="cancelEditReview()">Cancel</button>
-                  <button class="modal-btn modal-btn--save" (click)="saveEditReview(r)" [disabled]="reviewSavingEdit">
-                    <span class="spinner spinner--sm" *ngIf="reviewSavingEdit"></span>
-                    {{ reviewSavingEdit ? 'Saving…' : '💾 Save' }}
-                  </button>
-                </div>
+            </div>
+
+            <!-- Review list -->
+            <div class="rv-list" *ngIf="!reviewsLoading && reviews.length">
+              <div class="rv-card"
+                   *ngFor="let r of reviews; let i = index"
+                   [style.animation-delay]="i * 50 + 'ms'">
+
+                <!-- View mode -->
+                <ng-container *ngIf="reviewEditingId !== r.id">
+                  <div class="rv-card__top">
+                    <div class="rv-card__user">
+                      <div class="rv-card__avatar">U</div>
+                      <div>
+                        <span class="rv-card__username">User #{{ r?.userId }}</span>
+                        <span class="rv-card__date" *ngIf="r.reviewedAt">
+                          {{ r.reviewedAt | date:'d MMM yyyy' }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="rv-card__stars">
+                      <span class="rv-card__star"
+                            *ngFor="let s of stars"
+                            [class.rv-card__star--on]="s <= r.rating">★</span>
+                      <span class="rv-card__rnum">{{ r.rating }}/5</span>
+                    </div>
+                  </div>
+                  <p class="rv-card__comment">{{ r.comment }}</p>
+                  <div class="rv-card__actions">
+                    <button class="rv-card__btn rv-card__btn--edit" (click)="startEditReview(r)">✏️ Edit</button>
+                    <button class="rv-card__btn rv-card__btn--del"
+                            (click)="deleteReview(r.id!)"
+                            [disabled]="reviewDeletingId === r.id">
+                      <span class="spinner spinner--sm" *ngIf="reviewDeletingId === r.id"></span>
+                      {{ reviewDeletingId === r.id ? 'Deleting…' : '🗑️ Delete' }}
+                    </button>
+                  </div>
+                </ng-container>
+
+                <!-- Edit mode -->
+                <ng-container *ngIf="reviewEditingId === r.id">
+                  <div class="rv-edit-mode">
+                    <div class="rv-star-picker">
+                      <button class="rv-star-btn"
+                              *ngFor="let s of stars"
+                              (mouseenter)="reviewEditHover = s"
+                              (mouseleave)="reviewEditHover = 0"
+                              (click)="reviewEditForm.rating = s"
+                              [class.rv-star-btn--on]="reviewStarFilled(s, reviewEditForm.rating, reviewEditHover)"
+                              type="button">★</button>
+                      <span class="rv-star-label" *ngIf="reviewEditForm.rating || reviewEditHover">
+                        {{ reviewRatingLabel(reviewEditHover || reviewEditForm.rating) }}
+                      </span>
+                    </div>
+                    <textarea class="rv-textarea"
+                              [(ngModel)]="reviewEditForm.comment"
+                              rows="3"
+                              maxlength="500">
+                    </textarea>
+                    <div class="rv-form-actions">
+                      <button class="modal-btn modal-btn--cancel" (click)="cancelEditReview()">Cancel</button>
+                      <button class="modal-btn modal-btn--save"
+                              (click)="saveEditReview(r)"
+                              [disabled]="reviewSavingEdit">
+                        <span class="spinner spinner--sm" *ngIf="reviewSavingEdit"></span>
+                        {{ reviewSavingEdit ? 'Saving…' : '💾 Save' }}
+                      </button>
+                    </div>
+                  </div>
+                </ng-container>
+
               </div>
-            </ng-container>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+            </div>
+          </div><!-- /rv-section -->
+
+        </div><!-- /detail-right -->
+      </div><!-- /detail-layout -->
+    </div><!-- /modal__body -->
+  </div><!-- /modal--detail -->
+</div><!-- /modal-backdrop detail -->
 
 <!-- ══════════════════════════════════════════════════════════════ -->
 <!-- DELETE CONFIRMATION MODAL                                     -->
@@ -637,7 +747,10 @@
       <button class="modal__close" (click)="deleteTarget = null">×</button>
     </div>
     <div class="modal__body">
-      <p class="modal__confirm-text">Are you sure you want to delete <strong>{{ deleteTarget.title }}</strong>? This action cannot be undone.</p>
+      <p class="modal__confirm-text">
+        Are you sure you want to delete <strong>{{ deleteTarget.title }}</strong>?
+        This action cannot be undone.
+      </p>
     </div>
     <div class="modal__footer">
       <button class="modal-btn modal-btn--cancel" (click)="deleteTarget = null">Cancel</button>
@@ -652,13 +765,17 @@
 <!-- ══════════════════════════════════════════════════════════════ -->
 <!-- TOAST                                                         -->
 <!-- ══════════════════════════════════════════════════════════════ -->
-<div class="toast" [class.toast--show]="toastVisible" [class.toast--error]="toastError" role="alert" aria-live="polite">
+<div class="toast"
+     [class.toast--show]="toastVisible"
+     [class.toast--error]="toastError"
+     role="alert"
+     aria-live="polite">
   <svg *ngIf="!toastError" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
     <polyline points="20 6 9 17 4 12"/>
   </svg>
   <svg *ngIf="toastError" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
     <circle cx="12" cy="12" r="10"/>
-    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="8"  x2="12"    y2="12"/>
     <line x1="12" y1="16" x2="12.01" y2="16"/>
   </svg>
   {{ toastMsg }}

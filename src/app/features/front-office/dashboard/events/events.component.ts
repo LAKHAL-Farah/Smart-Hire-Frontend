@@ -7,7 +7,6 @@ import { EventService } from '../../../../services/event.service';
 import { NotificationService } from '../../../../services/notification-service.service';
 import { Subscription } from 'rxjs';
 import { EventMapComponent } from '../../../../shared/event-map/event-map.component';
-import { RecommendationService } from '../../../../services/recommendation-service.service';
 import { EventQrcodeComponent } from '../qrcode/qrcode.component';
 
 export type EventType = 'Conference' | 'Workshop' | 'Networking' | 'Webinar' | 'Hackathon';
@@ -61,21 +60,12 @@ export class EventsComponent implements OnInit, OnDestroy {
   notifications: string[] = [];
   private notifSub!: Subscription;
   showToast: boolean | undefined;
-getGoogleCalendarUrl(event: any): string {
-  const start = new Date(event.startDate);
-  const end = new Date(start);
-  end.setHours(start.getHours() + 2); // durée par défaut 2h
-  const format = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '');
-  return `https://www.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(this.detailEvent?.title || '')}&dates=${format(start)}/${format(end)}&details=${encodeURIComponent(this.detailEvent?.description || '')}&location=${encodeURIComponent(this.detailEvent?.location || '')}`;
-}
+
   // ─── Events ───────────────────────────────────────────────────
   events: EventModel[] = [];
   loading = false;
   error = '';
-onAddToCalendar() {
-  this.toastMsg = "Ajouté au calendrier 📅";
-  this.showToast = true;
-}
+
   // ─── Filters & Search ─────────────────────────────────────────
   search = '';
   activeFilter = 'all';
@@ -99,9 +89,7 @@ onAddToCalendar() {
     Hackathon:  '#f472b6',
     default:    '#94a3b8',
   };
-formatDate(date: string) {
-  return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0];
-}
+
   // ─── Modal Create / Edit ──────────────────────────────────────
   modalOpen = false;
   editId: number | null = null;
@@ -149,22 +137,20 @@ formatDate(date: string) {
 
   // ─── Speakers ─────────────────────────────────────────────────
   speakersModalOpen = false;
-  // FIX #3 : initialisé à null, affecté dans openDetailModal()
   selectedEventIdForSpeakers: number | null = null;
 
   // ─── Recommendations ──────────────────────────────────────────
-  recommendations: any[] = [];
+  recommendations: any ;
   recoLoading = false;
   recoPanel = false;
   private recoSub!: Subscription;
-  readonly userId =1777062013327; // Simuler un ID utilisateur unique (remplacer par auth réel)
+  readonly userId = 1777062013327;
 
   // ─── QR Modal ─────────────────────────────────────────────────
   qrModalOpen   = false;
   qrEvent: EventModel | null = null;
   qrRevealed    = false;
   qrImageLoaded = false;
-  // FIX #9 : suppression de inlineQrCopied (redondant avec qrCopied)
   qrCopied      = false;
   canNativeShare = !!navigator.share;
 
@@ -174,17 +160,12 @@ formatDate(date: string) {
   constructor(
     private eventService: EventService,
     private notifService: NotificationService,
-    private eventReviewService: EventReviewService,
-    private recoService: RecommendationService
-    // NOTE : injecter AuthService ici et remplacer getCurrentUserId() (FIX #2)
+    private eventReviewService: EventReviewService
+    // TODO: injecter AuthService ici pour getCurrentUserId() réel
     // private authService: AuthService
   ) {}
 
   // ─── Lifecycle ────────────────────────────────────────────────
-
-  encodeLocation(loc: string): string {
-    return encodeURIComponent(loc);
-  }
 
   ngOnInit(): void {
     this.fetchEvents();
@@ -195,10 +176,6 @@ formatDate(date: string) {
         this.notifications = this.notifications.filter(n => n !== msg);
       }, 10000);
     });
-    // FIX #1 : suppression de this.loadReviews(2) — les reviews sont chargées
-    //          dans openDetailModal() avec le bon eventId.
-    // FIX #4 : suppression de this.loadRecommendations() — le polling
-    //          déclenche déjà un premier appel, évite le doublon réseau.
     this.startRecoPolling();
   }
 
@@ -209,62 +186,37 @@ formatDate(date: string) {
     this.recoSub?.unsubscribe();
   }
 
-  // ─── Data ─────────────────────────────────────────────────────
-
-  isEventFull(e: EventModel): boolean {
-    const participants = e.currentParticipants ?? e.currentRegistrations ?? e.registered ?? 0;
-    const capacity = e.maxCapacity ?? e.capacity ?? 0;
-    return e.full === true || (capacity > 0 && participants >= capacity);
-  }
-
-  fetchEvents(): void {
-    this.loading = true;
-    this.error = '';
-    this.eventService.getEvents().subscribe({
-      next: (data) => { this.events = data; this.loading = false; },
-      error: () => { this.error = 'Failed to load events.'; this.loading = false; }
-    });
-  }
-
-  // ─── Computed ─────────────────────────────────────────────────
-
-  get filteredEvents(): EventModel[] {
-    const q = this.search.toLowerCase().trim();
-    return this.events.filter(e => {
-      const matchSearch =
-        !q ||
-        e.title.toLowerCase().includes(q) ||
-        (e.location?.toLowerCase().includes(q) ?? false) ||
-        (e.type?.toLowerCase().includes(q) ?? false) ||
-        (e.startDate?.toLowerCase().includes(q) ?? false);
-      const matchTab =
-        this.activeFilter === 'all' ||
-        e.status === this.activeFilter ||
-        e.type   === this.activeFilter;
-      return matchSearch && matchTab;
-    });
-  }
-
-  get stats() {
-    const total     = this.events.length;
-    const upcoming  = this.events.filter(e => e.status === 'upcoming').length;
-    const completed = this.events.filter(e => e.status === 'completed').length;
-    const totalReg  = this.events.reduce((sum, e) => sum + (e.currentRegistrations ?? e.registered ?? 0), 0);
-    return [
-      { value: total,                     label: 'Total Events'        },
-      { value: upcoming,                  label: 'Upcoming'            },
-      { value: completed,                 label: 'Completed'           },
-      { value: totalReg.toLocaleString(), label: 'Total Registrations' },
-    ];
-  }
-
   // ─── Helpers ──────────────────────────────────────────────────
+
+  encodeLocation(loc: string): string {
+    return encodeURIComponent(loc);
+  }
+
+  formatDate(date: string): string {
+    return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0];
+  }
+
+  getGoogleCalendarUrl(event: any): string {
+    const start = new Date(event.startDate);
+    const end   = new Date(start);
+    end.setHours(start.getHours() + 2);
+    const fmt = (d: Date) => d.toISOString().replace(/-|:|\.\d+/g, '');
+    return `https://www.google.com/calendar/render?action=TEMPLATE`
+      + `&text=${encodeURIComponent(this.detailEvent?.title || '')}`
+      + `&dates=${fmt(start)}/${fmt(end)}`
+      + `&details=${encodeURIComponent(this.detailEvent?.description || '')}`
+      + `&location=${encodeURIComponent(this.detailEvent?.location || '')}`;
+  }
+
+  onAddToCalendar(): void {
+    this.toastMsg  = 'Ajouté au calendrier 📅';
+    this.showToast = true;
+  }
 
   typeColor(type: string | undefined): string {
     return this.typeColorMap[type ?? 'default'] ?? this.typeColorMap['default'];
   }
 
-  // FIX #7 : guard contre division par zéro / NaN
   pct(registered = 0, capacity = 0): number {
     if (!capacity) return 0;
     return Math.min(100, Math.round((registered / capacity) * 100));
@@ -278,12 +230,60 @@ formatDate(date: string) {
     };
   }
 
-  // FIX #2 : getCurrentUserId() doit retourner l'id réel de l'utilisateur connecté.
-  // Remplacez l'implémentation ci-dessous par : return this.authService.currentUser?.id ?? 0;
-  // après avoir injecté AuthService dans le constructeur.
   private getCurrentUserId(): number {
-    // TODO : return this.authService.currentUser?.id ?? 0;
-    return this.userId; // valeur temporaire — à remplacer par le service d'auth
+    // TODO: return this.authService.currentUser?.id ?? 0;
+    return this.userId;
+  }
+
+  isEventFull(e: EventModel): boolean {
+    const participants = e.currentParticipants ?? e.currentRegistrations ?? e.registered ?? 0;
+    const capacity     = e.maxCapacity ?? e.capacity ?? 0;
+    return e.full === true || (capacity > 0 && participants >= capacity);
+  }
+
+  // ─── Data ─────────────────────────────────────────────────────
+
+  fetchEvents(): void {
+    this.loading = true;
+    this.error   = '';
+    this.eventService.getEvents().subscribe({
+      next:  (data) => { this.events = data; this.loading = false; },
+      error: ()     => { this.error = 'Failed to load events.'; this.loading = false; }
+    });
+  }
+
+  // ─── Computed ─────────────────────────────────────────────────
+
+  get filteredEvents(): EventModel[] {
+    const q = this.search.toLowerCase().trim();
+    return this.events.filter(e => {
+      const matchSearch =
+        !q ||
+        e.title.toLowerCase().includes(q) ||
+        (e.location?.toLowerCase().includes(q) ?? false) ||
+        (e.type?.toLowerCase().includes(q)     ?? false) ||
+        (e.startDate?.toLowerCase().includes(q) ?? false);
+      const matchTab =
+        this.activeFilter === 'all' ||
+        e.status === this.activeFilter ||
+        e.type   === this.activeFilter;
+      return matchSearch && matchTab;
+    });
+  }
+
+  get stats() {
+    const total     = this.events.length;
+    const upcoming  = this.events.filter(e => e.status === 'upcoming').length;
+    const completed = this.events.filter(e => e.status === 'completed').length;
+    const totalReg  = this.events.reduce(
+      (sum, e) => sum + (e.currentRegistrations ?? e.registered ?? 0), 0
+    );
+    return [
+      { value: total,                     label: 'Total Events'        },
+      { value: upcoming,                  label: 'Upcoming'            },
+      { value: completed,                 label: 'Completed'           },
+      { value: totalReg.toLocaleString(), label: 'Total Registrations' },
+    ];
   }
 
   // ─── Reviews: computed ────────────────────────────────────────
@@ -297,7 +297,9 @@ formatDate(date: string) {
   get reviewDistribution(): { star: number; count: number; pct: number }[] {
     return [5, 4, 3, 2, 1].map(star => {
       const count = this.reviews.filter(r => r.rating === star).length;
-      const pct = this.reviews.length ? Math.round((count / this.reviews.length) * 100) : 0;
+      const pct   = this.reviews.length
+        ? Math.round((count / this.reviews.length) * 100)
+        : 0;
       return { star, count, pct };
     });
   }
@@ -307,33 +309,38 @@ formatDate(date: string) {
   }
 
   reviewRatingLabel(rating: number): string {
-    return ({ 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent' } as any)[rating] ?? '';
+    return (
+      { 1: 'Poor', 2: 'Fair', 3: 'Good', 4: 'Very Good', 5: 'Excellent' } as any
+    )[rating] ?? '';
   }
 
   // ─── Reviews: load ────────────────────────────────────────────
 
   private loadReviews(eventId: number): void {
     this.reviewsLoading = true;
-    this.reviewsError = '';
+    this.reviewsError   = '';
     this.eventReviewService.getReviewByEventId(eventId).subscribe({
-      next: (data: any) => {
-        this.reviews = data.reviews ? data.reviews : [];
+      next:  (data: any) => {
+        this.reviews        = data.reviews ?? [];
         this.reviewsLoading = false;
       },
-      error: () => { this.reviewsError = 'Failed to load reviews.'; this.reviewsLoading = false; }
+      error: () => {
+        this.reviewsError   = 'Failed to load reviews.';
+        this.reviewsLoading = false;
+      }
     });
   }
 
   // ─── Reviews: create ─────────────────────────────────────────
 
   openReviewForm(): void {
-    this.reviewForm = { rating: 0, comment: '' };
-    this.reviewHover = 0;
+    this.reviewForm    = { rating: 0, comment: '' };
+    this.reviewHover   = 0;
     this.reviewFormOpen = true;
   }
 
   closeReviewForm(): void {
-    this.reviewFormOpen = false;
+    this.reviewFormOpen   = false;
     this.reviewSubmitting = false;
   }
 
@@ -366,9 +373,9 @@ formatDate(date: string) {
   // ─── Reviews: edit ────────────────────────────────────────────
 
   startEditReview(review: Review): void {
-    this.reviewEditingId  = review.id!;
-    this.reviewEditForm   = { rating: review.rating, comment: review.comment };
-    this.reviewEditHover  = 0;
+    this.reviewEditingId = review.id!;
+    this.reviewEditForm  = { rating: review.rating, comment: review.comment };
+    this.reviewEditHover = 0;
   }
 
   cancelEditReview(): void {
@@ -381,8 +388,6 @@ formatDate(date: string) {
     if (!this.reviewEditForm.comment.trim()) { this.toast('Comment required.', true); return; }
 
     this.reviewSavingEdit = true;
-
-    // FIX #5 : accès sécurisé à review.event?.id — évite le crash si event est null/undefined
     const payload = {
       eventId: review.eventId ?? review.event?.id,
       userId:  review.userId,
@@ -392,7 +397,9 @@ formatDate(date: string) {
 
     this.eventReviewService.updateReview(review.id!, payload).subscribe({
       next: (updated: any) => {
-        this.reviews = this.reviews.map(r => r.id === review.id ? { ...r, ...updated } : r);
+        this.reviews          = this.reviews.map(r =>
+          r.id === review.id ? { ...r, ...updated } : r
+        );
         this.reviewEditingId  = null;
         this.reviewSavingEdit = false;
         this.toast('✏️ Review updated.');
@@ -410,7 +417,7 @@ formatDate(date: string) {
     this.reviewDeletingId = id;
     this.eventReviewService.deleteReview(id).subscribe({
       next: () => {
-        this.reviews = this.reviews.filter(r => r.id !== id);
+        this.reviews          = this.reviews.filter(r => r.id !== id);
         this.reviewDeletingId = null;
         this.toast('🗑️ Review deleted.');
       },
@@ -424,9 +431,9 @@ formatDate(date: string) {
   // ─── Create / Edit Modal ──────────────────────────────────────
 
   openModal(event?: EventModel): void {
-    this.form   = event ? { ...event } : this.emptyForm();
-    this.editId = event?.id ?? null;
-    this.saving = false;
+    this.form      = event ? { ...event } : this.emptyForm();
+    this.editId    = event?.id ?? null;
+    this.saving    = false;
     this.modalOpen = true;
   }
 
@@ -448,7 +455,9 @@ formatDate(date: string) {
     request$.subscribe({
       next: (saved: EventModel) => {
         if (this.editId) {
-          this.events = this.events.map(e => e.id === this.editId ? { ...e, ...saved } : e);
+          this.events = this.events.map(e =>
+            e.id === this.editId ? { ...e, ...saved } : e
+          );
           this.toast('Event updated.');
         } else {
           this.events = [saved, ...this.events];
@@ -488,15 +497,12 @@ formatDate(date: string) {
     this.reviews         = [];
     this.reviewFormOpen  = false;
     this.reviewEditingId = null;
-
-    // FIX #3 : affecter l'id de l'événement pour le composant speakers
     this.selectedEventIdForSpeakers = id;
 
     this.eventService.getEventById(id).subscribe({
       next: (event: any) => {
         this.detailEvent   = event;
         this.detailLoading = false;
-        // FIX #1 : appel avec le bon eventId (id de l'événement ouvert)
         this.loadReviews(id);
       },
       error: () => {
@@ -508,14 +514,13 @@ formatDate(date: string) {
   }
 
   closeDetailModal(): void {
-    this.detailModalOpen  = false;
-    this.detailEvent      = null;
-    this.detailLoading    = false;
-    this.registering      = false;
-    this.reviews          = [];
-    this.reviewFormOpen   = false;
-    this.reviewEditingId  = null;
-    // Réinitialiser le speakers id à la fermeture
+    this.detailModalOpen            = false;
+    this.detailEvent                = null;
+    this.detailLoading              = false;
+    this.registering                = false;
+    this.reviews                    = [];
+    this.reviewFormOpen             = false;
+    this.reviewEditingId            = null;
     this.selectedEventIdForSpeakers = null;
   }
 
@@ -550,23 +555,25 @@ formatDate(date: string) {
 
   registerForEvent(eventId: number): void {
     if (this.registering) return;
-    const userId = this.getCurrentUserId();
     this.registering = true;
+    const userId     = this.getCurrentUserId();
 
     this.eventService.registerToEvent(eventId, userId).subscribe({
       next: () => {
         this.eventService.getEventById(eventId).subscribe({
           next: (updatedEvent: any) => {
             const index = this.events.findIndex(e => e.id === eventId);
-            if (index !== -1) { this.events[index] = updatedEvent; this.events = [...this.events]; }
+            if (index !== -1) {
+              this.events[index] = updatedEvent;
+              this.events        = [...this.events];
+            }
             this.detailEvent = updatedEvent;
             this.registering = false;
-            const title = updatedEvent.title?.toUpperCase() ?? 'event';
-            this.toast(`✅ Registered successfully for ${title}!`);
+            this.toast(`✅ Registered successfully for ${updatedEvent.title?.toUpperCase() ?? 'event'}!`);
           },
           error: () => {
             if (this.detailEvent) {
-              const current = this.detailEvent.currentRegistrations ?? this.detailEvent.registered ?? 0;
+              const current    = this.detailEvent.currentRegistrations ?? this.detailEvent.registered ?? 0;
               this.detailEvent = { ...this.detailEvent, currentRegistrations: current + 1 };
             }
             this.registering = false;
@@ -575,8 +582,8 @@ formatDate(date: string) {
         });
       },
       error: (err: any) => {
-        this.registering = false;
-        const errorMsg = err?.error?.message ?? err?.message ?? '';
+        this.registering    = false;
+        const errorMsg      = err?.error?.message ?? err?.message ?? '';
         if (errorMsg.toLowerCase().includes('already') || errorMsg.toLowerCase().includes('existe')) {
           this.toast('⚠️ You are already registered for this event.', true);
         } else {
@@ -590,11 +597,11 @@ formatDate(date: string) {
 
   openSpeakersModal(eventId: number): void {
     this.selectedEventIdForSpeakers = eventId;
-    this.speakersModalOpen = true;
+    this.speakersModalOpen          = true;
   }
 
   closeSpeakersModal(): void {
-    this.speakersModalOpen = false;
+    this.speakersModalOpen          = false;
     this.selectedEventIdForSpeakers = null;
   }
 
@@ -611,12 +618,12 @@ formatDate(date: string) {
   addEventReview(eventId: number, review: any): void {
     const payload = {
       userId:  this.getCurrentUserId(),
-      eventId: eventId,
+      eventId,
       rating:  review.rating,
-      comment: review.comment
+      comment: review.comment,
     };
     this.eventReviewService.addReview(payload).subscribe({
-      next: () => { this.toast('Review added successfully!'); },
+      next:  ()    => { this.toast('Review added successfully!'); },
       error: (err) => {
         console.error('Error adding review:', err);
         this.toast('Failed to add review. Please try again.', true);
@@ -625,34 +632,32 @@ formatDate(date: string) {
   }
 
   // ─── Recommendations ──────────────────────────────────────────
+loadRecommendations(): void {
+  this.recoLoading = true;
 
-  // FIX #8 : autoShowRecoPanel remplacé par localStorage pour persister entre navigations
-  loadRecommendations(): void {
-    this.recoLoading = true;
-    this.recoService.getRecommendations(this.userId).subscribe({
-      next: (data) => {
-        this.recommendations = data;
-        this.recoLoading = false;
-        this.pushNotif(`✨ ${data.length} événements recommandés pour vous`);
-        const seen = localStorage.getItem('recoSeen');
-        if (!seen && data.length) {
-          this.recoPanel = true;
-          localStorage.setItem('recoSeen', '1');
-        }
-      },
-      error: () => { this.recoLoading = false; }
-    });
+this.eventService.getRecommendations(this.userId).subscribe({
+  next: ({ response, body }) => {
+
+    this.recommendations = response.recommendations || [];
+    console.log('Received recommendations response:', response);
+    console.log('Received recommendations body:', body);
+
+    this.pushNotif(
+      `✨ ${body.experience_level} - ${body.preferred_event_types.join(', ')}`
+    );
+    this.recoLoading = false;
   }
+});
+}
 
   startRecoPolling(): void {
-    this.recoSub = this.recoService.pollRecommendations(this.userId).subscribe({
+    this.recoSub = this.eventService.pollRecommendations(this.userId).subscribe({
       next: (data) => {
-        const hadCount = this.recommendations.length;
+        const hadCount       = this.recommendations.length;
         this.recommendations = data;
         if (data.length !== hadCount) {
           this.pushNotif(`🔔 Recommandations mises à jour — ${data.length} événements`);
         }
-        // Afficher le panneau au premier chargement si pas encore vu
         const seen = localStorage.getItem('recoSeen');
         if (!seen && data.length && !this.recoPanel) {
           this.recoPanel = true;
@@ -700,13 +705,12 @@ formatDate(date: string) {
   }
 
   downloadQr(event: EventModel): void {
-    const a = document.createElement('a');
-    a.href = this.getQrUrl(event.id!);
-    a.download = `event-${event.id}-qrcode.png`;
+    const a      = document.createElement('a');
+    a.href       = this.getQrUrl(event.id!);
+    a.download   = `event-${event.id}-qrcode.png`;
     a.click();
   }
 
-  // FIX #9 : suppression de inlineQrCopied (redondant), on n'utilise que qrCopied
   copyEventLink(eventId: number): void {
     navigator.clipboard.writeText(`http://localhost:4200/dashboard/event/${eventId}`);
     this.qrCopied = true;

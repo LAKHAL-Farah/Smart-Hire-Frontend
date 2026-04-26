@@ -195,7 +195,7 @@
     <div class="modal__header modal__header--qr">
       <div class="modal__header-left">
         <span class="modal__header-badge" *ngIf="qrEvent" [style.background]="typeColor(qrEvent.type) + '18'" [style.color]="typeColor(qrEvent.type)">
-          {{ qrEvent?.type }}
+          {{ qrEvent.type }}
         </span>
         <h2 class="modal__title">Share Event</h2>
       </div>
@@ -484,7 +484,7 @@
         <div class="detail-right">
           <div class="detail-map-section" *ngIf="detailEvent.location">
             <div class="detail-map-header">
-              <app-event-speakers *ngIf="selectedEventIdForSpeakers" [eventId]="selectedEventIdForSpeakers" [eventDescription]="detailEvent?.description ?? ''"></app-event-speakers>
+              <app-event-speakers *ngIf="selectedEventIdForSpeakers" [eventId]="selectedEventIdForSpeakers" [eventDescription]="detailEvent.description ?? ''"></app-event-speakers>
             </div>
             <div class="detail-map-canvas">
               <app-event-map [location]="detailEvent.location" [lat]="detailEvent.lat" [lng]="detailEvent.lng"></app-event-map>
@@ -637,7 +637,7 @@
       <button class="modal__close" (click)="deleteTarget = null">×</button>
     </div>
     <div class="modal__body">
-      <p class="modal__confirm-text">Are you sure you want to delete <strong>{{ deleteTarget?.title }}</strong>? This action cannot be undone.</p>
+      <p class="modal__confirm-text">Are you sure you want to delete <strong>{{ deleteTarget.title }}</strong>? This action cannot be undone.</p>
     </div>
     <div class="modal__footer">
       <button class="modal-btn modal-btn--cancel" (click)="deleteTarget = null">Cancel</button>

@@ -6,8 +6,8 @@ import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 /* ── Types ── */
 interface SessionQuestion {
   id: number;
-  text: string;
-  context?: string;
+  text: string| undefined|null;
+  context?: any|undefined|null;
   category: 'technical' | 'behavioral';
   difficulty: string;
   difficultyColor: string;

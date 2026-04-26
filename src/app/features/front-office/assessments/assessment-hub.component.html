@@ -72,7 +72,7 @@
             </p>
 
             <ul class="ash-grid">
-              @for (c of p.assignedCategories; track c.id) {
+              @for (c of filteredCategories(); track c.id) {
                 @let act = categoryAction(c.id);
                 <li class="ash-tile">
                   <div class="ash-tile__head">
@@ -125,7 +125,12 @@
           @for (s of history(); track s.id) {
             <li class="ash-history__row">
               <div class="ash-history__main">
-                <span class="ash-history__cat">{{ s.categoryTitle }}</span>
+                <span class="ash-history__cat">
+                  {{ s.categoryTitle }}
+                  @if (s.attemptNumber && s.attemptNumber > 1) {
+                    <span class="ash-attempt-badge">Attempt {{ s.attemptNumber }}</span>
+                  }
+                </span>
                 <span class="ash-history__meta">{{ s.forfeit ? 'Forfeit' : s.status }} · {{ s.startedAt | date: 'medium' }}</span>
                 @if (sessionIsCompleted(s) && sessionIsPublished(s) && s.adminFeedback) {
                   <span class="ash-history__hint" title="Also shown on the full results page">Feedback available in results</span>

@@ -1826,6 +1826,50 @@
 
 .saa-users__head { margin-bottom: 22px; }
 
+.saa-users__search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+  max-width: 420px;
+
+  &-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--color-text-muted, #888);
+    pointer-events: none;
+  }
+
+  &-input {
+    width: 100%;
+    padding: 9px 36px 9px 36px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, rgba(255,255,255,.12));
+    background: var(--color-surface, rgba(255,255,255,.05));
+    color: var(--color-text-p, #e2e8f0);
+    font-size: .875rem;
+    outline: none;
+    transition: border-color .2s;
+
+    &::placeholder { color: var(--color-text-muted, #888); }
+    &:focus { border-color: var(--accent-teal, #0d9488); }
+  }
+
+  &-clear {
+    position: absolute;
+    right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted, #888);
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px;
+    &:hover { color: var(--color-text-p, #e2e8f0); }
+  }
+}
+
 .saa-users__title {
   font-size: 1.1rem;
   font-weight: 800;
@@ -2193,6 +2237,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.udm__attempt-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .udm__hist-score {
@@ -2338,6 +2400,21 @@
   padding: 2px 8px;
   border-radius: 10px;
   white-space: nowrap;
+}
+
+.udm__reassign-badge {
+  font-size: 10px;
+  background: rgba(245,158,11,.15);
+  color: #fcd34d;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  border: 1px solid rgba(245,158,11,.25);
+}
+
+.udm__cat-item--reassign {
+  border-color: rgba(245,158,11,.25);
+  background: rgba(245,158,11,.04);
 }
 
 .udm__no-cats {

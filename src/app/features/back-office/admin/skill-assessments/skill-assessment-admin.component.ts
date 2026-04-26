@@ -52,6 +52,8 @@ export class SkillAssessmentAdminComponent implements OnInit {
   editingChoiceId: number | null = null;
 
   pending = signal<PendingAssignmentRow[]>([]);
+  /** Approved assignments (users who have been assigned but may not have sessions yet) */
+  approvedAssignments = signal<{ userId: string; situation: string | null; careerPath: string | null }[]>([]);
   /** Submitted assessments waiting for admin to publish score */
   pendingRelease: AssessmentSessionAdminRow[] = [];
   /** All completed attempts (history) */
@@ -127,14 +129,18 @@ export class SkillAssessmentAdminComponent implements OnInit {
   userDetailSaving = false;
   userDetailSaveMsg = '';
   userDetailSaveMsgType: 'success' | 'error' | null = null;
+  // Situation/career from the users grid (always available, not just for pending)
+  userDetailSituation: string | null = null;
+  userDetailCareerPath: string | null = null;
 
   /** Cache of userId -> display name fetched from MS-User */
   userNamesCache: Record<string, string> = {};
 
-  /** All unique users: merge pending + users from completed sessions */
+  /** All unique users: merge pending + approved assignments + users from completed sessions */
   allUsers = computed(() => {
     const map = new Map<string, { userId: string; displayName: string | null; situation: string | null; careerPath: string | null; isPending: boolean; sessionCount: number; scores: number[] }>();
 
+    // 1. Users with completed sessions
     for (const s of this.completedSessions()) {
       if (!map.has(s.userId)) {
         map.set(s.userId, { userId: s.userId, displayName: s.candidateDisplayName || null, situation: null, careerPath: null, isPending: false, sessionCount: 0, scores: [] });
@@ -144,6 +150,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
       if (s.scorePercent !== null && s.scorePercent !== undefined) u.scores.push(s.scorePercent);
     }
 
+    // 2. Pending users (not yet approved)
     for (const p of this.pending()) {
       if (!map.has(p.userId)) {
         const cachedName = this.userNamesCache[p.userId] || null;
@@ -155,6 +162,22 @@ export class SkillAssessmentAdminComponent implements OnInit {
         u.careerPath = p.careerPath;
         if (!u.displayName && this.userNamesCache[p.userId]) {
           u.displayName = this.userNamesCache[p.userId];
+        }
+      }
+    }
+
+    // 3. Approved users who have assignments but no sessions yet (from approvedAssignments signal)
+    for (const a of this.approvedAssignments()) {
+      if (!map.has(a.userId)) {
+        const cachedName = this.userNamesCache[a.userId] || null;
+        map.set(a.userId, { userId: a.userId, displayName: cachedName, situation: a.situation, careerPath: a.careerPath, isPending: false, sessionCount: 0, scores: [] });
+      } else {
+        const u = map.get(a.userId)!;
+        // Enrich situation/careerPath if missing
+        if (!u.situation) u.situation = a.situation;
+        if (!u.careerPath) u.careerPath = a.careerPath;
+        if (!u.displayName && this.userNamesCache[a.userId]) {
+          u.displayName = this.userNamesCache[a.userId];
         }
       }
     }
@@ -197,8 +220,14 @@ export class SkillAssessmentAdminComponent implements OnInit {
     return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
   }
 
-  /** Categories not yet assigned to the user being viewed */
+  /** All categories — admin can reassign even completed ones */
   get userDetailAvailableToAdd(): CategoryAdminRow[] {
+    // Show all categories; mark already-assigned ones so admin can choose to reassign
+    return this.categories;
+  }
+
+  /** Categories not yet assigned at all (for AI suggest filtering) */
+  get userDetailUnassignedCategories(): CategoryAdminRow[] {
     const assignedIds = new Set(this.userDetailAssigned.map(a => a.categoryId));
     return this.categories.filter(c => !assignedIds.has(c.id));
   }
@@ -216,10 +245,13 @@ export class SkillAssessmentAdminComponent implements OnInit {
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   }
 
-  openUserDetail(userId: string, displayName: string | null): void {    this.userDetailUserId = userId;
-    // Use cached name or passed name
+  openUserDetail(userId: string, displayName: string | null, situation?: string | null, careerPath?: string | null): void {
+    this.userDetailUserId = userId;
     const resolvedName = displayName || this.userNamesCache[userId] || null;
     this.userDetailDisplayName = resolvedName || userId;
+    // Always store situation/careerPath — from the users grid or from the profile
+    this.userDetailSituation = situation ?? null;
+    this.userDetailCareerPath = careerPath ?? null;
     this.userDetailOpen = true;
     this.userDetailLoading = true;
     this.userDetailProfile = null;
@@ -231,7 +263,6 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.userDetailSaveMsg = '';
     this.userDetailSaveMsgType = null;
 
-    // If no name yet, fetch from MS-User
     if (!resolvedName) {
       this.api.getMsUserName(userId).subscribe({
         next: (name) => {
@@ -245,7 +276,13 @@ export class SkillAssessmentAdminComponent implements OnInit {
     }
 
     this.api.getUserProfile(userId).subscribe({
-      next: p => { this.userDetailProfile = p; this.userDetailLoading = false; },
+      next: p => {
+        this.userDetailProfile = p;
+        this.userDetailLoading = false;
+        // Enrich situation/careerPath from profile if not already set
+        if (!this.userDetailSituation) this.userDetailSituation = p.situation ?? null;
+        if (!this.userDetailCareerPath) this.userDetailCareerPath = p.careerPath ?? null;
+      },
       error: () => { this.userDetailLoading = false; }
     });
     this.api.getUserAssignedAssessments(userId).subscribe({
@@ -269,18 +306,36 @@ export class SkillAssessmentAdminComponent implements OnInit {
 
   userDetailIsSuggested(id: number): boolean { return this.userDetailSuggestIds.includes(id); }
   userDetailIsSelected(id: number): boolean { return this.userDetailSelectedCatIds.includes(id); }
+  /** True if this category is already assigned to the user (completed or pending) */
+  isAlreadyAssigned(categoryId: number): boolean {
+    return this.userDetailAssigned.some(a => a.categoryId === categoryId);
+  }
 
   userDetailSuggest(): void {
+    // If no unassigned categories left, don't call AI
+    if (this.userDetailUnassignedCategories.length === 0) {
+      this.userDetailSuggestMsg = 'All available categories are already assigned to this user.';
+      return;
+    }
     this.userDetailSuggestLoading = true;
     this.userDetailSuggestMsg = '';
     this.api.suggestCategories(this.userDetailUserId).subscribe({
       next: result => {
-        this.userDetailSuggestIds = result.suggestedCategories.map(c => c.id);
-        const available = new Set(this.userDetailAvailableToAdd.map(c => c.id));
-        this.userDetailSuggestIds.forEach(id => {
-          if (available.has(id) && !this.userDetailIsSelected(id)) this.userDetailSelectedCatIds.push(id);
-        });
-        this.userDetailSuggestMsg = `AI suggested ${this.userDetailSuggestIds.length} assessment(s)`;
+        // Only keep suggestions that are NOT already assigned
+        const available = new Set(this.userDetailUnassignedCategories.map(c => c.id));
+        this.userDetailSuggestIds = result.suggestedCategories
+          .map(c => c.id)
+          .filter(id => available.has(id));
+
+        if (this.userDetailSuggestIds.length === 0) {
+          this.userDetailSuggestMsg = 'All suggested categories are already assigned.';
+        } else {
+          // Auto-select suggested ones that aren't already selected
+          this.userDetailSuggestIds.forEach(id => {
+            if (!this.userDetailIsSelected(id)) this.userDetailSelectedCatIds.push(id);
+          });
+          this.userDetailSuggestMsg = `AI suggested ${this.userDetailSuggestIds.length} new assessment(s)`;
+        }
         this.userDetailSuggestLoading = false;
       },
       error: () => {
@@ -295,13 +350,19 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.userDetailSaving = true;
     this.userDetailSaveMsg = '';
 
+    // Check if any selected categories are already assigned (reassignment)
+    const assignedIds = this.userDetailAssigned.map(a => a.categoryId);
+    const isReassignment = this.userDetailSelectedCatIds.some(id => 
+      assignedIds.includes(id)
+    );
+
     // Use assign-to-user which works for both new and existing users
     this.api.assignAssessmentToUser(
       this.userDetailUserId,
       this.userDetailSelectedCatIds,
       undefined,
       undefined,
-      false
+      isReassignment // forceReassign=true when reassigning
     ).subscribe({
       next: () => {
         this.userDetailSaving = false;
@@ -370,6 +431,7 @@ export class SkillAssessmentAdminComponent implements OnInit {
   ngOnInit(): void {
     this.refreshCategories();
     this.refreshPendingAssignments();
+    this.refreshApprovedAssignments();
     this.refreshPendingRelease();
     this.refreshCompletedSessions();
     this.assessmentNotif.refreshAdmin();
@@ -574,14 +636,12 @@ export class SkillAssessmentAdminComponent implements OnInit {
     this.api.listPendingAssignments().subscribe({
       next: (rows) => {
         this.pending.set(rows);
-        // Fetch names for pending users that aren't in the cache yet
         rows.forEach(p => {
           if (!this.userNamesCache[p.userId]) {
             this.api.getMsUserName(p.userId).subscribe({
               next: (name) => {
                 if (name?.firstName || name?.lastName) {
                   this.userNamesCache[p.userId] = [name.firstName, name.lastName].filter(Boolean).join(' ');
-                  // Trigger recompute by updating the signal
                   this.pending.update(v => [...v]);
                 }
               }
@@ -590,6 +650,29 @@ export class SkillAssessmentAdminComponent implements OnInit {
         });
       },
       error: () => { /* keep previous list */ },
+    });
+  }
+
+  /** Approved assignments — users who have categories assigned but may have no sessions yet. */
+  refreshApprovedAssignments(): void {
+    this.api.listApprovedAssignments().pipe().subscribe({
+      next: (rows) => {
+        this.approvedAssignments.set(rows);
+        // Fetch names for approved users not yet in cache
+        rows.forEach((a: any) => {
+          if (!this.userNamesCache[a.userId]) {
+            this.api.getMsUserName(a.userId).subscribe({
+              next: (name) => {
+                if (name?.firstName || name?.lastName) {
+                  this.userNamesCache[a.userId] = [name.firstName, name.lastName].filter(Boolean).join(' ');
+                  this.approvedAssignments.update(v => [...v]);
+                }
+              }
+            });
+          }
+        });
+      },
+      error: () => { /* non-critical */ },
     });
   }
 

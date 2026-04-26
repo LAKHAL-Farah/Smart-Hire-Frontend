@@ -32,7 +32,7 @@
     } @else {
       <div class="saa-users__grid">
         @for (u of filteredUsers(); track u.userId) {
-          <button type="button" class="saa-user-card" [class.saa-user-card--new]="u.isPending" (click)="openUserDetail(u.userId, u.displayName)">
+          <button type="button" class="saa-user-card" [class.saa-user-card--new]="u.isPending" (click)="openUserDetail(u.userId, u.displayName, u.situation, u.careerPath)">
             <div class="saa-user-card__avatar">{{ getInitials(u.displayName) }}</div>
             <div class="saa-user-card__info">
               <div class="saa-user-card__name">
@@ -736,15 +736,17 @@
           <div class="udm__avatar">{{ getInitials(userDetailDisplayName) }}</div>
           <div class="udm__header-info">
             <h2 class="udm__name">{{ userDetailDisplayName }}</h2>
-            @if (userDetailProfile) {
-              <div class="udm__tags">
-                @if (userDetailProfile.situation) { <span class="udm__tag udm__tag--sit">{{ userDetailProfile.situation }}</span> }
-                @if (userDetailProfile.customSituation) { <span class="udm__tag udm__tag--custom">"{{ userDetailProfile.customSituation }}"</span> }
-                @if (userDetailProfile.careerPath) { <span class="udm__tag udm__tag--path">{{ userDetailProfile.careerPath }}</span> }
-                @if (userDetailProfile.customCareerPath) { <span class="udm__tag udm__tag--custom">"{{ userDetailProfile.customCareerPath }}"</span> }
-                @if (userDetailProfile.headline) { <span class="udm__tag udm__tag--headline">{{ userDetailProfile.headline }}</span> }
-              </div>
-            }
+            <!-- Always show tags — from profile if loaded, otherwise from the users grid -->
+            <div class="udm__tags">
+              @let sit = userDetailProfile?.situation ?? userDetailSituation;
+              @let path = userDetailProfile?.careerPath ?? userDetailCareerPath;
+              @if (sit) { <span class="udm__tag udm__tag--sit">{{ sit }}</span> }
+              @if (userDetailProfile?.customSituation) { <span class="udm__tag udm__tag--custom">"{{ userDetailProfile!.customSituation }}"</span> }
+              @if (path) { <span class="udm__tag udm__tag--path">{{ path }}</span> }
+              @if (userDetailProfile?.customCareerPath) { <span class="udm__tag udm__tag--custom">"{{ userDetailProfile!.customCareerPath }}"</span> }
+              @if (userDetailProfile?.headline) { <span class="udm__tag udm__tag--headline">{{ userDetailProfile!.headline }}</span> }
+              @if (!sit && !path && !userDetailProfile) { <span class="udm__tag udm__tag--custom">No profile data</span> }
+            </div>
           </div>
           <button class="udm__close" (click)="closeUserDetail()"><lucide-icon name="x" [size]="18"></lucide-icon></button>
         </div>
@@ -778,7 +780,12 @@
                     <div class="udm__history">
                       @for (s of sessionsForUser(userDetailUserId); track s.id) {
                         <div class="udm__hist-row">
-                          <div class="udm__hist-cat">{{ s.categoryTitle }}</div>
+                          <div class="udm__hist-cat">
+                            {{ s.categoryTitle }}
+                            @if (s.attemptNumber && s.attemptNumber > 1) {
+                              <span class="udm__attempt-badge">Attempt {{ s.attemptNumber }}</span>
+                            }
+                          </div>
                           <div class="udm__hist-score"
                                [class.udm__hist-score--high]="(s.scorePercent ?? 0) >= 80"
                                [class.udm__hist-score--mid]="(s.scorePercent ?? 0) >= 50 && (s.scorePercent ?? 0) < 80"
@@ -822,7 +829,10 @@
                 <div class="udm__add-panel">
                   <div class="udm__add-header">
                     <h3 class="udm__section-title" style="margin:0"><span class="udm__dot udm__dot--add"></span>Add assessments</h3>
-                    <button class="udm__ai-btn" [disabled]="userDetailSuggestLoading" (click)="userDetailSuggest()">
+                    <button class="udm__ai-btn"
+                      [disabled]="userDetailSuggestLoading || userDetailUnassignedCategories.length === 0"
+                      [title]="userDetailUnassignedCategories.length === 0 ? 'All categories already assigned' : 'Get AI suggestions'"
+                      (click)="userDetailSuggest()">
                       <lucide-icon name="brain-circuit" [size]="13"></lucide-icon>
                       {{ userDetailSuggestLoading ? 'Thinking...' : 'AI Suggest' }}
                     </button>
@@ -832,17 +842,19 @@
                     @for (cat of userDetailAvailableToAdd; track cat.id) {
                       <label class="udm__cat-item"
                              [class.udm__cat-item--selected]="userDetailIsSelected(cat.id)"
-                             [class.udm__cat-item--suggested]="userDetailIsSuggested(cat.id)">
+                             [class.udm__cat-item--suggested]="userDetailIsSuggested(cat.id)"
+                             [class.udm__cat-item--reassign]="isAlreadyAssigned(cat.id)">
                         <input type="checkbox" [checked]="userDetailIsSelected(cat.id)" (change)="userDetailToggleCat(cat.id)" />
                         <div class="udm__cat-info">
                           <span class="udm__cat-title">{{ cat.title }}</span>
                           <span class="udm__cat-code">{{ cat.code }}</span>
                         </div>
                         @if (userDetailIsSuggested(cat.id)) { <span class="udm__ai-badge">✨ AI</span> }
+                        @if (isAlreadyAssigned(cat.id)) { <span class="udm__reassign-badge">↺ Reassign</span> }
                       </label>
                     }
                     @if (userDetailAvailableToAdd.length === 0) {
-                      <p class="udm__no-cats">All categories already assigned.</p>
+                      <p class="udm__no-cats">No categories available.</p>
                     }
                   </div>
                   @if (userDetailSaveMsg) {

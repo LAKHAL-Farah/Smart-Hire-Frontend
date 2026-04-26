@@ -53,6 +53,8 @@ export interface AssessmentSessionAdminRow {
   candidateDisplayName?: string | null;
   integrityViolation?: boolean;
   forfeit?: boolean;
+  /** Which attempt number this is (1 = first, 2 = second, etc.). Only present in admin view. */
+  attemptNumber?: number | null;
 }
 
 export interface UserScoresSummaryRow {
@@ -269,6 +271,13 @@ export class AssessmentAdminApiService {
     });
   }
 
+  /** All approved assignments — users who have been assigned categories (may have no sessions yet). */
+  listApprovedAssignments(): Observable<{ userId: string; situation: string | null; careerPath: string | null }[]> {
+    return this.http.get<any[]>(`${this.base()}/admin/assignments/approved`, {
+      headers: this.adminHeaders(),
+    });
+  }
+
   approveAssignment(userId: string, categoryIds: number[]): Observable<unknown> {
     return this.http.post(`${this.base()}/admin/assignments/${userId}/approve`, { categoryIds }, {
       headers: this.adminHeaders(),
@@ -422,3 +431,4 @@ export class AssessmentAdminApiService {
     );
   }
 }
+

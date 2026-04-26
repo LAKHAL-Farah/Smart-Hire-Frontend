@@ -141,17 +141,30 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
 
   /**
    * Determines what action is available for a given category tile.
-   * - 'completed': user has any session for this category (completed, integrity violation, or forfeit)
-   * - 'start': no session yet
-   * Note: We no longer show 'continue' since users get only one attempt per category
+   * - 'start': no session yet, or admin reassigned (more attempts available)
+   * - 'completed': user has exhausted all attempts for this category
    */
   categoryAction(categoryId: number): CategoryAction {
-    const match = this.sessions().find((s) => s.categoryId === categoryId);
-    if (!match) {
+    const sessionsForCategory = this.sessions().filter((s) => s.categoryId === categoryId);
+    const sessionCount = sessionsForCategory.length;
+    
+    // Get the attempt count from the assigned category (backend tracks reassignments)
+    const plan = this.plan();
+    const assignedCategory = plan?.assignedCategories.find(c => c.id === categoryId);
+    const attemptCount = assignedCategory?.attemptCount ?? 1;
+    
+    if (sessionCount < attemptCount) {
+      // User has more attempts available (admin reassigned)
       return { kind: 'start' };
     }
-    // Any existing session means the category is completed (no more attempts allowed)
-    return { kind: 'completed', session: match };
+    
+    if (sessionCount > 0) {
+      // User has exhausted all attempts
+      return { kind: 'completed', session: sessionsForCategory[sessionsForCategory.length - 1] };
+    }
+    
+    // No sessions yet
+    return { kind: 'start' };
   }
 
   sessionIsCompleted(s: SessionResponseDto): boolean {
@@ -198,7 +211,10 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
       },
       error: (err: unknown) => {
         this.startingCategoryId.set(null);
-        this.errorMsg.set(this.formatErr(err));
+        console.error('[Hub] Start session error:', err);
+        const errorMsg = this.formatErr(err);
+        console.error('[Hub] Formatted error:', errorMsg);
+        this.errorMsg.set(errorMsg);
       },
     });
   }

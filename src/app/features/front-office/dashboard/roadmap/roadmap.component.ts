@@ -2,7 +2,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { Component, computed, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, finalize, forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import {
@@ -248,6 +248,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
   private readonly roadmapApi = inject(RoadmapApiService);
   private readonly document = inject(DOCUMENT);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly quizPassThreshold = 70;
   private readonly quizQuestionCount = 5;
@@ -800,7 +801,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.loadRoadmap(roadmapId);
+    this.loadRoadmap();
   }
 
   openWorkspace(step: Step): void {
@@ -948,7 +949,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
             return;
           }
 
-          this.loadRoadmap(this.selectedRoadmapId() ?? undefined);
+          this.loadRoadmap();
         },
         error: (err: HttpErrorResponse) => {
           const backendMessage =
@@ -1025,8 +1026,19 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     );
   }
 
-  private loadRoadmap(preferredRoadmapId?: number): void {
-    const resolvedUserId = this.currentUserId() ?? resolveRoadmapUserId();
+  private resolveRoadmapUserIdFromContext(): number | null {
+    const sessionUserId = resolveRoadmapUserId();
+    if (sessionUserId) {
+      return sessionUserId;
+    }
+
+    // Do not trust route query userId for primary roadmap loading.
+    // User identity must come from authenticated/local session state.
+    return null;
+  }
+
+  private loadRoadmap(): void {
+    const resolvedUserId = this.currentUserId() ?? this.resolveRoadmapUserIdFromContext();
     if (!resolvedUserId) {
       this.errorMessage.set('No authenticated user found. Please sign in again.');
       return;
@@ -1037,50 +1049,43 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    const persistedRoadmapId = this.readSelectedRoadmapId(resolvedUserId);
-    const candidateRoadmapId =
-      preferredRoadmapId ?? this.selectedRoadmapId() ?? persistedRoadmapId;
-
     this.roadmapApi
-      .getUserRoadmaps(resolvedUserId)
+      .getUserRoadmap(resolvedUserId)
       .pipe(
-        switchMap((roadmaps) => {
-          const sortedRoadmaps = this.sortRoadmapsForHub(roadmaps ?? []);
-          this.roadmapCatalog.set(sortedRoadmaps);
+        switchMap((roadmap) => {
+          this.roadmapCatalog.set([roadmap]);
+          this.activeRoadmap.set(roadmap);
+          this.selectedRoadmapId.set(roadmap.id);
+          this.persistSelectedRoadmapId(resolvedUserId, roadmap.id);
 
-          if (sortedRoadmaps.length === 0) {
-            this.activeRoadmap.set(null);
-            this.selectedRoadmapId.set(null);
-            this.stepsState.set([]);
-            this.syncQuizGateState([]);
-            return of({
-              roadmap: null as RoadmapResponse | null,
-              graph: null as RoadmapVisualResponse | null,
-            });
-          }
-
-          const selectedRoadmap = this.resolveRoadmapSelection(
-            sortedRoadmaps,
-            candidateRoadmapId
-          );
-
-          this.activeRoadmap.set(selectedRoadmap);
-          this.selectedRoadmapId.set(selectedRoadmap.id);
-          this.persistSelectedRoadmapId(resolvedUserId, selectedRoadmap.id);
-
-          return this.roadmapApi.getRoadmapGraph(selectedRoadmap.id).pipe(
-            map((graph) => ({ roadmap: selectedRoadmap, graph })),
+          return this.roadmapApi.getRoadmapGraph(roadmap.id, resolvedUserId).pipe(
+            map((graph) => ({ roadmap, graph })),
             catchError(() =>
-              of({ roadmap: selectedRoadmap, graph: null as RoadmapVisualResponse | null })
+              of({ roadmap, graph: null as RoadmapVisualResponse | null })
             )
           );
+        }),
+        catchError((error: HttpErrorResponse) => {
+          this.roadmapCatalog.set([]);
+          this.activeRoadmap.set(null);
+          this.selectedRoadmapId.set(null);
+          this.stepsState.set([]);
+          this.syncQuizGateState([]);
+          this.errorMessage.set(
+            error.status === 404
+              ? 'No roadmap found for this user yet.'
+              : 'Could not load roadmap data from backend.'
+          );
+          return of({
+            roadmap: null as RoadmapResponse | null,
+            graph: null as RoadmapVisualResponse | null,
+          });
         }),
         finalize(() => this.isLoading.set(false))
       )
       .subscribe({
         next: ({ roadmap, graph }) => {
           if (!roadmap) {
-            this.errorMessage.set('No roadmap found for this user yet.');
             return;
           }
 

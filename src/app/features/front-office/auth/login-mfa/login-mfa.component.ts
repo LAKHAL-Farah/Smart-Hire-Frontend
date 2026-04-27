@@ -29,21 +29,18 @@ export class LoginMfaComponent {
       next: (res) => {
         this.loading = false;
         console.log('Login response:', res);
-        if (res?.status === 'FACE_REQUIRED') {
-          const token = res.data.tempToken;
-          sessionStorage.setItem('faceVerificationToken', token);
-          void this.router.navigate(['/verify-face'], { queryParams: { token } });
-          return;
-        }
-        if (res?.status === 'SUCCESS') {
-          if (res?.status === 'SUCCESS') {
-          localStorage.setItem('auth_token', res.data.Token);
-          localStorage.setItem('userId', res.data.UserId);
-          localStorage.setItem('userName', res.data.userName);
-          localStorage.setItem('email', res.data.email);
-          localStorage.setItem('role', res.data.roles);
+        if (res?.Token) {
+          localStorage.setItem('auth_token', res.Token);
+          localStorage.setItem('access_token', res.Token);
+          localStorage.setItem('UserId', String(res.UserId ?? ''));
+          localStorage.setItem('userId', String(res.UserId ?? ''));
+          localStorage.setItem('user_id', String(res.UserId ?? ''));
+          localStorage.setItem('uid', String(res.UserId ?? ''));
+          localStorage.setItem('userName', res.userName ?? '');
+          localStorage.setItem('email', res.email ?? '');
+          localStorage.setItem('role', res.roles ?? '');
           this.auth.redirectAfterLogin();
-        }
+          return;
         }
         this.error = res?.message || 'Erreur inattendue';
       },

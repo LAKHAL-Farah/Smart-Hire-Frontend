@@ -298,7 +298,9 @@ export class AssessmentComponent implements OnInit {
                 this.successMessage.set(
                   'Assessment submitted and roadmap generated. Redirecting to your roadmap...'
                 );
-                void this.router.navigate(['/dashboard/roadmap/visual']);
+                void this.router.navigate(['/dashboard/roadmap/visual'], {
+                  queryParams: { userId },
+                });
               },
               error: () => {
                 this.errorMessage.set(

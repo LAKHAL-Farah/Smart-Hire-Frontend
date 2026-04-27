@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { userAuthBaseUrl } from '../../../core/user-api-url';
 
 export interface ForgotPasswordPayload {
   email: string;
@@ -16,7 +17,7 @@ export interface ResetPasswordPayload {
   providedIn: 'root'
 })
 export class PasswordService {
-  private base = 'http://localhost:8080/MS-USER/auth';
+  private readonly base = `${userAuthBaseUrl()}/auth`;
 
   constructor(private http: HttpClient) {}
 

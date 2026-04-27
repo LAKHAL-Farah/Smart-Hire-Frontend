@@ -17,16 +17,16 @@ export const routes: Routes = [
     canActivate: [noAuthGuard],
     path: 'login-mfa',
     loadComponent: () =>
-      import('./features/front-office/auth/login/login.component').then(
-        (m) => m.LoginComponent
+      import('./features/front-office/auth/login-mfa/login-mfa.component').then(
+        (m) => m.LoginMfaComponent
       ),
   },
   {
     canActivate: [noAuthGuard],
     path: 'login',
     loadComponent: () =>
-      import('./features/front-office/auth/login-mfa/login-mfa.component').then(
-        (m) => m.LoginMfaComponent
+      import('./features/front-office/auth/login/login.component').then(
+        (m) => m.LoginComponent
       ),
   },
   {
@@ -122,7 +122,57 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'roadmap/visual',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/roadmap.component').then(
+            (m) => m.RoadmapComponent
+          ),
+      },
+      {
+        path: 'roadmap/progress',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/progress-analytics/progress-analytics.component').then(
+            (m) => m.ProgressAnalyticsComponent
+          ),
+      },
+      {
+        path: 'roadmap/milestones',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/milestones/milestones.component').then(
+            (m) => m.MilestonesComponent
+          ),
+      },
+      {
+        path: 'roadmap/notifications',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/notifications/notifications.component').then(
+            (m) => m.NotificationsComponent
+          ),
+      },
+      {
+        path: 'roadmap/replan',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/replan-wizard/replan-wizard.component').then(
+            (m) => m.ReplanWizardComponent
+          ),
+      },
+      {
+        path: 'roadmap/workspace',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/workspace/roadmap-workspace.component').then(
+            (m) => m.RoadmapWorkspaceComponent
+          ),
+      },
+      {
+        path: 'roadmap/step/:stepId',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/roadmap/step-detail/step-detail.component').then(
+            (m) => m.StepDetailComponent
+          ),
+      },
+      {
         path: 'roadmap',
+        pathMatch: 'full',
         loadComponent: () =>
           import('./features/front-office/dashboard/roadmap/roadmap.component').then(
             (m) => m.RoadmapComponent

@@ -159,7 +159,7 @@ export class RegisterComponent {
             return;
           }
           alert(
-            'Registration failed. Is MS-User on port 8082? If the email already exists, try logging in instead.'
+            'Registration failed. Is MS-User running? If the email already exists, try logging in instead.'
           );
         },
       });

@@ -598,8 +598,15 @@ export class RoadmapApiService {
     return this.generateVisualRoadmap(request);
   }
 
-  getRoadmapGraph(roadmapId: number): Observable<RoadmapVisualResponse> {
-    return this.http.get<RoadmapVisualResponse>(`${this.roadmapApiUrl}/roadmaps/visual/${roadmapId}/graph`);
+  getRoadmapGraph(roadmapId: number, userId?: number): Observable<RoadmapVisualResponse> {
+    let params = new HttpParams();
+    if (Number.isFinite(userId) && (userId as number) > 0) {
+      params = params.set('userId', String(userId));
+    }
+
+    return this.http.get<RoadmapVisualResponse>(`${this.roadmapApiUrl}/roadmaps/visual/${roadmapId}/graph`, {
+      params,
+    });
   }
 
   getNodeQuiz(nodeId: number, userId: number, questionCount = 5): Observable<NodeQuizResponseDto> {

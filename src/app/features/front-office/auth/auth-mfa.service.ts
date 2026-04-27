@@ -1,18 +1,18 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
 import { Router } from '@angular/router';
+import { userAuthBaseUrl } from '../../../core/user-api-url';
 
 @Injectable({ providedIn: 'root' })
 export class AuthMfaService {
   // Use environment.userApiUrl (dev points to port 8082)
-  private baseUrl = 'http://localhost:8080/MS-USER';
+  private readonly baseUrl = userAuthBaseUrl();
 
   constructor(private http: HttpClient, private router: Router) {}
 
   loginMfa(email: string, password: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/auth/login-mfa`, { email, password });
+    return this.http.post(`${this.baseUrl}/auth/connexion`, { mail: email, password });
   }
 
   verifyFace(tempToken: string, image: string): Observable<any> {

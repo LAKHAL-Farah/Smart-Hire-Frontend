@@ -29,32 +29,53 @@ export class LoginMfaComponent {
       next: (res) => {
         this.loading = false;
         console.log('Login response:', res);
+        
+        // Handle face verification requirement
         if (res?.status === 'FACE_REQUIRED') {
           const token = res.data.tempToken;
           sessionStorage.setItem('faceVerificationToken', token);
           void this.router.navigate(['/verify-face'], { queryParams: { token } });
           return;
         }
-        if (res?.status === 'SUCCESS') {
-          localStorage.setItem('auth_token', res.data.Token);
-          localStorage.setItem('UserId', res.data.UserId);
-          localStorage.setItem('userId', res.data.UserId);
-          localStorage.setItem('userName', res.data.userName);
-          localStorage.setItem('email', res.data.email);
-          localStorage.setItem('role', res.data.roles);
-          // Set smarthire_profile_user_uuid and user JSON so getAssessmentUserId() works
-          if (res.data.UserId) {
-            setProfileUserUuid(res.data.UserId);
+        
+        // Handle successful login (both old and new response formats)
+        const token = res?.data?.Token || res?.Token;
+        const userId = res?.data?.UserId || res?.UserId;
+        const userName = res?.data?.userName || res?.userName;
+        const email = res?.data?.email || res?.email;
+        const roles = res?.data?.roles || res?.roles;
+        
+        if (token && (res?.status === 'SUCCESS' || res?.Token)) {
+          // Store JWT token for authentication (multiple keys for compatibility)
+          localStorage.setItem('auth_token', token);
+          localStorage.setItem('access_token', token);
+          
+          // Store user ID (multiple keys for compatibility)
+          localStorage.setItem('UserId', String(userId ?? ''));
+          localStorage.setItem('userId', String(userId ?? ''));
+          localStorage.setItem('user_id', String(userId ?? ''));
+          localStorage.setItem('uid', String(userId ?? ''));
+          
+          // Store user info
+          localStorage.setItem('userName', userName ?? '');
+          localStorage.setItem('email', email ?? '');
+          localStorage.setItem('role', roles ?? '');
+          
+          // Set smarthire_profile_user_uuid and user JSON for assessment system
+          if (userId) {
+            setProfileUserUuid(userId);
             localStorage.setItem('user', JSON.stringify({
-              id: res.data.UserId,
-              email: res.data.email || this.username,
-              name: res.data.userName || this.username.split('@')[0],
-              role: res.data.roles === 'recruiter' ? 'recruiter' : 'user',
+              id: userId,
+              email: email || this.username,
+              name: userName || this.username.split('@')[0],
+              role: roles === 'recruiter' ? 'recruiter' : 'user',
             }));
           }
+          
           this.auth.redirectAfterLogin();
           return;
         }
+        
         this.error = res?.message || 'Erreur inattendue';
       },
       error: (err: HttpErrorResponse) => {

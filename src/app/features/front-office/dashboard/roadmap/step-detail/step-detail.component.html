@@ -1,4 +1,9 @@
 <div class="step-detail-page">
+  <div class="bg-net" aria-hidden="true"></div>
+  <div class="depth-fog fog-1" aria-hidden="true"></div>
+  <div class="depth-fog fog-2" aria-hidden="true"></div>
+  <div class="scanlines" aria-hidden="true"></div>
+
   <a class="back-link" routerLink="/dashboard/roadmap">&larr; Back to roadmap</a>
 
   <section class="card state-card" *ngIf="loading()">
@@ -13,7 +18,7 @@
     <section class="card hero-card">
       <div class="hero-header">
         <div>
-          <p class="eyebrow">Step {{ currentStep.stepOrder }}</p>
+          <p class="eyebrow">Node Mode • Step {{ currentStep.stepOrder }}</p>
           <h1>{{ currentStep.title }}</h1>
           <p class="description">{{ currentStep.description }}</p>
         </div>

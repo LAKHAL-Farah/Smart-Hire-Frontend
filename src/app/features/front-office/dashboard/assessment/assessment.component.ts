@@ -2,14 +2,16 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { catchError, finalize, of } from 'rxjs';
+import { Observable, catchError, finalize, of } from 'rxjs';
 import {
+  assessmentInsightsFromResult,
   AssessmentAnswerDto,
   AssessmentQuestionDto,
-  RoadmapGenerationRequestDto,
+  buildRoadmapGenerationRequestFromAssessment,
   AssessmentResultDto,
   CareerPathOptionDto,
   RoadmapApiService,
+  RoadmapVisualResponse,
 } from '../../../../services/roadmap-api.service';
 import { resolveRoadmapUserId } from '../roadmap/roadmap-user-context';
 
@@ -70,8 +72,10 @@ export class AssessmentComponent implements OnInit {
     return score <= 1 ? Math.round(score * 100) : Math.round(score);
   });
 
-  strongSkills = computed(() => this.parseStringList(this.activeResult()?.strongSkills));
-  skillGaps = computed(() => this.parseStringList(this.activeResult()?.skillGaps));
+  assessmentInsights = computed(() => assessmentInsightsFromResult(this.activeResult()));
+
+  strongSkills = computed(() => this.assessmentInsights().strongSkills);
+  skillGaps = computed(() => this.assessmentInsights().skillGaps);
 
   radarPoints = computed(() => {
     const score = this.clampPercent(this.normalizedScore());
@@ -266,27 +270,37 @@ export class AssessmentComponent implements OnInit {
           this.latestResult.set(result);
           this.successMessage.set('Assessment submitted. Your personalized result is ready.');
 
-          const generationRequest: RoadmapGenerationRequestDto = {
-            userId,
-            careerPathId,
-            careerPathName: this.resolveCareerPathName(careerPathId),
-            skillGaps: this.parseStringList(result.skillGaps),
-            strongSkills: this.parseStringList(result.strongSkills),
-            experienceLevel: this.normalizeExperienceLevel(result.experienceLevel),
-            weeklyHoursAvailable: 10,
-            preferredLanguage: 'EN',
-          };
+          let generateRoadmap$: Observable<RoadmapVisualResponse>;
+          try {
+            const payload = buildRoadmapGenerationRequestFromAssessment({
+              userId,
+              careerPathId,
+              careerPathName: this.resolveCareerPathName(careerPathId),
+              result,
+              weeklyHoursAvailable: 10,
+              preferredLanguage: 'EN',
+            });
+            generateRoadmap$ = this.roadmapApi.generateVisualRoadmap(payload);
+          } catch (error) {
+            this.errorMessage.set(
+              error instanceof Error
+                ? error.message
+                : 'Assessment saved, but generated roadmap payload was invalid.'
+            );
+            return;
+          }
 
           this.generatingRoadmap.set(true);
-          this.roadmapApi
-            .generateVisualRoadmap(generationRequest)
+          generateRoadmap$
             .pipe(finalize(() => this.generatingRoadmap.set(false)))
             .subscribe({
               next: () => {
                 this.successMessage.set(
                   'Assessment submitted and roadmap generated. Redirecting to your roadmap...'
                 );
-                void this.router.navigate(['/dashboard/roadmap/visual']);
+                void this.router.navigate(['/dashboard/roadmap/visual'], {
+                  queryParams: { userId },
+                });
               },
               error: () => {
                 this.errorMessage.set(
@@ -349,37 +363,6 @@ export class AssessmentComponent implements OnInit {
     return Math.max(0, Math.min(100, value));
   }
 
-  private parseStringList(value: string | string[] | undefined): string[] {
-    if (!value) {
-      return [];
-    }
-
-    if (Array.isArray(value)) {
-      return value.map((item) => item.trim()).filter((item) => item.length > 0);
-    }
-
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => String(item).trim())
-          .filter((item) => item.length > 0);
-      }
-    } catch {
-      // The backend may return comma-separated values instead of JSON arrays.
-    }
-
-    return trimmed
-      .split(/[\n,;]+/)
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-  }
-
   private resolveInitialCareerPath(paths: CareerPathOptionDto[]): number | null {
     if (!paths.length) {
       return null;
@@ -399,16 +382,5 @@ export class AssessmentComponent implements OnInit {
       this.careerPaths().find((path) => path.id === careerPathId)?.title ||
       `Career Path ${careerPathId}`
     );
-  }
-
-  private normalizeExperienceLevel(value: string | undefined): string {
-    const normalized = (value || 'JUNIOR').trim().toUpperCase();
-    if (normalized === 'BEGINNER' || normalized === 'JUNIOR') {
-      return 'BEGINNER';
-    }
-    if (normalized === 'ADVANCED' || normalized === 'SENIOR') {
-      return 'ADVANCED';
-    }
-    return 'INTERMEDIATE';
   }
 }

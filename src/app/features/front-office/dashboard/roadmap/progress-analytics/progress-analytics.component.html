@@ -1,6 +1,12 @@
 <div class="analytics-page">
   <a class="back-link" routerLink="/dashboard/roadmap">&larr; Back to roadmap</a>
 
+  <header class="analytics-hero" aria-label="Progress analytics header">
+    <p class="analytics-hero__eyebrow">Roadmap Cartography</p>
+    <h1>Progress Cartography</h1>
+    <p>Track pace, milestones, and momentum across your current learning route.</p>
+  </header>
+
   <section class="card state" *ngIf="loading()">Loading analytics...</section>
   <section class="card state error" *ngIf="!loading() && errorMessage()">{{ errorMessage() }}</section>
 

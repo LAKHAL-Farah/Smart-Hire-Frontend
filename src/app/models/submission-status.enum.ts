@@ -1,0 +1,6 @@
+export enum SubmissionStatus {
+  SUBMITTED = 'SUBMITTED',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED'
+}

@@ -1,0 +1,295 @@
+<section class="hs-root">
+
+  <!-- HEADER -->
+  <header class="hs-header">
+    <div class="hs-header__left">
+      <span class="hs-header__eyebrow">SMARTHIRE · Event Platform</span>
+      <h1 class="hs-header__title">Hackathon Submissions</h1>
+    </div>
+    <div class="hs-header__right">
+      <div class="hs-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input [(ngModel)]="search" placeholder="Search projects…" class="hs-search__input" aria-label="Search submissions" />
+      </div>
+      <button class="btn-submit" (click)="openModal()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Submission
+      </button>
+    </div>
+  </header>
+
+  <!-- STAT BAR -->
+  <div class="stat-bar">
+    <div class="stat-pill" *ngFor="let s of stats">
+      <span class="stat-pill__value">{{ s.value }}</span>
+      <span class="stat-pill__label">{{ s.label }}</span>
+    </div>
+  </div>
+
+  <!-- FILTER TABS -->
+  <div class="filter-tabs" role="tablist">
+    <button
+      class="filter-tab"
+      *ngFor="let t of filterTabs"
+      [class.filter-tab--active]="activeFilter === t.key"
+      (click)="activeFilter = t.key"
+      role="tab">
+      {{ t.label }}
+    </button>
+  </div>
+
+  <!-- LOADING / ERROR -->
+  <div class="hs-loading" *ngIf="loading">
+    <span class="spinner"></span> Loading submissions…
+  </div>
+  <div class="hs-error" *ngIf="error && !loading">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- GRID -->
+  <div class="subs-grid" *ngIf="!loading && !error">
+
+    <div class="scard" *ngFor="let s of filteredSubmissions; let i = index"
+         [style.animation-delay]="i * 60 + 'ms'">
+
+      <div class="scard__accent" [style.background]="statusColor(s.status)"></div>
+
+      <div class="scard__inner">
+
+        <!-- TOP ROW -->
+        <div class="scard__top">
+          <div class="scard__rank" [ngClass]="rankClass(s.ranking)">
+            {{ s.ranking ? '#' + s.ranking : '?' }}
+          </div>
+          <span class="scard__status" [ngClass]="'scard__status--' + s.status.toLowerCase()">
+            {{ s.status }}
+          </span>
+        </div>
+
+        <!-- TITLE & DESC -->
+        <h2 class="scard__title">{{ s.projectTitle }}</h2>
+        <p class="scard__desc" *ngIf="s.projectDescription">{{ s.projectDescription }}</p>
+
+        <!-- META LINKS -->
+        <div class="scard__meta">
+          <div class="scard__meta-item" *ngIf="s.repoUrl">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/>
+            </svg>
+            <a [href]="s.repoUrl" target="_blank" rel="noopener">Repository</a>
+          </div>
+          <div class="scard__meta-item" *ngIf="s.demoUrl">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            <a [href]="s.demoUrl" target="_blank" rel="noopener">Live Demo</a>
+          </div>
+          <div class="scard__meta-item">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            User #{{ s.userId }}
+          </div>
+        </div>
+
+        <!-- SCORES -->
+        <ng-container *ngIf="s.overallScore != null">
+          <div class="scores-grid">
+            <div class="score-item">
+              <span class="score-item__val">{{ s.originalityScore | number:'1.1-1' }}</span>
+              <span class="score-item__label">Originality</span>
+            </div>
+            <div class="score-item">
+              <span class="score-item__val">{{ s.feasibilityScore | number:'1.1-1' }}</span>
+              <span class="score-item__label">Feasibility</span>
+            </div>
+            <div class="score-item">
+              <span class="score-item__val">{{ s.technicalScore | number:'1.1-1' }}</span>
+              <span class="score-item__label">Technical</span>
+            </div>
+          </div>
+          <div class="score-overall">
+            <span class="score-overall__label">Overall score</span>
+            <span class="score-overall__val" [style.color]="statusColor(s.status)">
+              {{ s.overallScore | number:'1.1-1' }}/10
+            </span>
+          </div>
+          <!-- Progress bar -->
+          <div class="scard__progress">
+            <div class="scard__progress-fill"
+                 [style.width.%]="pct(s.overallScore, 10)"
+                 [style.background]="statusColor(s.status)">
+            </div>
+          </div>
+        </ng-container>
+
+        <!-- AI FEEDBACK -->
+        <div class="scard__feedback" *ngIf="s.aiFeedback">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          {{ s.aiFeedback }}
+        </div>
+
+        <!-- ACTIONS -->
+        <div class="scard__actions">
+          <button class="scard__btn scard__btn--edit" (click)="openModal(s)">
+            ✏️ Edit
+          </button>
+          <button class="scard__btn scard__btn--eval" (click)="openModal(s, true)">
+            ⚡ Evaluate
+          </button>
+          <button class="scard__btn scard__btn--del" (click)="deleteSubmission(s.id)">
+            🗑️ Delete
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="subs-empty" *ngIf="filteredSubmissions.length === 0">
+      <p>✨ No submissions match your search.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- SUBMISSION MODAL (Create / Edit) -->
+<div class="modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal__header">
+      <h2 class="modal__title">{{ editTarget ? 'Edit Submission' : 'New Submission' }}</h2>
+      <button class="modal__close" (click)="closeModal()">×</button>
+    </div>
+    <div class="modal__body">
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Project Title *</label>
+          <input class="form-input" [(ngModel)]="form.projectTitle" placeholder="e.g. EcoTrack AI" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">User ID</label>
+          <input class="form-input" [(ngModel)]="form.userId" type="number" placeholder="42" />
+        </div>
+      </div>
+
+      <div class="form-group form-group--full">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" [(ngModel)]="form.projectDescription"
+                  placeholder="What problem does your project solve?"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Repository URL</label>
+          <input class="form-input" [(ngModel)]="form.repoUrl" placeholder="https://github.com/…" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Demo URL</label>
+          <input class="form-input" [(ngModel)]="form.demoUrl" placeholder="https://demo.example.com" />
+        </div>
+      </div>
+
+      <div class="form-group form-group--full">
+        <label class="form-label">Status</label>
+        <select class="form-select" [(ngModel)]="form.status">
+          <option value="SUBMITTED">Submitted</option>
+          <option value="PENDING">Pending</option>
+          <option value="EVALUATED">Evaluated</option>
+          <option value="REJECTED">Rejected</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Originality (0–10)</label>
+          <input class="form-input" [(ngModel)]="form.originalityScore" type="number" min="0" max="10" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Feasibility (0–10)</label>
+          <input class="form-input" [(ngModel)]="form.feasibilityScore" type="number" min="0" max="10" step="0.1" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Technical (0–10)</label>
+          <input class="form-input" [(ngModel)]="form.technicalScore" type="number" min="0" max="10" step="0.1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Overall (0–10)</label>
+          <input class="form-input" [(ngModel)]="form.overallScore" type="number" min="0" max="10" step="0.1" />
+        </div>
+      </div>
+
+      <div class="form-group form-group--full">
+        <label class="form-label">AI Feedback</label>
+        <textarea class="form-textarea" [(ngModel)]="form.aiFeedback"
+                  placeholder="AI-generated evaluation notes…"></textarea>
+      </div>
+
+    </div>
+    <div class="modal__footer">
+      <button class="modal-btn modal-btn--cancel" (click)="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn--save" (click)="saveSubmission()" [disabled]="saving">
+        <span class="spinner spinner--sm" *ngIf="saving"></span>
+        {{ saving ? 'Saving…' : (editTarget ? 'Update' : 'Create') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div class="modal-backdrop" *ngIf="deleteTarget" (click)="deleteTarget = null">
+  <div class="modal modal--sm" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal__header">
+      <h2 class="modal__title modal__title--danger">Delete Submission</h2>
+      <button class="modal__close" (click)="deleteTarget = null">×</button>
+    </div>
+    <div class="modal__body">
+      <p class="modal__confirm-text">
+        Are you sure you want to delete <strong>{{ deleteTarget.projectTitle }}</strong>?
+        This action cannot be undone.
+      </p>
+    </div>
+    <div class="modal__footer">
+      <button class="modal-btn modal-btn--cancel" (click)="deleteTarget = null">Cancel</button>
+      <button class="modal-btn modal-btn--danger" (click)="doDelete()" [disabled]="deleting">
+        <span class="spinner spinner--sm" *ngIf="deleting"></span>
+        {{ deleting ? 'Deleting…' : 'Delete' }}
+      </button>
+    </div>
+  </div>
+</div>
+<!-- TOAST -->
+<div class="toast"
+     [class.toast--show]="toastVisible"
+     [class.toast--error]="toastError"
+     role="alert"
+     aria-live="polite">
+
+  <!-- succès -->
+  <svg *ngIf="!toastError" width="15" height="15"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+
+  <!-- erreur -->
+  <svg *ngIf="toastError" width="15" height="15"
+       viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+
+  {{ toastMsg }}
+</div>

@@ -23,14 +23,20 @@ export class SidebarComponent {
     { icon: 'layout-grid', label: 'Dashboard', route: '/dashboard' },
     { icon: 'clock', label: 'Roadmap', route: '/dashboard/roadmap' },
     { icon: 'book-open', label: 'Projects', route: '/dashboard/projects' },
+    { icon: 'book-open', label: 'Events', route: '/dashboard/events' },
   ];
 
   prepareItems: NavItem[] = [
+<<<<<<< HEAD
     { icon: 'circle-check', label: 'Skill assessments', route: '/dashboard/assessments' },
     { icon: 'message-square', label: 'Interview', route: '/dashboard/interview' },
     { icon: 'globe', label: 'Discover', route: '/dashboard/interview/discover' },
     { icon: 'file-text', label: 'CV Optimizer', route: '/dashboard/cv' },
     { icon: 'user', label: 'Profile', route: '/dashboard/profile' },
+=======
+    { icon: 'activity', label: 'Submissions', route: '/dashboard/submissions' },
+    
+>>>>>>> feature/event-management
   ];
 
   recruitItems: NavItem[] = [

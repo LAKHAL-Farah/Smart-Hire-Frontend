@@ -1,3 +1,4 @@
+import { EventsComponent } from './features/front-office/dashboard/events/events.component';
 import { Routes } from '@angular/router';
 import { adminCanMatch } from './core/guards/admin.guard';
 import { onboardingCanMatch } from './core/guards/onboarding.guard';
@@ -207,6 +208,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'events',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/events/events.component').then(
+            (m) => m.EventsComponent
+          ),
+      },
+      {
         path: 'settings',
         loadComponent: () =>
           import('./features/front-office/dashboard/settings/settings.component').then(
@@ -268,11 +276,26 @@ export const routes: Routes = [
             (m) => m.InterviewComponent
           ),
       },
+         {
+        path: 'submissions',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/hackathon-submissions/hackathon-submissions.component').then(
+            (m) => m.HackathonSubmissionsComponent
+          ),
+      },
+      
       {
         path: 'interview/session/:id',
         loadComponent: () =>
           import('./features/front-office/dashboard/interview/session/interview-session.component').then(
             (m) => m.InterviewSessionComponent
+          ),
+      },
+       {
+        path: 'event/:id',
+        loadComponent: () =>
+          import('./features/front-office/dashboard/event-detail/event-detail.component').then(
+            (m) => m.EventDetailsPageComponent
           ),
       },
       {
@@ -395,6 +418,36 @@ export const routes: Routes = [
             (m) => m.SystemHealthComponent
           ),
       },
+       {
+        path: 'events',
+        loadComponent: () =>
+          import('./features/back-office/admin/event-management/event-management.component').then(
+            (m) => m.EventManagementComponent
+          ),
+      },
+       {
+        path: 'hackathons',
+        loadComponent: () =>
+          import('./features/back-office/admin/hackathon-sumbission/hackathon-sumbission.component').then(
+            (m) => m.HackathonSumbissionComponent
+          ),
+      },
+      
+      {
+        path: 'speakers',
+        loadComponent: () =>
+          import('./features/back-office/admin/event-speaker/event-speaker.component').then(
+            (m) => m.EventSpeakersComponent 
+          ),
+      },
+          {
+        path: 'reviews',
+        loadComponent: () =>
+          import('./features/back-office/admin/reviews/reviews.component').then(
+            (m) => m.ReviewsComponent 
+          ),
+      },
+      
       {
         path: 'settings',
         loadComponent: () =>

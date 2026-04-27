@@ -35,7 +35,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     '/dashboard/profile': 'Profile',
     '/dashboard/settings': 'Settings',
     '/dashboard/jobs': 'Jobs',
-    '/dashboard/assessments': 'Skill assessments',
+    '/dashboard/events': 'events',
   };
 
   private url = signal('');

@@ -1,0 +1,221 @@
+<div class="em-root">
+
+  <!-- ── LOADING ── -->
+  <div class="em-loading" *ngIf="loading">
+    <span class="spinner"></span>
+    Chargement de l'événement…
+  </div>
+
+  <!-- ── ERROR ── -->
+  <div class="em-error" *ngIf="error && !loading">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- ── CONTENT ── -->
+  <ng-container *ngIf="!loading && event">
+
+    <!-- Back -->
+    <div class="back-link" (click)="goBack()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Retour aux événements
+    </div>
+
+    <!-- Layout -->
+    <div class="detail-layout">
+
+      <!-- ════ MAIN CARD ════ -->
+      <div class="main-card" [class.main-card--full]="isFull">
+
+        <!-- Accent bar -->
+        <div class="card-accent-bar" [style.background]="'linear-gradient(90deg, ' + typeColor(event.type) + ', #a78bfa 60%, #f472b6)'"></div>
+
+        <div class="main-card__inner">
+
+          <!-- Header -->
+          <div class="event-header">
+            <div class="event-header__left">
+
+              <div class="type-pill" [style.color]="typeColor(event.type)"
+                   [style.background]="typeColor(event.type) + '1a'"
+                   [style.border-color]="typeColor(event.type) + '40'">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/>
+                </svg>
+                {{ event.type }}
+              </div>
+
+              <h1 class="event-title">{{ event.title }}</h1>
+
+              <span class="status-badge" [ngClass]="statusClass(event.status)">
+                <span class="status-badge__dot"></span>
+                {{ event.status }}
+              </span>
+
+            </div>
+
+            <!-- Full badge -->
+            <div class="ecard__full-badge" *ngIf="isFull">
+              <span class="ecard__full-badge__dot"></span>
+              Complet
+            </div>
+          </div>
+
+          <!-- Description -->
+          <p class="event-desc">{{ event.description || 'Aucune description fournie.' }}</p>
+
+          <!-- Meta grid -->
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-item__icon meta-item__icon--gold">📅</div>
+              <div>
+                <div class="meta-item__label">Date</div>
+                <div class="meta-item__value">{{ event.startDate | date:'longDate' }}</div>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <div class="meta-item__icon meta-item__icon--blue">🕐</div>
+              <div>
+                <div class="meta-item__label">Heure</div>
+                <div class="meta-item__value">{{ event.time || 'Non défini' }}</div>
+              </div>
+            </div>
+
+            <div class="meta-item" *ngIf="event.location">
+              <div class="meta-item__icon meta-item__icon--green">📍</div>
+              <div>
+                <div class="meta-item__label">Lieu</div>
+                <div class="meta-item__value">{{ event.location }}</div>
+              </div>
+            </div>
+
+            <div class="meta-item">
+              <div class="meta-item__icon" [ngClass]="typeIconBg(event.type)">🎯</div>
+              <div>
+                <div class="meta-item__label">Type</div>
+                <div class="meta-item__value">{{ event.type }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Summary -->
+          <div class="ai-summary" *ngIf="event.aiSummary">
+            <div class="ai-summary__label">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+              Résumé IA
+            </div>
+            <p class="ai-summary__text">{{ event.aiSummary }}</p>
+          </div>
+
+          <!-- Full banner -->
+          <div class="detail-full-banner" *ngIf="isFull">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Cet événement est complet. Les inscriptions sont fermées.
+          </div>
+
+          <!-- Progress -->
+          <div class="progress-section">
+            <div class="progress-header">
+              <span class="progress-label">Inscriptions</span>
+              <span class="progress-count" [class.detail-progress-pct--full]="isFull">
+                {{ registeredCount }} / {{ event.capacity }} places
+              </span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill"
+                   [style.width.%]="fillPercent"
+                   [style.background]="isFull
+                     ? 'linear-gradient(90deg, #e02020, #f87171)'
+                     : 'linear-gradient(90deg, #4f9eff, #a78bfa)'">
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="event-actions">
+            <button class="register-btn" (click)="register()" [disabled]="registering || isFull" *ngIf="!isFull">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M12 5v14m-7-7h14"/>
+              </svg>
+              {{ registering ? 'Inscription en cours…' : 'S\'inscrire à cet événement' }}
+            </button>
+
+            <button class="modal-btn modal-btn--full" *ngIf="isFull" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              Événement complet
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ════ SIDEBAR ════ -->
+      <div class="detail-sidebar">
+
+        <!-- Organizer -->
+        <div class="side-card">
+          <div class="side-card__title">Organisateur</div>
+          <div class="organizer-row">
+            <div class="organizer-avatar">{{ organizerInitials }}</div>
+            <div>
+              <div class="organizer-name">{{ event.organizer || 'Non spécifié' }}</div>
+              <div class="organizer-role">Responsable de l'événement</div>
+            </div>
+          </div>
+          <a class="cal-btn" [href]="googleCalendarUrl()" target="_blank" rel="noopener">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            Ajouter à Google Calendar
+          </a>
+        </div>
+
+        <!-- Quick stats -->
+        <div class="side-card">
+          <div class="side-card__title">Détails rapides</div>
+          <div class="quick-stats">
+            <div class="qs-row">
+              <span class="qs-label">Capacité totale</span>
+              <span class="qs-value">{{ event.capacity }} places</span>
+            </div>
+            <div class="qs-row">
+              <span class="qs-label">Inscrits</span>
+              <span class="qs-value qs-value--accent">{{ registeredCount }}</span>
+            </div>
+            <div class="qs-row">
+              <span class="qs-label">Places restantes</span>
+              <span class="qs-value" [class.qs-value--green]="spotsLeft > 0" [class.qs-value--red]="spotsLeft === 0">
+                {{ isFull ? 'Complet' : spotsLeft }}
+              </span>
+            </div>
+            <div class="qs-row">
+              <span class="qs-label">Remplissage</span>
+              <span class="qs-value" [class.detail-progress-pct--full]="isFull">{{ fillPercent }}%</span>
+            </div>
+            <div class="qs-row">
+              <span class="qs-label">Statut</span>
+              <span class="qs-value qs-value--accent">{{ event.status }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </ng-container>
+</div>

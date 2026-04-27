@@ -14,7 +14,4 @@ import { ChatWidgetComponent } from './shared/chat-widget/chat-widget.component'
 export class AppComponent {
   title = 'smarthire-frontend';
 
-  constructor(private readonly themeService: ThemeService) {
-    void this.themeService;
-  }
 }

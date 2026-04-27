@@ -1,0 +1,782 @@
+<section class="em-root">
+
+  <!-- ══ RECO PANEL ══════════════════════════════════════════════ -->
+  <div class="reco-panel" *ngIf="recoPanel && recommendations.length">
+    <div class="reco-panel__header">
+      <span class="reco-panel__title">✨ Événements recommandés pour vous</span>
+      <span class="reco-panel__badge">IA Groq</span>
+      <button class="reco-panel__close" (click)="recoPanel = false">×</button>
+    </div>
+    <div class="reco-grid">
+      <div class="reco-card" *ngFor="let r of recommendations">
+        <div class="reco-card__accent" [style.background]="scoreColor(r.score)"></div>
+        <div class="reco-card__top">
+          <div class="reco-card__score"
+               [style.background]="scoreColor(r.score) + '18'"
+               [style.color]="scoreColor(r.score)">
+            {{ r.score }}%
+          </div>
+          <div>
+            <div class="reco-card__title">Événement #{{ r.title }}</div>
+            <div class="reco-card__match">niveau de correspondance</div>
+          </div>
+        </div>
+        <div class="reco-card__bar-track">
+          <div class="reco-card__bar-fill"
+               [style.width.%]="r.score"
+               [style.background]="scoreColor(r.score)">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ WEBSOCKET NOTIFICATIONS ════════════════════════════════ -->
+  <div class="notif-stack">
+    <div class="notif-reminder" *ngFor="let n of notifications">
+      <span class="notif-reminder__icon">🔔</span>
+      <span class="notif-reminder__text">{{ n }}</span>
+    </div>
+  </div>
+
+  <!-- ══ HEADER ══════════════════════════════════════════════════ -->
+  <header class="em-header">
+    <div class="em-header__left">
+      <span class="em-header__eyebrow">SMARTHIRE · Event Platform</span>
+      <h1 class="em-header__title">Events</h1>
+    </div>
+    <div class="em-header__right">
+      <div class="em-search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input [(ngModel)]="search" placeholder="Search events…" class="em-search__input" aria-label="Search events" />
+      </div>
+      <button class="reco-trigger-btn" (click)="loadRecommendations()" [disabled]="recoLoading">
+        <span class="spinner spinner--sm" *ngIf="recoLoading"></span>
+        <svg *ngIf="!recoLoading" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2a10 10 0 1010 10"/><path d="M22 2l-4 4 4 4"/>
+        </svg>
+        {{ recoLoading ? 'Analyse…' : '✨ Mes recommandations' }}
+        <span class="reco-trigger-badge" *ngIf="recommendations">{{ recommendations.experience_level }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ══ STAT BAR ════════════════════════════════════════════════ -->
+  <div class="stat-bar">
+    <div class="stat-pill" *ngFor="let s of stats">
+      <span class="stat-pill__value">{{ s.value }}</span>
+      <span class="stat-pill__label">{{ s.label }}</span>
+    </div>
+  </div>
+
+  <!-- ══ FILTER TABS ═════════════════════════════════════════════ -->
+  <div class="filter-tabs" role="tablist">
+    <button
+      class="filter-tab"
+      [class.filter-tab--active]="activeFilter === t.key"
+      *ngFor="let t of filterTabs"
+      (click)="activeFilter = t.key"
+      role="tab">
+      {{ t.label }}
+    </button>
+  </div>
+
+  <!-- ══ LOADING / ERROR ═════════════════════════════════════════ -->
+  <div class="em-loading" *ngIf="loading">
+    <span class="spinner"></span> Loading events…
+  </div>
+  <div class="em-error" *ngIf="error && !loading">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- ══ EVENTS GRID ══════════════════════════════════════════════ -->
+  <div class="events-grid" *ngIf="!loading && !error">
+    <div
+      class="ecard"
+      *ngFor="let e of filteredEvents; let i = index"
+      [class.ecard--full]="isEventFull(e)"
+      [style.animation-delay]="i * 60 + 'ms'">
+
+      <div class="ecard__accent" [style.background]="isEventFull(e) ? '#e02020' : typeColor(e.type)"></div>
+
+      <div class="ecard__inner">
+        <div class="ecard__top">
+          <span class="ecard__type-badge" [style.color]="typeColor(e.type)">{{ e.type }}</span>
+          <span class="ecard__status" [ngClass]="'ecard__status--' + (e.status || 'upcoming')">
+            {{ e.status || 'upcoming' }}
+          </span>
+          <span class="ecard__full-badge" *ngIf="isEventFull(e)">
+            <span class="ecard__full-badge__dot"></span>
+            Saturé
+          </span>
+          <button class="ecard__qr-badge" (click)="$event.stopPropagation(); openQrModal(e)" title="Show QR Code">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7" rx="1"/>
+              <rect x="14" y="3" width="7" height="7" rx="1"/>
+              <rect x="3" y="14" width="7" height="7" rx="1"/>
+              <rect x="14" y="14" width="3" height="3"/>
+              <rect x="18" y="14" width="3" height="3"/>
+              <rect x="14" y="18" width="3" height="3"/>
+              <rect x="18" y="18" width="3" height="3"/>
+            </svg>
+          </button>
+        </div>
+
+        <h2 class="ecard__title">{{ e.title }}</h2>
+        <p class="ecard__desc" *ngIf="e.description">{{ e.description }}</p>
+
+        <div class="ecard__meta">
+          <div class="ecard__meta-item modern-date">
+            <div class="date-badge" [style.background]="typeColor(e.type)">
+              <span class="day">{{ e.startDate | date:'d' }}</span>
+              <span class="month">{{ e.startDate | date:'MMM' | uppercase }}</span>
+            </div>
+            <div class="date-info">
+              <span class="full-date">{{ e.startDate | date:'fullDate' }}</span>
+              <span class="time" *ngIf="e.time">{{ e.time }}</span>
+            </div>
+          </div>
+          <div class="ecard__meta-item" *ngIf="e.location">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+            {{ e.location }}
+          </div>
+          <div class="ecard__meta-item" *ngIf="e.capacity">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+            {{ e?.registered ?? e?.currentRegistrations ?? 0 }} / {{ e.capacity }}
+          </div>
+          <div class="ecard__meta-item" *ngIf="e.organizer">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+            {{ e.organizer }}
+          </div>
+        </div>
+
+        <div class="ecard__progress" *ngIf="e.capacity">
+          <div
+            class="ecard__progress-fill"
+            [style.width.%]="pct(e.registered ?? e.currentRegistrations, e.capacity)"
+            [style.background]="isEventFull(e) ? '#e02020' : typeColor(e.type)">
+          </div>
+        </div>
+
+        <div class="ecard__actions">
+          <button class="ecard__btn ecard__btn--edit"   (click)="openModal(e)">✏️ Edit</button>
+          <button class="ecard__btn ecard__btn--del"    (click)="confirmDelete(e)">🗑️ Delete</button>
+          <button class="ecard__btn ecard__btn--detail" (click)="openDetailModal(e.id!)">🔍 Details</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="events-empty" *ngIf="filteredEvents.length === 0">
+      <p>✨ No events found. Time to create one?</p>
+    </div>
+  </div>
+
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- QR CODE MODAL                                                  -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop modal-backdrop--qr" *ngIf="qrModalOpen" (click)="closeQrModal()">
+  <div class="modal modal--qr" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal__header modal__header--qr">
+      <div class="modal__header-left">
+        <span class="modal__header-badge"
+              *ngIf="qrEvent"
+              [style.background]="typeColor(qrEvent.type) + '18'"
+              [style.color]="typeColor(qrEvent.type)">
+          {{ qrEvent.type }}
+        </span>
+        <h2 class="modal__title">Share Event</h2>
+      </div>
+      <button class="modal__close" (click)="closeQrModal()">×</button>
+    </div>
+    <div class="modal__body modal--qr__body" *ngIf="qrEvent">
+      <p class="qr-modal__event-title">{{ qrEvent.title }}</p>
+      <div class="qr-wrapper" [class.qr-wrapper--revealed]="qrRevealed">
+        <div class="qr-veil" *ngIf="!qrRevealed" (click)="revealQr()">
+          <div class="qr-veil__rings">
+            <div class="qr-veil__ring qr-veil__ring--1"></div>
+            <div class="qr-veil__ring qr-veil__ring--2"></div>
+            <div class="qr-veil__ring qr-veil__ring--3"></div>
+          </div>
+          <div class="qr-veil__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3"  y="3"  width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3"  width="7" height="7" rx="1.5"/>
+              <rect x="3"  y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="3" height="3"/>
+              <rect x="18" y="14" width="3" height="3"/>
+              <rect x="14" y="18" width="3" height="3"/>
+              <rect x="18" y="18" width="3" height="3"/>
+            </svg>
+          </div>
+          <span class="qr-veil__label">Tap to reveal QR</span>
+        </div>
+        <div class="qr-frame" *ngIf="qrRevealed">
+          <div class="qr-scanner-line"></div>
+          <img [src]="getQrUrl(qrEvent.id!)"
+               alt="QR Code"
+               class="qr-image"
+               (load)="qrImageLoaded = true"
+               [class.qr-image--loaded]="qrImageLoaded" />
+          <span class="qr-corner qr-corner--tl"></span>
+          <span class="qr-corner qr-corner--tr"></span>
+          <span class="qr-corner qr-corner--bl"></span>
+          <span class="qr-corner qr-corner--br"></span>
+          <div class="qr-pulse"></div>
+        </div>
+      </div>
+      <div class="qr-actions" *ngIf="qrRevealed">
+        <button class="qr-btn qr-btn--download" (click)="downloadQr(qrEvent)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download PNG
+        </button>
+        <button class="qr-btn qr-btn--copy" (click)="copyEventLink(qrEvent.id!)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2"/>
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+          </svg>
+          {{ qrCopied ? '✅ Copied!' : 'Copy Link' }}
+        </button>
+        <button class="qr-btn qr-btn--share" (click)="nativeShare(qrEvent)" *ngIf="canNativeShare">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="18" cy="5"  r="3"/>
+            <circle cx="6"  cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <line x1="8.59"  y1="13.51" x2="15.42" y2="17.49"/>
+            <line x1="15.41" y1="6.51"  x2="8.59"  y2="10.49"/>
+          </svg>
+          Share
+        </button>
+      </div>
+      <p class="qr-hint" *ngIf="qrRevealed">📱 Scan to open event on any device</p>
+      <div class="qr-link-chip" *ngIf="qrRevealed">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+        </svg>
+        <span>localhost:4200/event/{{ qrEvent.id }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- CREATE / EDIT MODAL                                           -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" *ngIf="modalOpen" (click)="closeModal()">
+  <div class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal__header">
+      <h2 class="modal__title">{{ editId ? 'Edit Event' : 'Create Event' }}</h2>
+      <button class="modal__close" (click)="closeModal()">×</button>
+    </div>
+    <div class="modal__body">
+      <div class="form-row">
+        <div class="form-group form-group--full">
+          <label class="form-label">Title *</label>
+          <input class="form-input" [(ngModel)]="form.title" placeholder="Event title…" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Type</label>
+          <select class="form-select" [(ngModel)]="form.type">
+            <option *ngFor="let t of eventTypes" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" [(ngModel)]="form.status">
+            <option *ngFor="let s of eventStatuses" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">DATE & TIME *</label>
+          <input class="form-input" type="datetime-local" [(ngModel)]="form.datetime" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-group--full">
+          <label class="form-label">Location</label>
+          <input class="form-input" [(ngModel)]="form.location" placeholder="e.g. Palais des Congrès, Paris…" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Capacity</label>
+          <input class="form-input" type="number" [(ngModel)]="form.capacity" min="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Organizer</label>
+          <input class="form-input" [(ngModel)]="form.organizer" placeholder="Organizer name…" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-group--full">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" [(ngModel)]="form.description" placeholder="Event description…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal__footer">
+      <button class="modal-btn modal-btn--cancel" (click)="closeModal()">Cancel</button>
+      <button class="modal-btn modal-btn--save" (click)="save()" [disabled]="saving">
+        <span class="spinner spinner--sm" *ngIf="saving"></span>
+        {{ saving ? 'Saving…' : (editId ? 'Update' : 'Create') }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- DETAIL MODAL                                                   -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" *ngIf="detailModalOpen" (click)="closeDetailModal()">
+  <div class="modal modal--detail" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal__header">
+      <div class="modal__header-left">
+        <span class="modal__header-badge"
+              *ngIf="detailEvent"
+              [style.background]="typeColor(detailEvent.type) + '18'"
+              [style.color]="typeColor(detailEvent.type)">
+          {{ detailEvent.type }}
+        </span>
+        <h2 class="modal__title">Event Details</h2>
+      </div>
+      <button class="modal__close" (click)="closeDetailModal()">×</button>
+    </div>
+
+    <!-- Loading -->
+    <div class="modal__body detail-loading" *ngIf="detailLoading">
+      <span class="spinner"></span> Loading event details…
+    </div>
+
+    <!-- Content -->
+    <div class="modal__body modal__body--scrollable" *ngIf="!detailLoading && detailEvent">
+      <div class="detail-layout">
+
+        <!-- ── LEFT COLUMN ── -->
+        <div class="detail-left">
+          <div class="detail-card" [class.detail-card--full]="isEventFull(detailEvent)">
+            <div class="detail-card__accent"
+                 [style.background]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
+            </div>
+            <div class="detail-card__header">
+              <span class="detail-card__type" [style.color]="typeColor(detailEvent.type)">
+                {{ detailEvent.type }}
+              </span>
+              <span class="detail-card__status"
+                    [ngClass]="'ecard__status--' + (detailEvent.status || 'upcoming')">
+                {{ detailEvent.status || 'upcoming' }}
+              </span>
+              <span class="detail-full-badge" *ngIf="isEventFull(detailEvent)">
+                <span class="detail-full-badge__dot"></span> Saturé
+              </span>
+            </div>
+
+            <h3 class="detail-card__title">{{ detailEvent.title }}</h3>
+            <span class="google-cal-badge">Google</span>
+            <p class="detail-card__desc">{{ detailEvent.description || 'No description provided.' }}</p>
+
+            <div class="detail-full-banner" *ngIf="isEventFull(detailEvent)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8"  x2="12"    y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              Cet événement est complet — les inscriptions sont fermées.
+            </div>
+
+            <!-- Progress -->
+            <div class="detail-progress-wrap" *ngIf="detailEvent.capacity">
+              <div class="detail-progress-header">
+                <span class="detail-progress-label">Registrations</span>
+                <span class="detail-progress-count"
+                      [style.color]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
+                  {{ detailEvent.currentRegistrations ?? detailEvent.registered ?? 0 }} / {{ detailEvent.capacity }}
+                </span>
+              </div>
+              <div class="detail-progress-track">
+                <div class="detail-progress-fill"
+                     [style.width.%]="pct(detailEvent.currentRegistrations ?? detailEvent.registered, detailEvent.capacity)"
+                     [style.background]="isEventFull(detailEvent) ? '#e02020' : typeColor(detailEvent.type)">
+                </div>
+              </div>
+              <div class="detail-progress-pct" [class.detail-progress-pct--full]="isEventFull(detailEvent)">
+                {{ pct(detailEvent.currentRegistrations ?? detailEvent.registered, detailEvent.capacity) }}% capacity
+                <span *ngIf="isEventFull(detailEvent)"> · Complet</span>
+              </div>
+            </div>
+
+            <!-- Meta grid -->
+            <div class="detail-meta-grid">
+              <div class="detail-meta-tile">
+                <div class="detail-meta-tile__icon" style="background:#378ADD15;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8"  y1="2" x2="8"  y2="6"/>
+                    <line x1="3"  y1="10" x2="21" y2="10"/>
+                  </svg>
+                </div>
+                <div>
+                  <span class="detail-meta-tile__value">{{ detailEvent.startDate | date:'d MMM yyyy' }}</span>
+                  <span *ngIf="detailEvent.time"> · {{ detailEvent.time }}</span>
+                </div>
+              </div>
+              <div class="detail-meta-tile" *ngIf="detailEvent.time">
+                <div class="detail-meta-tile__icon" style="background:#1D9E7515;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="detail-meta-tile__label">Time</div>
+                  <div class="detail-meta-tile__value">{{ detailEvent.time | date:'HH:mm' }}</div>
+                </div>
+              </div>
+              <div class="detail-meta-tile" *ngIf="detailEvent.organizer">
+                <div class="detail-meta-tile__icon" style="background:#a78bfa15;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="detail-meta-tile__label">Organizer</div>
+                  <div class="detail-meta-tile__value">{{ detailEvent.organizer }}</div>
+                </div>
+              </div>
+              <div class="detail-meta-tile" *ngIf="detailEvent.domain">
+                <div class="detail-meta-tile__icon" style="background:#f59e0b15;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="detail-meta-tile__value">{{ detailEvent.domain }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Summary -->
+            <div class="ai-summary" *ngIf="detailEvent.aiSummary">
+              <div class="ai-summary__header">
+                <span class="ai-summary__icon">✨</span>
+                <span class="ai-summary__label">AI Summary</span>
+              </div>
+              <p class="ai-summary__text">{{ detailEvent.aiSummary }}</p>
+            </div>
+            <div class="ai-summary ai-summary--empty" *ngIf="!detailEvent.aiSummary">
+              <p class="ai-summary__hint">No AI summary yet for this event.</p>
+            </div>
+
+            <!-- Actions -->
+            <div class="detail-card__actions">
+              <button class="modal-btn modal-btn--cancel" (click)="closeDetailModal()">Close</button>
+              <button class="modal-btn modal-btn--ai"
+                      (click)="generateSummary(detailEvent.id!)"
+                      [disabled]="generatingSummary && summaryEventId === detailEvent.id">
+                <span class="spinner spinner--sm" *ngIf="generatingSummary && summaryEventId === detailEvent.id"></span>
+                {{ (generatingSummary && summaryEventId === detailEvent.id) ? 'Generating…' : '✨ AI Summary' }}
+              </button>
+              <button class="modal-btn"
+                      [class.modal-btn--register]="!isEventFull(detailEvent)"
+                      [class.modal-btn--full]="isEventFull(detailEvent)"
+                      (click)="!isEventFull(detailEvent) && registerForEvent(detailEvent.id!)"
+                      [disabled]="registering || isEventFull(detailEvent)">
+                <span class="spinner spinner--sm" *ngIf="registering"></span>
+                <ng-container *ngIf="!isEventFull(detailEvent)">
+                  {{ registering ? 'Registering…' : '📝 Register' }}
+                </ng-container>
+                <ng-container *ngIf="isEventFull(detailEvent)">🔴 Complet</ng-container>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── RIGHT COLUMN ── -->
+        <div class="detail-right">
+
+          <!-- Speakers + Map -->
+          <div class="detail-map-section" *ngIf="detailEvent.location">
+            <div class="detail-map-header">
+              <app-event-speakers
+                *ngIf="selectedEventIdForSpeakers"
+                [eventId]="selectedEventIdForSpeakers"
+                [eventDescription]="detailEvent.description ?? ''">
+              </app-event-speakers>
+            </div>
+            <div class="detail-map-canvas">
+              <app-event-map
+                [location]="detailEvent.location"
+                [lat]="detailEvent.lat"
+                [lng]="detailEvent.lng">
+              </app-event-map>
+            </div>
+          </div>
+
+          <!-- QR -->
+          <div class="detail-qr-section">
+            <app-event-qrcode [eventId]="detailEvent.id!"></app-event-qrcode>
+          </div>
+
+          <!-- Google Calendar -->
+          <div class="google-cal-wrap">
+            <a class="google-cal-btn"
+               [href]="getGoogleCalendarUrl(detailEvent)"
+               target="_blank"
+               rel="noopener noreferrer">
+              <span class="google-cal-btn__icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8"  y1="2" x2="8"  y2="6"/>
+                  <line x1="3"  y1="10" x2="21" y2="10"/>
+                </svg>
+              </span>
+              <span class="google-cal-btn__text">Ajouter à Google Agenda</span>
+              <span class="google-cal-btn__glow"></span>
+            </a>
+          </div>
+
+          <!-- ══ REVIEWS ══════════════════════════════════════════ -->
+          <div class="rv-section">
+            <div class="rv-section__header">
+              <div class="rv-section__title-group">
+                <h3 class="rv-section__title">
+                  <span>💬</span> Reviews
+                  <span class="rv-section__count" *ngIf="reviews.length">({{ reviews.length }})</span>
+                </h3>
+                <p class="rv-section__sub" *ngIf="reviews.length">Community feedback for this event</p>
+              </div>
+              <button class="rv-add-btn" (click)="openReviewForm()" *ngIf="!reviewFormOpen">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5"  y1="12" x2="19" y2="12"/>
+                </svg>
+                Write a Review
+              </button>
+            </div>
+
+            <!-- Summary bar -->
+            <div class="rv-summary" *ngIf="reviews.length">
+              <div class="rv-summary__score">
+                <span class="rv-summary__avg">{{ reviewAverage }}</span>
+                <div class="rv-summary__stars">
+                  <span class="rv-sum-star"
+                        *ngFor="let s of stars"
+                        [class.rv-sum-star--filled]="s <= reviewAverage">★</span>
+                </div>
+                <span class="rv-summary__label">out of 5</span>
+              </div>
+              <div class="rv-summary__bars">
+                <div class="rv-bar-row" *ngFor="let d of reviewDistribution">
+                  <span class="rv-bar-row__lbl">{{ d.star }}★</span>
+                  <div class="rv-bar-row__track">
+                    <div class="rv-bar-row__fill" [style.width.%]="d.pct"></div>
+                  </div>
+                  <span class="rv-bar-row__cnt">{{ d.count }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- States -->
+            <div class="rv-loading" *ngIf="reviewsLoading">
+              <span class="spinner"></span> Loading reviews…
+            </div>
+            <div class="rv-error" *ngIf="reviewsError && !reviewsLoading">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8"  x2="12"    y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ reviewsError }}
+            </div>
+            <div class="rv-empty"
+                 *ngIf="!reviewsLoading && !reviewsError && reviews.length === 0 && !reviewFormOpen">
+              <div class="rv-empty__icon">💭</div>
+              <p class="rv-empty__text">No reviews yet — be the first to share your thoughts!</p>
+              <button class="rv-add-btn" (click)="openReviewForm()">Write a Review</button>
+            </div>
+
+            <!-- Review form -->
+            <div class="rv-form-card" *ngIf="reviewFormOpen">
+              <div class="rv-form-card__header">
+                <span class="rv-form-card__title">Your Review</span>
+                <button class="rv-form-card__close" (click)="closeReviewForm()">×</button>
+              </div>
+              <div class="rv-star-picker">
+                <button class="rv-star-btn"
+                        *ngFor="let s of stars"
+                        (mouseenter)="reviewHover = s"
+                        (mouseleave)="reviewHover = 0"
+                        (click)="reviewForm.rating = s"
+                        [class.rv-star-btn--on]="reviewStarFilled(s, reviewForm.rating, reviewHover)"
+                        type="button">★</button>
+                <span class="rv-star-label" *ngIf="reviewForm.rating || reviewHover">
+                  {{ reviewRatingLabel(reviewHover || reviewForm.rating) }}
+                </span>
+              </div>
+              <textarea class="rv-textarea"
+                        [(ngModel)]="reviewForm.comment"
+                        placeholder="Share your experience…"
+                        rows="3"
+                        maxlength="500">
+              </textarea>
+              <div class="rv-char-count">{{ reviewForm.comment.length }}/500</div>
+              <div class="rv-form-actions">
+                <button class="modal-btn modal-btn--cancel" (click)="closeReviewForm()">Cancel</button>
+                <button class="modal-btn modal-btn--save" (click)="submitReview()" [disabled]="reviewSubmitting">
+                  <span class="spinner spinner--sm" *ngIf="reviewSubmitting"></span>
+                  {{ reviewSubmitting ? 'Submitting…' : 'Submit Review' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Review list -->
+            <div class="rv-list" *ngIf="!reviewsLoading && reviews.length">
+              <div class="rv-card"
+                   *ngFor="let r of reviews; let i = index"
+                   [style.animation-delay]="i * 50 + 'ms'">
+
+                <!-- View mode -->
+                <ng-container *ngIf="reviewEditingId !== r.id">
+                  <div class="rv-card__top">
+                    <div class="rv-card__user">
+                      <div class="rv-card__avatar">U</div>
+                      <div>
+                        <span class="rv-card__username">User #{{ r?.userId }}</span>
+                        <span class="rv-card__date" *ngIf="r.reviewedAt">
+                          {{ r.reviewedAt | date:'d MMM yyyy' }}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="rv-card__stars">
+                      <span class="rv-card__star"
+                            *ngFor="let s of stars"
+                            [class.rv-card__star--on]="s <= r.rating">★</span>
+                      <span class="rv-card__rnum">{{ r.rating }}/5</span>
+                    </div>
+                  </div>
+                  <p class="rv-card__comment">{{ r.comment }}</p>
+                  <div class="rv-card__actions">
+                    <button class="rv-card__btn rv-card__btn--edit" (click)="startEditReview(r)">✏️ Edit</button>
+                    <button class="rv-card__btn rv-card__btn--del"
+                            (click)="deleteReview(r.id!)"
+                            [disabled]="reviewDeletingId === r.id">
+                      <span class="spinner spinner--sm" *ngIf="reviewDeletingId === r.id"></span>
+                      {{ reviewDeletingId === r.id ? 'Deleting…' : '🗑️ Delete' }}
+                    </button>
+                  </div>
+                </ng-container>
+
+                <!-- Edit mode -->
+                <ng-container *ngIf="reviewEditingId === r.id">
+                  <div class="rv-edit-mode">
+                    <div class="rv-star-picker">
+                      <button class="rv-star-btn"
+                              *ngFor="let s of stars"
+                              (mouseenter)="reviewEditHover = s"
+                              (mouseleave)="reviewEditHover = 0"
+                              (click)="reviewEditForm.rating = s"
+                              [class.rv-star-btn--on]="reviewStarFilled(s, reviewEditForm.rating, reviewEditHover)"
+                              type="button">★</button>
+                      <span class="rv-star-label" *ngIf="reviewEditForm.rating || reviewEditHover">
+                        {{ reviewRatingLabel(reviewEditHover || reviewEditForm.rating) }}
+                      </span>
+                    </div>
+                    <textarea class="rv-textarea"
+                              [(ngModel)]="reviewEditForm.comment"
+                              rows="3"
+                              maxlength="500">
+                    </textarea>
+                    <div class="rv-form-actions">
+                      <button class="modal-btn modal-btn--cancel" (click)="cancelEditReview()">Cancel</button>
+                      <button class="modal-btn modal-btn--save"
+                              (click)="saveEditReview(r)"
+                              [disabled]="reviewSavingEdit">
+                        <span class="spinner spinner--sm" *ngIf="reviewSavingEdit"></span>
+                        {{ reviewSavingEdit ? 'Saving…' : '💾 Save' }}
+                      </button>
+                    </div>
+                  </div>
+                </ng-container>
+
+              </div>
+            </div>
+          </div><!-- /rv-section -->
+
+        </div><!-- /detail-right -->
+      </div><!-- /detail-layout -->
+    </div><!-- /modal__body -->
+  </div><!-- /modal--detail -->
+</div><!-- /modal-backdrop detail -->
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- DELETE CONFIRMATION MODAL                                     -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" *ngIf="deleteTarget" (click)="deleteTarget = null">
+  <div class="modal modal--sm" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <div class="modal__header">
+      <h2 class="modal__title modal__title--danger">Delete Event</h2>
+      <button class="modal__close" (click)="deleteTarget = null">×</button>
+    </div>
+    <div class="modal__body">
+      <p class="modal__confirm-text">
+        Are you sure you want to delete <strong>{{ deleteTarget.title }}</strong>?
+        This action cannot be undone.
+      </p>
+    </div>
+    <div class="modal__footer">
+      <button class="modal-btn modal-btn--cancel" (click)="deleteTarget = null">Cancel</button>
+      <button class="modal-btn modal-btn--danger" (click)="doDelete()" [disabled]="deleting">
+        <span class="spinner spinner--sm" *ngIf="deleting"></span>
+        {{ deleting ? 'Deleting…' : 'Delete' }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- TOAST                                                         -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<div class="toast"
+     [class.toast--show]="toastVisible"
+     [class.toast--error]="toastError"
+     role="alert"
+     aria-live="polite">
+  <svg *ngIf="!toastError" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+  <svg *ngIf="toastError" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8"  x2="12"    y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
+  </svg>
+  {{ toastMsg }}
+</div>

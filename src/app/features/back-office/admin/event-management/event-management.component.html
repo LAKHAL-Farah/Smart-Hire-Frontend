@@ -1,0 +1,713 @@
+<div class="em">
+
+  <!-- ═══════ FLAGGED ALERT ═══════ -->
+  @if (flaggedCount > 0) {
+    <div class="flagged-alert">
+      <div class="flagged-alert__left">
+        <lucide-icon name="flag" [size]="18"></lucide-icon>
+        <span class="flagged-alert__text">{{ flaggedCount }} event{{ flaggedCount === 1 ? '' : 's' }} flagged for review</span>
+      </div>
+      <button class="btn btn--danger-solid btn--sm" (click)="showFlagged()">Review Flagged</button>
+    </div>
+  }
+
+  <!-- ═══════ TOOLBAR ═══════ -->
+  <div class="toolbar">
+    <div class="toolbar__left">
+      <div class="search-box">
+        <lucide-icon name="search" [size]="15"></lucide-icon>
+        <input type="text" placeholder="Search events..." [(ngModel)]="searchQuery" class="search-input" />
+      </div>
+
+      <select [(ngModel)]="statusFilter" class="filter-select">
+        @for (s of statuses; track s) {
+          <option [value]="s">{{ s === 'All' ? 'All Status' : s }}</option>
+        }
+      </select>
+
+      <select [(ngModel)]="typeFilter" class="filter-select">
+        @for (t of types; track t) {
+          <option [value]="t">{{ t === 'All' ? 'All Types' : t }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="toolbar__right">
+      <button class="btn btn--primary btn--sm" (click)="openAddModal()">
+        <lucide-icon name="plus" [size]="15"></lucide-icon>
+        Add Event
+      </button>
+      <button class="btn btn--outline">
+        <lucide-icon name="download" [size]="15"></lucide-icon>
+        Export CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════ LOADING / ERROR ═══════ -->
+  @if (loading) {
+    <div class="state-msg"><lucide-icon name="loader" [size]="20"></lucide-icon> Loading events...</div>
+  }
+  @if (error) {
+    <div class="state-msg state-msg--error">{{ error }}</div>
+  }
+
+  <!-- ═══════ TABLE ═══════ -->
+  @if (!loading) {
+    <div class="table-wrap">
+      <table class="event-table">
+        <thead>
+          <tr>
+            <th class="col-check">
+              <input type="checkbox" [checked]="allChecked" (change)="toggleAll()" />
+            </th>
+            <th>Event</th>
+            <th>Type</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Online</th>
+            <th>Start Date</th>
+            <th>Capacity</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (event of paginatedEvents; track event.id) {
+            <tr
+              [class.row-selected]="isSelected(event.id)"
+              [class.row-flagged]="event.status === 'FLAGGED'"
+              (click)="openDrawer(event)">
+
+              <!-- Checkbox -->
+              <td class="col-check" (click)="$event.stopPropagation()">
+                <input type="checkbox" [checked]="isSelected(event.id)" (change)="toggleRow(event.id)" />
+              </td>
+
+              <!-- Event title + initiales -->
+              <td>
+                <div class="event-cell">
+                  <span class="logo-sm" [style.background]="logoGradient(event.id)">
+                    {{ getInitials(event.title) }}
+                  </span>
+                  <div class="event-info">
+                    <span class="event-title">{{ event.title }}</span>
+                    <span class="event-sub">{{ event.domain }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Type -->
+              <td class="text-dim">{{ event.type }}</td>
+
+              <!-- Location badge -->
+              <td>
+                <span class="lbadge" [ngClass]="getLocationClass(event.online, event.location)">
+                 {{event.online ? 'Online' : (event.location || '—')}}
+                </span>
+              </td>
+
+              <!-- Status badge -->
+              <td>
+                <span class="sbadge" [ngClass]="getStatusClass(event.status)">
+                  {{ getStatusLabel(event.status) }}
+                </span>
+              </td>
+
+              <!-- Online badge -->
+              <td>
+                <span class="obadge" [ngClass]="event.online ? 'obadge--online' : 'obadge--offline'">
+                  <span class="obadge__dot"></span>
+                  {{ event.online ? 'Online' : 'Offline' }}
+                </span>
+              </td>
+
+              <!-- Start date -->
+              <td class="text-dim">{{ formatDate(event.startDate) }}</td>
+
+              <!-- Capacity -->
+              <td class="text-center">
+                <span class="app-count">{{ event.currentRegistrations }} / {{ event.maxCapacity }}</span>
+              </td>
+
+              <!-- Actions 3 dots -->
+              <td class="col-actions" (click)="$event.stopPropagation()">
+                <div class="actions-wrap">
+                  <button class="dots-btn" (click)="toggleMenu(event.id, $event)">
+                    <lucide-icon name="ellipsis-vertical" [size]="16"></lucide-icon>
+                  </button>
+                  @if (openMenuId === event.id) {
+                    <div class="action-menu">
+                      <button class="action-menu__item" (click)="openDrawer(event)">
+                        View Details
+                      </button>
+                      <button class="action-menu__item" (click)="editEvent(event); $event.stopPropagation()">
+                        Edit Event
+                      </button>
+                      @if (event.status === 'FLAGGED') {
+                        <button class="action-menu__item action-menu__item--teal" (click)="unflagEvent(event); $event.stopPropagation()">
+                          Approve &amp; Unflag
+                        </button>
+                        <button class="action-menu__item action-menu__item--danger" (click)="removeEvent(event); $event.stopPropagation()">
+                          Remove Event
+                        </button>
+                      }
+                      @if (event.status === 'ONGOING' || event.status === 'PUBLISHED') {
+                        <button class="action-menu__item" (click)="closeEvent(event); $event.stopPropagation()">
+                          Close Event
+                        </button>
+                      }
+                      <button class="action-menu__item action-menu__item--danger" (click)="removeEvent(event); $event.stopPropagation()">
+                        Delete
+                      </button>
+                    </div>
+                  }
+                </div>
+              </td>
+
+            </tr>
+          }
+
+          @if (paginatedEvents.length === 0) {
+            <tr>
+              <td colspan="9" class="empty-state">No events found.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <!-- ═══════ PAGINATION ═══════ -->
+  <div class="pagination">
+    <span class="pagination__info">
+      Showing {{ (currentPage - 1) * pageSize + 1 }}–{{ currentPage * pageSize > filteredEvents.length ? filteredEvents.length : currentPage * pageSize }} of {{ filteredEvents.length }}
+    </span>
+    <div class="pagination__btns">
+      <button class="pg-btn" [disabled]="currentPage === 1" (click)="goPage(currentPage - 1)">←</button>
+      @for (p of pageNumbers; track p) {
+        <button class="pg-btn" [class.pg-active]="p === currentPage" (click)="goPage(p)">{{ p }}</button>
+      }
+      <button class="pg-btn" [disabled]="currentPage === totalPages" (click)="goPage(currentPage + 1)">→</button>
+    </div>
+  </div>
+
+  <!-- ═══════ BULK ACTION BAR ═══════ -->
+  @if (selectedIds.size > 0) {
+    <div class="bulk-bar">
+      <span class="bulk-bar__count">{{ selectedIds.size }} event{{ selectedIds.size === 1 ? '' : 's' }} selected</span>
+      <div class="bulk-bar__actions">
+        <button class="btn btn--outline btn--sm">Export Selected</button>
+        <button class="btn btn--outline btn--sm">Close Selected</button>
+        <button class="btn btn--danger btn--sm">Remove Selected</button>
+        <button class="btn btn--ghost btn--sm" (click)="clearSelection()">Clear</button>
+      </div>
+    </div>
+  }
+
+  <!-- ═══════ EVENT DETAILS DRAWER ═══════ -->
+  @if (drawerOpen && drawerEvent) {
+    <div class="drawer-overlay" (click)="closeDrawer()"></div>
+    <aside class="drawer">
+      <button class="drawer__close" (click)="closeDrawer()">
+        <lucide-icon name="x" [size]="20"></lucide-icon>
+      </button>
+
+      <div class="drawer__header">
+        <span class="logo-lg" [style.background]="logoGradient(drawerEvent.id)">
+          {{ getInitials(drawerEvent.title) }}
+        </span>
+        <h2 class="drawer__title">{{ drawerEvent.title }}</h2>
+        <span class="drawer__company">{{ drawerEvent.domain }}</span>
+        <div class="drawer__pills">
+          <span class="sbadge" [ngClass]="getStatusClass(drawerEvent.status)">
+            {{ getStatusLabel(drawerEvent.status) }}
+          </span>
+          <span class="lbadge" [ngClass]="getLocationClass(drawerEvent.online, drawerEvent.location)">
+            {{ getLocationType(drawerEvent.online, drawerEvent.location) }}
+          </span>
+          <span class="obadge" [ngClass]="drawerEvent.online ? 'obadge--online' : 'obadge--offline'">
+            <span class="obadge__dot"></span>
+            {{ drawerEvent.online ? 'Online' : 'Offline' }}
+          </span>
+        </div>
+      </div>
+
+      <div class="drawer__section">
+        <h4 class="drawer__label">Details</h4>
+        <div class="drawer__row"><span>Type</span><span>{{ drawerEvent.type }}</span></div>
+        <div class="drawer__row"><span>Location</span><span>{{ drawerEvent.location || '—' }}</span></div>
+        <div class="drawer__row"><span>Start</span><span>{{ formatDate(drawerEvent.startDate) }}</span></div>
+        <div class="drawer__row"><span>End</span><span>{{ formatDate(drawerEvent.endDate) }}</span></div>
+        <div class="drawer__row"><span>Capacity</span><span>{{ drawerEvent.maxCapacity }}</span></div>
+        <div class="drawer__row"><span>Registered</span><span>{{ drawerEvent.currentRegistrations }}</span></div>
+        <div class="drawer__row"><span>Organizer ID</span><span>#{{ drawerEvent.organizerId }}</span></div>
+        @if (drawerEvent.onlineUrl) {
+          <div class="drawer__row">
+            <span>Online URL</span>
+            <a class="drawer__link" [href]="drawerEvent.onlineUrl" target="_blank">Open link</a>
+          </div>
+        }
+      </div>
+
+      <div class="drawer__section">
+        <h4 class="drawer__label">Description</h4>
+        <p class="drawer__text">{{ drawerEvent.description }}</p>
+      </div>
+
+      @if (drawerEvent.aiSummary) {
+        <div class="drawer__section">
+          <h4 class="drawer__label">AI Summary</h4>
+          <p class="drawer__text drawer__text--ai">{{ drawerEvent.aiSummary }}</p>
+        </div>
+      }
+
+      @if (drawerEvent.tags && drawerEvent.tags.length > 0) {
+        <div class="drawer__section">
+          <h4 class="drawer__label">Tags</h4>
+          <div class="drawer__tags">
+            @for (tag of drawerEvent.tags; track tag.id) {
+              <span class="tag-pill">{{ tag.name }}</span>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="drawer__actions">
+        @if (drawerEvent.status === 'FLAGGED') {
+          <button class="btn btn--primary btn--full" (click)="unflagEvent(drawerEvent)">
+            Approve &amp; Unflag
+          </button>
+          <button class="btn btn--danger btn--full" (click)="removeEvent(drawerEvent)">
+            Remove Event
+          </button>
+        }
+        @if (drawerEvent.status === 'ONGOING' || drawerEvent.status === 'PUBLISHED') {
+          <button class="btn btn--outline btn--full" (click)="closeEvent(drawerEvent)">
+            Close Event
+          </button>
+        }
+        <button class="btn btn--outline btn--full" (click)="editEvent(drawerEvent)">
+          <lucide-icon name="pencil" [size]="15"></lucide-icon>
+          Edit Event
+        </button>
+      </div>
+
+    </aside>
+  }
+
+  <!-- ═══════ ADD MODAL ═══════ -->
+  @if (addModalOpen) {
+    <div class="drawer-overlay" (click)="closeAddModal()"></div>
+    <aside class="drawer">
+      <button class="drawer__close" (click)="closeAddModal()">
+        <lucide-icon name="x" [size]="20"></lucide-icon>
+      </button>
+
+      <div class="drawer__header">
+        <h2 class="drawer__title">Add New Event</h2>
+      </div>
+
+      <div class="add-form">
+        <div class="form-group">
+          <label>Title</label>
+          <input class="form-input" type="text" [(ngModel)]="newEvent.title" placeholder="Event title" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea class="form-input form-textarea" [(ngModel)]="newEvent.description" placeholder="Description"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Type</label>
+            <select class="form-input" [(ngModel)]="newEvent.type">
+              <option value="CONGRESS">Congress</option>
+              <option value="CONFERENCE">Conference</option>
+              <option value="HACKATHON">Hackathon</option>
+              <option value="WORKSHOP">Workshop</option>
+              <option value="MEETUP">Meetup</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Domain</label>
+            <input class="form-input" type="text" [(ngModel)]="newEvent.domain" placeholder="Domain" />
+          </div>
+           <div class="form-group">
+            <label>EventTags</label>
+            <input class="form-input" type="text" [(ngModel)]="newEvent.tags" placeholder="EventTags" />
+          </div>
+          
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input class="form-input" type="text" [(ngModel)]="newEvent.location" placeholder="City, Country" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Start Date</label>
+            <input class="form-input" type="datetime-local" [(ngModel)]="newEvent.startDate" />
+          </div>
+          <div class="form-group">
+            <label>End Date</label>
+            <input class="form-input" type="datetime-local" [(ngModel)]="newEvent.endDate" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Max Capacity</label>
+            <input class="form-input" type="number" [(ngModel)]="newEvent.maxCapacity" placeholder="200" />
+          </div>
+          <div class="form-group form-group--check">
+            <label>
+              <input type="checkbox" [(ngModel)]="newEvent.online" />
+              Online Event
+            </label>
+          </div>
+        </div>
+        @if (newEvent.online) {
+          <div class="form-group">
+            <label>Online URL</label>
+            <input class="form-input" type="url" [(ngModel)]="newEvent.onlineUrl" placeholder="https://..." />
+          </div>
+        }
+      </div>
+
+      <div class="drawer__actions">
+        <button class="btn btn--primary btn--full" (click)="addEvent()">Create Event</button>
+        <button class="btn btn--outline btn--full" (click)="closeAddModal()">Cancel</button>
+      </div>
+    </aside>
+  }
+
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════ STYLES ═══ -->
+<style>
+  :host {
+    --bg-primary:    #0f1117;
+    --bg-secondary:  #161b27;
+    --bg-card:       #1a2035;
+    --bg-hover:      #1e2640;
+    --border:        #252d42;
+    --text-primary:  #e2e8f0;
+    --text-secondary:#64748b;
+    --text-muted:    #475569;
+    --red:           #ef4444;
+    --green:         #22c55e;
+    --blue:          #3b82f6;
+    --teal:          #14b8a6;
+    --amber:         #f59e0b;
+    display: block;
+    font-family: 'DM Sans', 'Segoe UI', sans-serif;
+    background: var(--bg-primary);
+    min-height: 100vh;
+    color: var(--text-primary);
+  }
+
+  .em {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 28px 32px;
+    position: relative;
+  }
+
+  /* ── FLAGGED ALERT ── */
+  .flagged-alert {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+    border-radius: 12px; padding: 13px 20px; margin-bottom: 20px;
+  }
+  .flagged-alert__left { display: flex; align-items: center; gap: 10px; color: var(--red); }
+  .flagged-alert__text { font-size: .875rem; font-weight: 600; }
+
+  /* ── TOOLBAR ── */
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .toolbar__left  { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: 1; }
+  .toolbar__right { display: flex; align-items: center; gap: 10px; }
+
+  .search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; min-width: 220px; flex: 1;
+  }
+  .search-input { background: transparent; border: none; outline: none; color: var(--text-secondary); font-size: .875rem; width: 100%; }
+  .filter-select {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; color: var(--text-primary);
+    font-size: .875rem; outline: none; cursor: pointer; appearance: auto;
+  }
+
+  /* ── STATE ── */
+  .state-msg { display: flex; align-items: center; gap: 8px; padding: 24px; color: var(--text-muted); font-size: .9rem; }
+  .state-msg--error { color: var(--red); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 9px; font-size: .85rem; font-weight: 600;
+    cursor: pointer; padding: 9px 18px; border: 1px solid transparent;
+    transition: opacity .18s, background .18s; white-space: nowrap;
+  }
+  .btn--sm          { padding: 7px 14px; font-size: .8rem; }
+  .btn--full        { width: 100%; justify-content: center; }
+  .btn--primary     { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .btn--primary:hover { opacity: .88; }
+  .btn--outline     { background: transparent; color: var(--text-primary); border-color: var(--border); }
+  .btn--outline:hover { background: var(--bg-hover); border-color: #3b4a6b; }
+  .btn--danger      { background: transparent; color: var(--red); border-color: rgba(239,68,68,.4); }
+  .btn--danger:hover  { background: rgba(239,68,68,.1); }
+  .btn--danger-solid  { background: var(--red); color: #fff; }
+  .btn--danger-solid:hover { opacity: .85; }
+  .btn--ghost       { background: transparent; color: var(--text-secondary); border-color: transparent; }
+  .btn--ghost:hover   { background: var(--bg-hover); }
+
+  /* ── TABLE ── */
+  .table-wrap { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+  .event-table { width: 100%; border-collapse: collapse; }
+  .event-table thead tr { border-bottom: 1px solid var(--border); }
+  .event-table th {
+    padding: 13px 16px; text-align: left; font-size: .7rem;
+    font-weight: 600; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase;
+  }
+  .event-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .15s; cursor: pointer; position: relative;
+  }
+  .event-table tbody tr:last-child { border-bottom: none; }
+  .event-table tbody tr:hover      { background: var(--bg-hover); }
+  .event-table td { padding: 13px 16px; font-size: .875rem; color: var(--text-secondary); vertical-align: middle; }
+
+  .col-check   { width: 44px; }
+  .col-actions { width: 60px; }
+  .text-dim    { color: var(--text-muted); }
+  .text-center { text-align: center; }
+
+  .row-flagged::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 3px; background: var(--red); border-radius: 0 2px 2px 0;
+  }
+  .row-selected { background: rgba(59,130,246,.05); }
+  .empty-state  { text-align: center; color: var(--text-muted); padding: 48px 16px !important; font-size: .9rem; }
+
+  /* ── EVENT CELL ── */
+  .event-cell { display: flex; align-items: center; gap: 11px; }
+  .logo-sm {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 700; color: #fff; flex-shrink: 0; letter-spacing: .5px;
+  }
+  .event-info    { display: flex; flex-direction: column; gap: 2px; }
+  .event-title   { font-weight: 600; color: var(--text-primary); font-size: .9rem; }
+  .event-sub     { font-size: .78rem; color: var(--text-muted); }
+  .app-count     { font-weight: 600; color: var(--text-primary); font-size: .85rem; }
+
+  /* ── LOCATION BADGE ── */
+  .lbadge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: .78rem; font-weight: 600; }
+  .lbadge--remote  { background: rgba(139,92,246,.15); color: #a78bfa; border: 1px solid rgba(139,92,246,.3); }
+  .lbadge--hybrid  { background: rgba(245,158,11,.12); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); }
+  .lbadge--onsite  { background: rgba(249,115,22,.12); color: #fb923c; border: 1px solid rgba(249,115,22,.25); }
+
+  /* ── STATUS BADGE ── */
+  .sbadge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: .8rem; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  }
+  .sbadge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .sbadge--active  { color: var(--green);      background: rgba(34,197,94,.1);   border: 1px solid rgba(34,197,94,.25); }
+  .sbadge--active::before  { background: var(--green);  box-shadow: 0 0 6px rgba(34,197,94,.5); }
+  .sbadge--flagged { color: var(--red);        background: rgba(239,68,68,.1);   border: 1px solid rgba(239,68,68,.25); }
+  .sbadge--flagged::before { background: var(--red);    box-shadow: 0 0 6px rgba(239,68,68,.5); }
+  .sbadge--closed  { color: var(--text-muted); background: rgba(71,85,105,.1);   border: 1px solid rgba(71,85,105,.2); }
+  .sbadge--closed::before  { background: var(--text-muted); }
+  .sbadge--pending { color: var(--amber);      background: rgba(245,158,11,.1);  border: 1px solid rgba(245,158,11,.25); }
+  .sbadge--pending::before { background: var(--amber); box-shadow: 0 0 6px rgba(245,158,11,.5); }
+
+  /* ── ONLINE BADGE ── */
+  .obadge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 20px; font-size: .78rem; font-weight: 600; }
+  .obadge__dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .obadge--online  { background: rgba(20,184,166,.12); color: #5eead4; border: 1px solid rgba(20,184,166,.3); }
+  .obadge--online  .obadge__dot { background: var(--teal); box-shadow: 0 0 5px rgba(20,184,166,.6); }
+  .obadge--offline { background: rgba(71,85,105,.1); color: var(--text-muted); border: 1px solid rgba(71,85,105,.2); }
+  .obadge--offline .obadge__dot { background: var(--text-muted); }
+
+  /* ── 3-DOTS MENU ── */
+  .actions-wrap { position: relative; display: flex; justify-content: center; }
+  .dots-btn {
+    background: transparent; border: none; color: var(--text-muted);
+    cursor: pointer; padding: 5px 8px; border-radius: 6px;
+    display: flex; align-items: center; transition: background .15s, color .15s;
+  }
+  .dots-btn:hover { background: var(--bg-card); color: var(--text-primary); }
+
+  .action-menu {
+    position: absolute; right: 0; top: calc(100% + 4px);
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; min-width: 170px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    z-index: 100; overflow: hidden;
+    animation: menuFade .12s ease;
+  }
+  @keyframes menuFade { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+
+  .action-menu__item {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: none; color: var(--text-secondary);
+    font-size: .85rem; padding: 10px 16px; cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .action-menu__item:hover              { background: var(--bg-hover); color: var(--text-primary); }
+  .action-menu__item--teal              { color: var(--teal); }
+  .action-menu__item--teal:hover        { background: rgba(20,184,166,.1); color: var(--teal); }
+  .action-menu__item--danger            { color: var(--red); }
+  .action-menu__item--danger:hover      { background: rgba(239,68,68,.1); color: var(--red); }
+
+  /* ── PAGINATION ── */
+  .pagination { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+  .pagination__info { font-size: .8rem; color: var(--text-muted); }
+  .pagination__btns { display: flex; gap: 4px; }
+  .pg-btn {
+    min-width: 34px; height: 34px; background: var(--bg-secondary);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text-secondary);
+    font-size: .82rem; cursor: pointer; transition: background .15s, color .15s;
+    display: flex; align-items: center; justify-content: center; padding: 0 8px;
+  }
+  .pg-btn:hover:not([disabled]) { background: var(--bg-hover); color: var(--text-primary); }
+  .pg-btn[disabled]  { opacity: .3; cursor: not-allowed; }
+  .pg-active { background: var(--blue) !important; color: #fff !important; border-color: var(--blue) !important; }
+
+  /* ── BULK BAR ── */
+  .bulk-bar {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4); z-index: 200;
+    animation: slideUp .18s ease;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateX(-50%) translateY(10px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+  .bulk-bar__count   { font-size: .85rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+  .bulk-bar__actions { display: flex; gap: 8px; }
+
+  /* ── DRAWER ── */
+  .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 300; animation: fadeIn .18s ease; }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 440px;
+    background: var(--bg-card); border-left: 1px solid var(--border);
+    z-index: 400; overflow-y: auto; padding: 28px 28px 40px;
+    display: flex; flex-direction: column; animation: slideIn .22s ease;
+  }
+  @keyframes slideIn { from { transform:translateX(100%); } to { transform:translateX(0); } }
+
+  .drawer__close {
+    position: absolute; top: 20px; right: 20px;
+    background: var(--bg-hover); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text-muted); cursor: pointer;
+    padding: 6px; display: flex; align-items: center; transition: color .15s;
+  }
+  .drawer__close:hover { color: var(--text-primary); }
+
+  .drawer__header {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+    margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+  }
+  .logo-lg {
+    width: 56px; height: 56px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: 700; color: #fff; margin-bottom: 6px;
+  }
+  .drawer__title   { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+  .drawer__company { font-size: .85rem; color: var(--text-muted); }
+  .drawer__pills   { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+
+  .drawer__section { margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+  .drawer__section:last-of-type { border-bottom: none; }
+  .drawer__label {
+    font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+  }
+  .drawer__row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid rgba(37,45,66,.5); font-size: .875rem;
+  }
+  .drawer__row:last-child  { border-bottom: none; }
+  .drawer__row > span:first-child { color: var(--text-muted); }
+  .drawer__row > span:last-child  { color: var(--text-primary); font-weight: 500; }
+  .drawer__link { color: var(--blue); font-size: .85rem; text-decoration: none; }
+  .drawer__link:hover { text-decoration: underline; }
+  .drawer__text { font-size: .875rem; color: var(--text-secondary); line-height: 1.65; }
+  .drawer__text--ai {
+    background: rgba(59,130,246,.07); border: 1px solid rgba(59,130,246,.2);
+    border-radius: 8px; padding: 12px 14px; font-style: italic;
+  }
+  .drawer__tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag-pill {
+    background: rgba(139,92,246,.15); color: #a78bfa;
+    border: 1px solid rgba(139,92,246,.3); border-radius: 20px;
+    padding: 4px 12px; font-size: .78rem; font-weight: 600;
+  }
+  .drawer__actions { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+  /* ── ADD FORM ── */
+  .add-form { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group--check { justify-content: flex-end; padding-bottom: 4px; }
+  .form-group--check label { display: flex; align-items: center; gap: 8px; font-size: .875rem; color: var(--text-secondary); cursor: pointer; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group label { font-size: .78rem; font-weight: 600; letter-spacing: .05em; color: var(--text-muted); text-transform: uppercase; }
+  .form-input {
+    background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 12px; color: var(--text-primary);
+    font-size: .875rem; outline: none; transition: border-color .15s; width: 100%;
+  }
+  .form-input:focus { border-color: var(--blue); }
+  .form-textarea { min-height: 90px; resize: vertical; }
+
+  /* ── CHECKBOX ── */
+  input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--blue); cursor: pointer; }
+  /* Ajouter un défilement horizontal si nécessaire */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.event-table {
+  min-width: 800px; /* force le défilement sur petit écran */
+}
+
+/* Espacement des colonnes */
+.event-table th, .event-table td {
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+
+/* Largeurs spécifiques */
+.col-check { width: 40px; }
+.col-actions { width: 70px; }
+.event-table th:nth-child(2) { min-width: 220px; } /* colonne Event */
+.event-table th:nth-child(3) { width: 120px; } /* Type */
+.event-table th:nth-child(4) { width: 110px; } /* Location */
+.event-table th:nth-child(5) { width: 110px; } /* Status */
+.event-table th:nth-child(6) { width: 90px; }  /* Online */
+.event-table th:nth-child(7) { width: 110px; } /* Start Date */
+.event-table th:nth-child(8) { width: 100px; } /* Capacity */
+
+/* Éviter le retour à la ligne dans les cellules */
+.event-table td {
+  white-space: nowrap;
+}
+
+/* Pour le titre d'événement, on peut autoriser le retour à la ligne avec une largeur max */
+.event-cell {
+  max-width: 250px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.event-title {
+  display: block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

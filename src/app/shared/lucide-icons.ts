@@ -1,16 +1,10 @@
-/**
- * Shared Lucide icon set for the SmartHire application (front-office + back-office).
- *
- * Import `LUCIDE_ICONS` in any standalone component's `imports` array.
- *
- * Usage in templates:  <lucide-icon name="search" [size]="16"></lucide-icon>
- */
 import { NgModule } from '@angular/core';
 import {
   LucideAngularModule,
-  LucideAngularComponent,
-  LucideIconProvider,
   LUCIDE_ICONS as LUCIDE_ICONS_TOKEN,
+  LucideIconProvider,
+  // importer Loader
+  Loader,
   Activity,
   AlertCircle,
   Archive,
@@ -106,12 +100,20 @@ import {
   Zap,
 } from 'lucide-angular';
 
+// ✅ Ajouter Loader dans l'objet icons
 const icons = {
+<<<<<<< HEAD
   Activity, AlertCircle, Archive, ArrowLeft, ArrowRight,
   BarChart2, Bell, Bookmark, BookOpen,
   BrainCircuit, Briefcase, Calendar, ChartBar, Check, CheckCircle,
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
   CircleCheck, CirclePlay, CircleQuestionMark, CircleX,
+=======
+  Loader, // <-- ajouté
+  Activity, Archive, ArrowLeft, ArrowRight, Bell, Bookmark, BookOpen,
+  BrainCircuit, Briefcase, Calendar, ChartBar, Check, ChevronDown, ChevronLeft,
+  ChevronRight, ChevronUp, CircleCheck, CirclePlay, CircleQuestionMark, CircleX,
+>>>>>>> feature/event-management
   Clock, Code, Cpu, CreditCard, Database, DollarSign, Download, EllipsisVertical,
   Eye, EyeOff, File, FileText, Film, Flag, Flame, Folder,
   Github, Globe, GraduationCap, Grid2x2, HardDrive, Image, Info, Inbox,
@@ -126,16 +128,18 @@ const icons = {
 };
 
 /**
- * Wrapper NgModule that registers Lucide icons and re-exports the
- * LucideAngularComponent.  Standalone components import this class
- * instead of using LucideAngularModule.pick() (which returns
- * ModuleWithProviders — rejected by Angular 18 standalone imports).
+ * Module partagé pour Lucide Angular.
+ * Les composants standalone importent ce module au lieu de LucideAngularModule.pick()
  */
 @NgModule({
-  imports:    [LucideAngularModule],
-  exports:    [LucideAngularModule],
-  providers:  [
-    { provide: LUCIDE_ICONS_TOKEN, multi: true, useValue: new LucideIconProvider(icons) },
+  imports: [LucideAngularModule],
+  exports: [LucideAngularModule],
+  providers: [
+    {
+      provide: LUCIDE_ICONS_TOKEN,
+      multi: true,
+      useValue: new LucideIconProvider(icons),
+    },
   ],
 })
 export class LUCIDE_ICONS {}

@@ -10,7 +10,7 @@ import {
 } from './candidate-session-api.service';
 import { CandidateAssignmentApiService } from './candidate-assignment-api.service';
 import { canonicalSessionListUserId } from './assessment-canonical-user';
-import { getAssessmentUserId } from '../profile/profile-user-id';
+import { getMsUserIdFromToken } from '../profile/profile-user-id';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 
 @Component({
@@ -32,7 +32,7 @@ export class AssessmentReviewComponent implements OnInit {
   ngOnInit(): void {
     const sid = Number(this.route.snapshot.paramMap.get('sessionId'));
     const qp = this.route.snapshot.queryParamMap.get('userId')?.trim();
-    const baseUid = getAssessmentUserId();
+    const baseUid = getMsUserIdFromToken();
     /** Session owner from tile link — required when storage ids diverge from DB. */
     const seed = qp && /^[0-9a-f-]{36}$/i.test(qp) ? qp : baseUid;
     if (!Number.isFinite(sid) || !seed) {

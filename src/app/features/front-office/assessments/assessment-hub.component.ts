@@ -16,7 +16,7 @@ import {
   isSessionPublished,
 } from './candidate-session-api.service';
 import { collectCandidateUserIdsForSessions } from './assessment-canonical-user';
-import { getAssessmentUserId } from '../profile/profile-user-id';
+import { getMsUserIdFromToken } from '../profile/profile-user-id';
 import { SearchService } from '../../../core/services/search.service';
 
 interface PendingStart {
@@ -100,7 +100,7 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
   }
 
   refresh(): void {
-    const uid = getAssessmentUserId();
+    const uid = getMsUserIdFromToken();
     if (!uid) {
       this.errorMsg.set('Sign in to view your assessments.');
       return;
@@ -193,7 +193,7 @@ export class AssessmentHubComponent implements OnInit, OnDestroy {
   }
 
   private startSession(categoryId: number): void {
-    const uid = getAssessmentUserId();
+    const uid = getMsUserIdFromToken();
     if (!uid) {
       this.errorMsg.set('Sign in to start an assessment.');
       return;

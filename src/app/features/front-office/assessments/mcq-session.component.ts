@@ -15,7 +15,7 @@ import {
   QuestionPaperResponseDto,
   SessionResponseDto,
 } from './candidate-session-api.service';
-import { getAssessmentUserId } from '../profile/profile-user-id';
+import { getMsUserIdFromToken } from '../profile/profile-user-id';
 
 /** Time limit per session in seconds (45 minutes). */
 const TIME_LIMIT_SEC = 45 * 60;
@@ -157,7 +157,7 @@ export class McqSessionComponent implements OnInit, OnDestroy {
       this.router.navigate(['/dashboard/assessments']);
       return;
     }
-    const uid = getAssessmentUserId();
+    const uid = getMsUserIdFromToken();
     this.quitModalMode.set(uid ? 'forfeit' : 'no-uid');
     this.quitModalOpen.set(true);
   }
@@ -167,7 +167,7 @@ export class McqSessionComponent implements OnInit, OnDestroy {
   }
 
   confirmQuitLeave(): void {
-    const uid = getAssessmentUserId();
+    const uid = getMsUserIdFromToken();
     if (!uid || this.quitModalMode() === 'no-uid') {
       this.quitModalOpen.set(false);
       this.router.navigate(['/dashboard/assessments']);

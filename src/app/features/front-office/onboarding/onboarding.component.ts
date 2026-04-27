@@ -6,7 +6,7 @@ import { StepSituationComponent } from './steps/step-situation.component';
 import { StepCareerGoalComponent } from './steps/step-career-goal.component';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import { ProfileApiService } from '../profile/profile-api.service';
-import { ACCOUNT_ROLE_KEY, getAssessmentUserId } from '../profile/profile-user-id';
+import { getUserRoleFromToken, getUserDataFromToken } from '../profile/profile-user-id';
 import { CandidateAssignmentApiService } from '../assessments/candidate-assignment-api.service';
 
 @Component({
@@ -107,44 +107,77 @@ export class OnboardingComponent implements OnInit {
       }
     }
 
+    // Get user data from existing JWT token structure (without modifying auth system)
+    const userData = getUserDataFromToken();
+    const userRole = getUserRoleFromToken();
+
+    if (!userData?.id) {
+      this.saveError.set('User not authenticated. Please login again.');
+      this.saving.set(false);
+      return;
+    }
+
     this.saveError.set(null);
     this.saving.set(true);
-    this.profileApi
-      .completeOnboarding({
-        situation,
-        careerPath,
-        answers: [],
-        skillScores: {},
-        developmentPlanNotes: 'Preferences saved. You can extend your profile from the dashboard.',
-      })
-      .subscribe({
-        next: () => {
-          const role = (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
-          if (role === 'recruiter') {
+
+    if (userRole === 'recruiter') {
+      // For recruiters, try to save to MS-User profile service, but continue even if it fails
+      this.profileApi
+        .completeOnboarding({
+          situation,
+          careerPath,
+          answers: [],
+          skillScores: {},
+          developmentPlanNotes: 'Preferences saved. You can extend your profile from the dashboard.',
+        })
+        .subscribe({
+          next: () => {
             this.saving.set(false);
             void this.router.navigate(['/dashboard']);
-            return;
-          }
-          const uid = getAssessmentUserId();
-          this.assignmentApi.register(uid, situation, careerPath, headline, customSit, customCareer).subscribe({
+          },
+          error: () => {
+            // MS-User service not available, but continue anyway for recruiters
+            console.warn('MS-User service not available, continuing without profile save');
+            this.saving.set(false);
+            void this.router.navigate(['/dashboard']);
+          },
+        });
+      return;
+    }
+
+    // For candidates, register directly with assessment service using MS-User ID
+    const userId = userData.id;
+    this.assignmentApi.register(userId, situation, careerPath, headline, customSit, customCareer).subscribe({
+      next: () => {
+        // Try to save to MS-User profile service as well, but don't block on failure
+        this.profileApi
+          .completeOnboarding({
+            situation,
+            careerPath,
+            answers: [],
+            skillScores: {},
+            developmentPlanNotes: 'Preferences saved. You can extend your profile from the dashboard.',
+          })
+          .subscribe({
             next: () => {
-              this.saving.set(false);
-              void this.router.navigate(['login']);
+              console.log('Profile also saved to MS-User service');
             },
             error: () => {
-              this.saving.set(false);
-              void this.router.navigate(['login']);
+              console.warn('MS-User service not available, but assessment registration succeeded');
             },
           });
-        },
-        error: (err: unknown) => {
-          this.saving.set(false);
-          const msg =
-            err && typeof err === 'object' && 'error' in err
-              ? JSON.stringify((err as { error: unknown }).error)
-              : 'Could not save preferences. Is MS-User running?';
-          this.saveError.set(msg);
-        },
-      });
+        
+        this.saving.set(false);
+        void this.router.navigate(['login']);
+      },
+      error: (err: unknown) => {
+        this.saving.set(false);
+        const msg =
+          err && typeof err === 'object' && 'error' in err
+            ? JSON.stringify((err as { error: unknown }).error)
+            : 'Could not register for assessments. Is MS-Assessment service running?';
+        this.saveError.set(msg);
+      },
+    });
   }
 }

@@ -4,6 +4,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { AuthMfaService } from '../auth-mfa.service';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { AutheService } from '../authe.service';
+import { setLocalDemoMode, setProfileUserUuid } from '../../profile/profile-user-id';
 
 @Component({
   selector: 'app-verify-face',
@@ -29,6 +30,47 @@ export class VerifyFaceComponent implements OnDestroy {
     });
     // start camera automatically
     void this.startCamera();
+  }
+
+  private persistLoginSession(data: any): void {
+    const token = String(data?.Token ?? data?.token ?? '');
+    const userId = String(data?.UserId ?? data?.userId ?? '').trim();
+    const userName = String(data?.userName ?? data?.username ?? '').trim();
+    const email = String(data?.email ?? '').trim();
+    const role = String(data?.roles ?? 'candidate').trim().toLowerCase();
+
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('access_token', token);
+    }
+
+    if (userId) {
+      localStorage.setItem('userId', userId);
+      localStorage.setItem('UserId', userId);
+      setProfileUserUuid(userId);
+    }
+
+    if (userName) {
+      localStorage.setItem('userName', userName);
+    }
+    if (email) {
+      localStorage.setItem('email', email);
+    }
+    if (role) {
+      localStorage.setItem('role', role);
+    }
+
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        id: userId,
+        email,
+        name: userName || email.split('@')[0] || 'user',
+        role: role === 'recruiter' ? 'recruiter' : 'user',
+      })
+    );
+
+    setLocalDemoMode(false);
   }
 
   async startCamera(): Promise<void> {
@@ -70,12 +112,9 @@ export class VerifyFaceComponent implements OnDestroy {
         console.log('Face verification result:', res);
         this.verificationResult = res;
         if (res?.status === 'SUCCESS') {
-          localStorage.setItem('auth_token', res.data.token);
-          localStorage.setItem('userId', res.data.userId);
-          localStorage.setItem('userName', res.data.userName);
-          localStorage.setItem('email', res.data.email);
-          localStorage.setItem('role', res.data.roles);
+          this.persistLoginSession(res?.data);
           this.auth.redirectAfterLogin();
+          return;
         }
       },
       error: (err) => {

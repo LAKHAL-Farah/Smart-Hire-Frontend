@@ -7,6 +7,7 @@ import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
   {
+    canActivate: [noAuthGuard],
     path: '',
     loadComponent: () =>
       import('./features/front-office/landing/landing-page.component').then(
@@ -17,8 +18,8 @@ export const routes: Routes = [
     canActivate: [noAuthGuard],
     path: 'login-mfa',
     loadComponent: () =>
-      import('./features/front-office/auth/login/login.component').then(
-        (m) => m.LoginComponent
+      import('./features/front-office/auth/login-mfa/login-mfa.component').then(
+        (m) => m.LoginMfaComponent
       ),
   },
   {
@@ -87,6 +88,7 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    canActivate: [authGuard],
     path: 'interview/report/:sessionId',
     loadComponent: () =>
       import('./interview/report/live-report.component').then(
@@ -94,6 +96,7 @@ export const routes: Routes = [
       ),
   },
   {
+    canActivate: [authGuard],
     path: 'dashboard/interview/live/start',
     loadComponent: () =>
       import('./interview/live-start/live-start.component').then(
@@ -101,6 +104,7 @@ export const routes: Routes = [
       ),
   },
   {
+    canActivate: [authGuard],
     path: 'dashboard/interview/live/:sessionId',
     loadComponent: () =>
       import('./interview/live-mode/live-mode.component').then(
@@ -108,6 +112,7 @@ export const routes: Routes = [
       ),
   },
   {
+    canActivate: [authGuard],
     path: 'dashboard',
     loadComponent: () =>
       import('./features/front-office/dashboard/dashboard-layout.component').then(
@@ -314,7 +319,7 @@ export const routes: Routes = [
   {
     path: 'admin',
     //canMatch: [adminCanMatch],
-    canActivate: [roleGuard],
+    canActivate: [authGuard, roleGuard],
     data: { requiredRoles: ['recruiter'] },
     loadComponent: () =>
       import('./features/back-office/admin/layout/admin-layout.component').then(

@@ -1,7 +1,8 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { resolveCurrentProfileUserId } from './current-user-id';
 import {
   AuditGitHubRequest,
   AtsScoreDto,
@@ -15,8 +16,6 @@ import {
   JobOfferDto,
 } from '../models/profile-optimizer.models';
 
-export const PROFILE_OPTIMIZER_USER_ID = '00000000-0000-0000-0000-000000000001';
-
 @Injectable({
   providedIn: 'root',
 })
@@ -25,13 +24,30 @@ export class ProfileOptimizerService {
   private readonly baseUrl = 'http://localhost:8092';
   private readonly githubBaseUrl = 'http://localhost:8092';
 
+  private resolveUserId(): string {
+    const userId = resolveCurrentProfileUserId();
+    if (!userId) {
+      throw new Error('Missing user session. Please log in again.');
+    }
+    return userId;
+  }
+
   // ─── CV ───────────────────────────────────────────
 
   /** Endpoint: POST http://localhost:8092/api/cv/upload */
-  uploadCv(file: File, userId: string = PROFILE_OPTIMIZER_USER_ID): Observable<CandidateCvDto> {
+  uploadCv(file: File, userId?: string): Observable<CandidateCvDto> {
     const formData = new FormData();
+    let resolvedUserId = userId?.trim();
+    if (!resolvedUserId) {
+      try {
+        resolvedUserId = this.resolveUserId();
+      } catch (error) {
+        return throwError(() => (error instanceof Error ? error : new Error('Missing user session. Please log in again.')));
+      }
+    }
+
     formData.append('file', file);
-    formData.append('userId', userId);
+    formData.append('userId', resolvedUserId);
     return this.http.post<CandidateCvDto>(`${this.baseUrl}/api/cv/upload`, formData).pipe(
       catchError(() => this.toUserError('Unable to upload CV right now. Please try again.'))
     );
@@ -189,29 +205,64 @@ export class ProfileOptimizerService {
   // ─── JOB OFFERS ───────────────────────────────────
 
   /** Endpoint: POST http://localhost:8092/api/job-offers */
-  createJobOffer(body: CreateJobOfferRequest, userId: string = PROFILE_OPTIMIZER_USER_ID): Observable<JobOfferDto> {
-    return this.http.post<JobOfferDto>(`${this.baseUrl}/api/job-offers`, body).pipe(
+  createJobOffer(body: CreateJobOfferRequest): Observable<JobOfferDto> {
+    let resolvedUserId: string;
+    try {
+      resolvedUserId = this.resolveUserId();
+    } catch (error) {
+      return throwError(() => (error instanceof Error ? error : new Error('Missing user session. Please log in again.')));
+    }
+
+    const params = new HttpParams().set('userId', resolvedUserId);
+    return this.http.post<JobOfferDto>(`${this.baseUrl}/api/job-offers`, body, { params }).pipe(
+      map((offer) => ({ ...offer, userId: offer.userId ?? resolvedUserId })),
       catchError(() => this.toUserError('Unable to save this job offer right now.'))
     );
   }
 
   /** Endpoint: GET http://localhost:8092/api/job-offers */
   listJobOffers(): Observable<JobOfferDto[]> {
-    return this.http.get<JobOfferDto[]>(`${this.baseUrl}/api/job-offers`).pipe(
-      catchError(() => this.toUserError('Unable to load job offers right now.'))
+    let resolvedUserId: string;
+    try {
+      resolvedUserId = this.resolveUserId();
+    } catch (error) {
+      return throwError(() => (error instanceof Error ? error : new Error('Missing user session. Please log in again.')));
+    }
+
+    const params = new HttpParams().set('userId', resolvedUserId);
+    return this.http.get<JobOfferDto[]>(`${this.baseUrl}/api/job-offers`, { params }).pipe(
+      catchError(() => this.toUserError('Unable to load job offers right now.')),
+      map((offers) => offers.map((offer) => ({ ...offer, userId: offer.userId ?? resolvedUserId })))
     );
   }
 
   /** Endpoint: GET http://localhost:8092/api/job-offers/{id} */
   getJobOfferById(id: string): Observable<JobOfferDto> {
-    return this.http.get<JobOfferDto>(`${this.baseUrl}/api/job-offers/${encodeURIComponent(id)}`).pipe(
-      catchError(() => this.toUserError('Unable to load this job offer.'))
+    let resolvedUserId: string;
+    try {
+      resolvedUserId = this.resolveUserId();
+    } catch (error) {
+      return throwError(() => (error instanceof Error ? error : new Error('Missing user session. Please log in again.')));
+    }
+
+    const params = new HttpParams().set('userId', resolvedUserId);
+    return this.http.get<JobOfferDto>(`${this.baseUrl}/api/job-offers/${encodeURIComponent(id)}`, { params }).pipe(
+      catchError(() => this.toUserError('Unable to load this job offer.')),
+      map((offer) => ({ ...offer, userId: offer.userId ?? resolvedUserId }))
     );
   }
 
   /** Endpoint: DELETE http://localhost:8092/api/job-offers/{id} */
   deleteJobOffer(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.baseUrl}/api/job-offers/${encodeURIComponent(id)}`).pipe(
+    let resolvedUserId: string;
+    try {
+      resolvedUserId = this.resolveUserId();
+    } catch (error) {
+      return throwError(() => (error instanceof Error ? error : new Error('Missing user session. Please log in again.')));
+    }
+
+    const params = new HttpParams().set('userId', resolvedUserId);
+    return this.http.delete<void>(`${this.baseUrl}/api/job-offers/${encodeURIComponent(id)}`, { params }).pipe(
       catchError(() => this.toUserError('Unable to delete this job offer right now.'))
     );
   }

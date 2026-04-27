@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { CreateJobOfferRequest, JobOfferDto } from '../../../core/models/profile-optimizer.models';
-import { PROFILE_OPTIMIZER_USER_ID, ProfileOptimizerService } from '../../../core/services/profile-optimizer.service';
+import { ProfileOptimizerService } from '../../../core/services/profile-optimizer.service';
 import { LUCIDE_ICONS } from '../../lucide-icons';
 import { ToastService } from '../toast/toast.service';
 
@@ -64,7 +64,7 @@ export class JobOfferPanelComponent {
 
     this.loading = true;
     this.optimizerApi
-      .createJobOffer(payload, PROFILE_OPTIMIZER_USER_ID)
+      .createJobOffer(payload)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {

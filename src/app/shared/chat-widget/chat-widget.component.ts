@@ -9,6 +9,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { finalize } from 'rxjs';
 import { AiChatService } from './ai-chat.service';
 
@@ -146,8 +147,8 @@ export class ChatWidgetComponent implements AfterViewChecked {
         next: (res) => {
           this.appendMessage('ai', res.response);
         },
-        error: () => {
-          this.error.set('Could not reach the AI service.');
+        error: (error: unknown) => {
+          this.error.set(this.toErrorMessage(error, 'Could not reach the AI service.'));
           this.appendMessage('system', 'Sorry — something went wrong. Please try again.');
         }
       });
@@ -170,11 +171,28 @@ export class ChatWidgetComponent implements AfterViewChecked {
         next: (res) => {
           this.appendMessage('ai', res.response);
         },
-        error: () => {
-          this.error.set('Resume upload failed.');
+        error: (error: unknown) => {
+          this.error.set(this.toErrorMessage(error, 'Resume upload failed.'));
           this.appendMessage('system', 'Sorry — I could not process that file.');
         }
       });
+  }
+
+  private toErrorMessage(error: unknown, fallback: string): string {
+    if (!(error instanceof HttpErrorResponse)) {
+      return fallback;
+    }
+
+    const payload = error.error as { error?: string } | string | null;
+    if (payload && typeof payload === 'object' && typeof payload.error === 'string' && payload.error.trim()) {
+      return payload.error;
+    }
+
+    if (typeof payload === 'string' && payload.trim()) {
+      return payload;
+    }
+
+    return fallback;
   }
 
   private appendMessage(role: ChatRole, text: string): void {

@@ -18,6 +18,7 @@ import {
   LinkedInSectionScores,
   ProfileTipDto,
 } from '../../../../core/models/profile-optimizer.models';
+import { resolveCurrentProfileUserId } from '../../../../core/services/current-user-id';
 import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
@@ -180,7 +181,8 @@ export class LinkedinComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ profile, offers, tips }) => {
         this.profile.set(profile);
-        this.jobOffers.set((offers as JobOfferDto[]).slice(0, 10));
+        const currentUserId = resolveCurrentProfileUserId();
+        this.jobOffers.set((offers as JobOfferDto[]).filter((offer) => offer.userId === currentUserId).slice(0, 10));
         this.linkedInTips.set((tips as ProfileTipDto[]).slice(0, 3));
 
         if (profile?.analysisStatus === 'COMPLETED') {

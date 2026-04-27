@@ -28,10 +28,8 @@ import {
   CvVersionDto,
   JobOfferDto,
 } from '../../../../core/models/profile-optimizer.models';
-import {
-  PROFILE_OPTIMIZER_USER_ID,
-  ProfileOptimizerService,
-} from '../../../../core/services/profile-optimizer.service';
+import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
+import { resolveCurrentProfileUserId } from '../../../../core/services/current-user-id';
 
 type ToastType = 'success' | 'error';
 type UploadState = 'empty' | 'selected' | 'parsing' | 'success' | 'error';
@@ -250,8 +248,15 @@ export class ProfileOptimizerComponent implements OnInit, OnDestroy {
     this.patchLoading({ page: true });
     this.patchErrors({ page: null });
 
+    const currentUserId = resolveCurrentProfileUserId();
+    if (!currentUserId) {
+      this.patchErrors({ page: 'Session expired. Please log in again.' });
+      this.patchLoading({ page: false });
+      return;
+    }
+
     const cvs$ = this.optimizerApi.getAllCvs().pipe(
-      map((rows) => rows.filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID)),
+      map((rows) => rows.filter((cv) => cv.userId === currentUserId)),
       catchError((err: Error) => {
         this.patchErrors({ page: err.message });
         return of([] as CandidateCvDto[]);
@@ -259,7 +264,7 @@ export class ProfileOptimizerComponent implements OnInit, OnDestroy {
     );
 
     const offers$ = this.optimizerApi.listJobOffers().pipe(
-      map((rows) => rows.filter((offer) => offer.userId === PROFILE_OPTIMIZER_USER_ID)),
+      map((rows) => rows.filter((offer) => offer.userId === currentUserId)),
       catchError((err: Error) => {
         this.patchErrors({ page: this.errors().page ? this.errors().page : err.message });
         return of([] as JobOfferDto[]);
@@ -323,7 +328,7 @@ export class ProfileOptimizerComponent implements OnInit, OnDestroy {
     this.patchLoading({ upload: true });
 
     this.optimizerApi
-      .uploadCv(file, PROFILE_OPTIMIZER_USER_ID)
+      .uploadCv(file)
       .pipe(
         finalize(() => this.patchLoading({ upload: false })),
         takeUntilDestroyed(this.destroyRef)
@@ -388,7 +393,7 @@ export class ProfileOptimizerComponent implements OnInit, OnDestroy {
     this.patchLoading({ jobOffer: true });
 
     this.optimizerApi
-      .createJobOffer(body, PROFILE_OPTIMIZER_USER_ID)
+      .createJobOffer(body)
       .pipe(
         finalize(() => this.patchLoading({ jobOffer: false })),
         takeUntilDestroyed(this.destroyRef)

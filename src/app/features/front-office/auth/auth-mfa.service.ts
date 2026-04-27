@@ -6,8 +6,8 @@ import { Router } from '@angular/router';
 
 @Injectable({ providedIn: 'root' })
 export class AuthMfaService {
-  // Use environment.userApiUrl (dev points to port 8082)
-  private baseUrl = 'http://localhost:8080/MS-USER';
+  // Build auth base from userApiUrl (e.g. http://localhost:8082/api/v1 -> http://localhost:8082)
+  private readonly baseUrl = environment.userApiUrl.replace(/\/api\/v1\/?$/, '');
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -47,7 +47,11 @@ export class AuthMfaService {
   }
   logout() {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('access_token');
     localStorage.removeItem('userId');
+    localStorage.removeItem('UserId');
+    localStorage.removeItem('smarthire_profile_user_uuid');
+    localStorage.removeItem('user');
     localStorage.removeItem('userName');
     localStorage.removeItem('email');
     localStorage.removeItem('role');

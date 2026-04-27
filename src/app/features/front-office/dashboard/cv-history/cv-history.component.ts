@@ -1,6 +1,7 @@
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, computed, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { resolveCurrentProfileUserId } from '../../../../core/services/current-user-id';
 import { Router, RouterLink } from '@angular/router';
 import { catchError, map, of } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
@@ -8,15 +9,12 @@ import {
   CandidateCvDto,
   ParsedCvContent,
 } from '../../../../core/models/profile-optimizer.models';
-import {
-  PROFILE_OPTIMIZER_USER_ID,
-  ProfileOptimizerService,
-} from '../../../../core/services/profile-optimizer.service';
+import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
 
 @Component({
   selector: 'app-cv-history',
   standalone: true,
-  imports: [CommonModule, DatePipe, RouterLink, LUCIDE_ICONS],
+  imports: [CommonModule, RouterLink, LUCIDE_ICONS],
   templateUrl: './cv-history.component.html',
   styleUrl: './cv-history.component.scss',
 })
@@ -57,10 +55,18 @@ export class CvHistoryComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
+    const currentUserId = resolveCurrentProfileUserId();
+    if (!currentUserId) {
+      this.cvs.set([]);
+      this.error.set('Session expired. Please log in again.');
+      this.loading.set(false);
+      return;
+    }
+
     this.optimizerApi
       .getAllCvs()
       .pipe(
-        map((rows) => rows.filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID)),
+        map((rows) => rows.filter((cv) => cv.userId === currentUserId)),
         catchError((err: Error) => {
           this.error.set(err.message);
           return of([] as CandidateCvDto[]);

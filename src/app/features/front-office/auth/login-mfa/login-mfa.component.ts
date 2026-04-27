@@ -6,6 +6,7 @@ import { AuthMfaService } from '../auth-mfa.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { AuthLeftPanelComponent } from '../auth-left-panel/auth-left-panel.component';
 import { AutheService } from '../authe.service';
+import { setLocalDemoMode, setProfileUserUuid } from '../../profile/profile-user-id';
 
 @Component({
   selector: 'app-login-mfa',
@@ -22,6 +23,47 @@ export class LoginMfaComponent {
 
   constructor(private auth: AuthMfaService, private router: Router,private authService: AutheService) {}
 
+  private persistLoginSession(data: any): void {
+    const token = String(data?.Token ?? data?.token ?? '');
+    const userId = String(data?.UserId ?? data?.userId ?? '').trim();
+    const userName = String(data?.userName ?? data?.username ?? '').trim();
+    const email = String(data?.email ?? this.username ?? '').trim();
+    const role = String(data?.roles ?? 'candidate').trim().toLowerCase();
+
+    if (token) {
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('access_token', token);
+    }
+
+    if (userId) {
+      localStorage.setItem('userId', userId);
+      localStorage.setItem('UserId', userId);
+      setProfileUserUuid(userId);
+    }
+
+    if (userName) {
+      localStorage.setItem('userName', userName);
+    }
+    if (email) {
+      localStorage.setItem('email', email);
+    }
+    if (role) {
+      localStorage.setItem('role', role);
+    }
+
+    localStorage.setItem(
+      'user',
+      JSON.stringify({
+        id: userId,
+        email,
+        name: userName || email.split('@')[0] || 'user',
+        role: role === 'recruiter' ? 'recruiter' : 'user',
+      })
+    );
+
+    setLocalDemoMode(false);
+  }
+
   onLogin(): void {
     this.error = '';
     this.loading = true;
@@ -36,14 +78,9 @@ export class LoginMfaComponent {
           return;
         }
         if (res?.status === 'SUCCESS') {
-          if (res?.status === 'SUCCESS') {
-          localStorage.setItem('auth_token', res.data.Token);
-          localStorage.setItem('userId', res.data.UserId);
-          localStorage.setItem('userName', res.data.userName);
-          localStorage.setItem('email', res.data.email);
-          localStorage.setItem('role', res.data.roles);
+          this.persistLoginSession(res?.data);
           this.auth.redirectAfterLogin();
-        }
+          return;
         }
         this.error = res?.message || 'Erreur inattendue';
       },

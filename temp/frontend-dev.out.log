@@ -1,0 +1,42 @@
+
+> smarthire-frontend@0.0.0 start
+> ng serve
+
+ [1mPort 4200 is already i[32m✔[39m Building...
+[1mInitial chunk files[22m[2m | [22m[1mNames[22m                           [2m | [22m [1mRaw size[22m
+[32mstyles.css[39m         [2m | [22m[2mstyles[22m                          [2m | [22m[36m116.61 kB[39m[2m | [22m
+[32mpolyfills.js[39m       [2m | [22m[2mpolyfills[22m                       [2m | [22m [36m90.20 kB[39m[2m | [22m
+[32mmain.js[39m            [2m | [22m[2mmain[22m                            [2m | [22m [36m39.99 kB[39m[2m | [22m
+[32mchunk-NE53QNE3.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m4.81 kB[39m[2m | [22m
+[32mchunk-IXPJBQYA.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m2.85 kB[39m[2m | [22m
+[32mchunk-XW7G5UOW.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m2.30 kB[39m[2m | [22m
+[32mchunk-BH2NIH5I.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m2.01 kB[39m[2m | [22m
+[32mchunk-WDMUDEB6.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m1.93 kB[39m[2m | [22m
+[32mchunk-HE34A6XK.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m1.31 kB[39m[2m | [22m
+[32mchunk-HY5UPO2B.js[39m  [2m | [22m[2m-[22m                               [2m | [22m  [36m1.10 kB[39m[2m | [22m
+[32mchunk-FS6GWFSX.js[39m  [2m | [22m[2m-[22m                               [2m | [22m[36m350 bytes[39m[2m | [22m
+
+[1m [22m                  [2m | [22m[1mInitial total[22m                   [2m | [22m[1m263.47 kB[22m
+
+[1mLazy chunk files[22m   [2m | [22m[1mNames[22m                           [2m | [22m [1mRaw size[22m
+[32mchunk-UT2674IH.js[39m  [2m | [22m[2minterview-session-component[22m     [2m | [22m[36m294.09 kB[39m[2m | [22m
+[32mchunk-RJEUBBRS.js[39m  [2m | [22m[2mroadmap-component[22m               [2m | [22m[36m216.69 kB[39m[2m | [22m
+[32mchunk-5M2ROEEB.js[39m  [2m | [22m[2mcareer-paths-component[22m          [2m | [22m[36m169.18 kB[39m[2m | [22m
+[32mchunk-HM4CWDD4.js[39m  [2m | [22m[2minterview-dashboard-component[22m   [2m | [22m[36m148.93 kB[39m[2m | [22m
+[32mchunk-PNR4GVIM.js[39m  [2m | [22m[2mlanding-page-component[22m          [2m | [22m[36m140.48 kB[39m[2m | [22m
+[32mchunk-5ZPFTMFJ.js[39m  [2m | [22m[2msystem-health-component[22m         [2m | [22m[36m127.60 kB[39m[2m | [22m
+[32mchunk-HSOEJV5H.js[39m  [2m | [22m[2mskill-assessment-admin-component[22m[2m | [22m[36m117.08 kB[39m[2m | [22m
+[32mchunk-WNDN5SRW.js[39m  [2m | [22m[2mcv-manager-component[22m            [2m | [22m[36m102.40 kB[39m[2m | [22m
+[32mchunk-6M4DDM2R.js[39m  [2m | [22m[2mgithub-component[22m                [2m | [22m [36m97.43 kB[39m[2m | [22m
+[32mchunk-CSASNLU3.js[39m  [2m | [22m[2mlive-mode-component[22m             [2m | [22m [36m95.70 kB[39m[2m | [22m
+[32mchunk-ONHHXO3V.js[39m  [2m | [22m[2muser-management-component[22m       [2m | [22m [36m91.81 kB[39m[2m | [22m
+[32mchunk-KEGMQUED.js[39m  [2m | [22m[2mquestion-management-component[22m   [2m | [22m [36m89.46 kB[39m[2m | [22m
+[32mchunk-SCEUIFEO.js[39m  [2m | [22m[2mprofile-component[22m               [2m | [22m [36m84.88 kB[39m[2m | [22m
+[32mchunk-TTZADS3O.js[39m  [2m | [22m[2msettings-component[22m              [2m | [22m [36m82.52 kB[39m[2m | [22m
+[32mchunk-DKBUGSEZ.js[39m  [2m | [22m[2moptimizer-home-component[22m        [2m | [22m [36m76.69 kB[39m[2m | [22m
+[2m...and 62 more lazy chunks files. Use "--verbose" to show all the files.[22m
+
+Application bundle generation complete. [57.614 seconds]
+
+Watch mode enabled. Watching for file changes...
+NOTE: Raw file sizes do not reflect development server per-request transformations.

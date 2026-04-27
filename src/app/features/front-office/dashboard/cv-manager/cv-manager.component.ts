@@ -5,8 +5,9 @@ import { RouterLink } from '@angular/router';
 import { finalize, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CandidateCvDto, CvVersionDto, ParsedCvContent } from '../../../../core/models/profile-optimizer.models';
+import { resolveCurrentProfileUserId } from '../../../../core/services/current-user-id';
 import { ActiveCvService } from '../../../../core/services/active-cv.service';
-import { PROFILE_OPTIMIZER_USER_ID, ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
+import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { ToastComponent } from '../../../../shared/components/toast/toast.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
@@ -104,7 +105,7 @@ export class CvManagerComponent implements OnInit {
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ cvs }) => {
-        const userCvs = cvs.filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID);
+        const userCvs = cvs.filter((cv) => cv.userId === resolveCurrentProfileUserId());
         const backendActiveCv = this.pickLatestActiveCv(userCvs);
         const currentActiveCv = this.activeCv();
         this.cvs.set(userCvs);
@@ -181,7 +182,7 @@ export class CvManagerComponent implements OnInit {
     this.parsing.set(true);
 
     this.optimizerApi
-      .uploadCv(file, PROFILE_OPTIMIZER_USER_ID)
+      .uploadCv(file, resolveCurrentProfileUserId() ?? undefined)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.parsing.set(false))

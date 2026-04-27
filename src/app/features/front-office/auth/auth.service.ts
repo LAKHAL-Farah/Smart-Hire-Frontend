@@ -61,15 +61,18 @@ export class AuthService {
               }
             }
           } catch {
-            /* Don’t overwrite a real id from register — sessions are keyed by that UUID. */
-            if (!localStorage.getItem(PROFILE_USER_UUID_STORAGE_KEY)) {
-              setProfileUserUuid(environment.devProfileUserUuid);
-            }
+            // Keep existing persisted session identity if available.
           }
 
           const accountRole = (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
+          const resolvedUserId = userId || getProfileUserUuid();
+          if (!resolvedUserId) {
+            resolve(false);
+            return;
+          }
+
           const user: User = {
-            id: userId || getProfileUserUuid(),
+            id: resolvedUserId,
             email,
             name: email.split('@')[0],
             role: recruiterFromApi || accountRole === 'recruiter' ? 'recruiter' : roleGuess,
@@ -80,7 +83,7 @@ export class AuthService {
           setProfileUserUuid(user.id);
 
           if (accountRole === 'recruiter' || recruiterFromApi) {
-            await this.router.navigate(['/dashboard']);
+            await this.router.navigate(['/admin']);
             resolve(true);
             return;
           }
@@ -98,7 +101,7 @@ export class AuthService {
             return;
           }
 
-          const uid = userId ?? getProfileUserUuid();
+          const uid = user.id;
           try {
             const st = await firstValueFrom(this.assignmentApi.getStatus(uid));
             if (st.status === 'PENDING') {
@@ -125,7 +128,13 @@ export class AuthService {
     this.currentUser.set(null);
     localStorage.removeItem('user');
     localStorage.removeItem(PROFILE_USER_UUID_STORAGE_KEY);
-    this.router.navigate(['/login']);
+    localStorage.removeItem('userId');
+    localStorage.removeItem('UserId');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('uid');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('auth_token');
+    this.router.navigate(['/']);
   }
 
   getUser(): User | null {
@@ -133,11 +142,11 @@ export class AuthService {
   }
 
   getUserId(): string {
-    return this.currentUser()?.id || '1';
+    return this.currentUser()?.id || getProfileUserUuid();
   }
 
   isAuthenticated(): boolean {
-    return this.currentUser() !== null;
+    return !!(localStorage.getItem('auth_token') || localStorage.getItem('access_token')) && !!getProfileUserUuid();
   }
 
   private loadSession(): void {

@@ -30,7 +30,7 @@ export class SidebarComponent {
     { icon: 'circle-check', label: 'Skill assessments', route: '/dashboard/assessments' },
     { icon: 'message-square', label: 'Interview', route: '/dashboard/interview' },
     { icon: 'globe', label: 'Discover', route: '/dashboard/interview/discover' },
-    { icon: 'file-text', label: 'CV Optimizer', route: '/dashboard/cv' },
+    
     // NOTE: Existing shared icon registry uses layout-grid instead of layout-dashboard.
     { icon: 'layout-grid', label: 'Optimizer', route: '/dashboard/optimizer' },
     { icon: 'linkedin', label: 'LinkedIn', route: '/dashboard/linkedin', className: 'sidebar__item--linkedin' },

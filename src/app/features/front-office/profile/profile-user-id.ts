@@ -1,5 +1,3 @@
-import { environment } from '../../../../environments/environment';
-
 /** Persisted MS-User id (set at register / login). */
 export const PROFILE_USER_UUID_STORAGE_KEY = 'smarthire_profile_user_uuid';
 const DEMO_MODE_KEY = 'smarthire_local_demo_mode';
@@ -12,7 +10,28 @@ export function getProfileUserUuid(): string {
   if (stored && /^[0-9a-f-]{36}$/i.test(stored)) {
     return stored;
   }
-  return environment.devProfileUserUuid;
+
+  const userId = localStorage.getItem('userId') || localStorage.getItem('UserId');
+  if (userId && /^[0-9a-f-]{36}$/i.test(userId)) {
+    localStorage.setItem(PROFILE_USER_UUID_STORAGE_KEY, userId);
+    return userId;
+  }
+
+  const userRaw = localStorage.getItem('user');
+  if (userRaw) {
+    try {
+      const parsed = JSON.parse(userRaw) as Record<string, unknown>;
+      const parsedId = typeof parsed['id'] === 'string' ? parsed['id'] : '';
+      if (/^[0-9a-f-]{36}$/i.test(parsedId)) {
+        localStorage.setItem(PROFILE_USER_UUID_STORAGE_KEY, parsedId);
+        return parsedId;
+      }
+    } catch {
+      // Ignore invalid user JSON in storage.
+    }
+  }
+
+  return '';
 }
 
 /**
@@ -24,11 +43,13 @@ export function getProfileUserUuid(): string {
  * When a profile UUID is stored, use it; otherwise fall back to the logged-in `user` id, then env dev.
  */
 export function getAssessmentUserId(): string {
-  return '1';
+  return getProfileUserUuid();
 }
 
 export function setProfileUserUuid(uuid: string): void {
-  localStorage.setItem(PROFILE_USER_UUID_STORAGE_KEY, uuid);
+  if (/^[0-9a-f-]{36}$/i.test(uuid)) {
+    localStorage.setItem(PROFILE_USER_UUID_STORAGE_KEY, uuid);
+  }
 }
 
 /** Browser-only demo when MS-User is unreachable (no server-side user). */

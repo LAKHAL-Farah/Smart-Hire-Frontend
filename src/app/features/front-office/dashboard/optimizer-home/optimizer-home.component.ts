@@ -6,8 +6,9 @@ import { Router, RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { JobOfferDto, ParsedCvContent, ProfileTipDto } from '../../../../core/models/profile-optimizer.models';
+import { resolveCurrentProfileUserId } from '../../../../core/services/current-user-id';
 import { ActiveCvService } from '../../../../core/services/active-cv.service';
-import { PROFILE_OPTIMIZER_USER_ID, ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
+import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { JobOfferPanelComponent } from '../../../../shared/components/job-offer-panel/job-offer-panel.component';
 import { ToastComponent } from '../../../../shared/components/toast/toast.component';
@@ -224,9 +225,10 @@ export class OptimizerHomeComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: ({ cvs, jobOffers, tips }) => {
-          const userCvs = (cvs as any[]).filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID);
+          const currentUserId = resolveCurrentProfileUserId();
+          const userCvs = (cvs as any[]).filter((cv) => cv.userId === currentUserId);
           const userOffers = (jobOffers as JobOfferDto[])
-            .filter((offer) => offer.userId === PROFILE_OPTIMIZER_USER_ID)
+            .filter((offer) => offer.userId === currentUserId)
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           const backendActiveCv = this.pickLatestActiveCv(userCvs);
           const currentActiveCv = this.activeCv();

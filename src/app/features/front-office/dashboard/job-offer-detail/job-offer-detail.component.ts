@@ -7,7 +7,8 @@ import { finalize, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { CandidateCvDto, CvVersionDto, JobOfferDto, LinkedInProfileDto } from '../../../../core/models/profile-optimizer.models';
 import { ActiveCvService } from '../../../../core/services/active-cv.service';
-import { PROFILE_OPTIMIZER_USER_ID, ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
+import { resolveCurrentProfileUserId } from '../../../../core/services/current-user-id';
+import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { ToastComponent } from '../../../../shared/components/toast/toast.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
@@ -114,7 +115,7 @@ export class JobOfferDetailComponent implements OnInit, OnDestroy {
       .subscribe({
         next: ({ offer, cvs, versions, linkedIn }) => {
           this.offer.set(offer);
-          const userCvs = cvs.filter((cv) => cv.userId === PROFILE_OPTIMIZER_USER_ID);
+          const userCvs = cvs.filter((cv) => cv.userId === resolveCurrentProfileUserId());
           this.cvs.set(userCvs);
           this.versions.set(versions.sort((a, b) => new Date(b.generatedAt).getTime() - new Date(a.generatedAt).getTime()));
           this.linkedInProfile.set(linkedIn);

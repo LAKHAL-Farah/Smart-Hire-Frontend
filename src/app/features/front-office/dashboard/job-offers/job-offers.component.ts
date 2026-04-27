@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { JobOfferDto } from '../../../../core/models/profile-optimizer.models';
-import { PROFILE_OPTIMIZER_USER_ID, ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
+import { ProfileOptimizerService } from '../../../../core/services/profile-optimizer.service';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import { JobOfferPanelComponent } from '../../../../shared/components/job-offer-panel/job-offer-panel.component';
 import { ToastComponent } from '../../../../shared/components/toast/toast.component';
@@ -57,8 +57,7 @@ export class JobOffersComponent {
       .subscribe({
         next: (rows) => {
           this.offers.set(
-            rows
-              .filter((offer) => offer.userId === PROFILE_OPTIMIZER_USER_ID)
+                rows
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
           );
           this.loading.set(false);

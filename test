@@ -1,0 +1,3 @@
+curl -i -X POST "http://localhost:8080/MS-ASSESSMENT/api/v1/assessment/sessions" `
+ -H "Content-Type: application/json" `
+ -d '{"userId":"e434ec46-2e8c-463c-8759-c7878181afec","categoryId":29}'

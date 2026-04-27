@@ -16,7 +16,8 @@ export function assessmentApiBaseUrl(): string {
   }
   if (typeof window !== 'undefined' && window.location?.origin) {
     const path = raw.startsWith('/') ? raw : `/${raw}`;
-    return `${window.location.origin}${path}`;
+  let url = "http://localhost:8080/MS-ASSESSMENT"
+    return `${url}${path}`;
   }
   return raw;
 }

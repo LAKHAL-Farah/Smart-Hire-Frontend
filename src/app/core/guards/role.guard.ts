@@ -15,11 +15,11 @@ export const roleGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const auth = inject(AutheService);
   const router = inject(Router);
 
-  const userRole = localStorage.getItem(ACCOUNT_ROLE_KEY);
+  const userRole = localStorage.getItem("role");
   const requiredRoles = route.data['requiredRoles'] as string[] | undefined;
 
   if(! auth.isLoggedIn()) {
-    void router.navigate(['/login-mfa']);
+    void router.navigate(['/login']);
     return false;
   }
 

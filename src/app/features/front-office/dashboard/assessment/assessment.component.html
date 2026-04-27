@@ -99,7 +99,12 @@
         <h2>Assessment Result</h2>
         <p>Overall score: <strong>{{ normalizedScore() }}%</strong></p>
       </div>
-      <a class="roadmap-link" routerLink="/dashboard/roadmap/visual">Generate / Open Roadmap</a>
+      <a
+        class="roadmap-link"
+        [routerLink]="['/dashboard/roadmap/visual']"
+        [queryParams]="userId() ? { userId: userId() } : null">
+        Generate / Open Roadmap
+      </a>
     </div>
 
     <div class="result-grid">

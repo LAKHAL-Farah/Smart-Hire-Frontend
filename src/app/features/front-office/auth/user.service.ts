@@ -1,16 +1,15 @@
-// user.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
-import { catchError, map, retry } from 'rxjs/operators';
-//import { environment } from '../../../environments/environment';
+import { catchError, retry } from 'rxjs/operators';
+import { userApiBaseUrl } from '../../../core/user-api-url';
 
   @Injectable({
     providedIn: 'root'
   })
   export class UserService {
 
-    private apiUrl = `http://localhost:8080/MS-USER/api/v1`;
+    private readonly apiUrl = `${userApiBaseUrl()}/users`;
 
     constructor(private http: HttpClient) { }
 
@@ -25,12 +24,14 @@ import { catchError, map, retry } from 'rxjs/operators';
 
   getUserById(id: string): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/${id}`)
-      
+      .pipe(
+        catchError(this.handleError)
+      );
   }
 
  
   getUserByEmail(email: string): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/email/${email}`)
+    return this.http.get<any>(`${this.apiUrl}/email/${encodeURIComponent(email)}`)
       .pipe(
         catchError(this.handleError)
       );
@@ -38,7 +39,7 @@ import { catchError, map, retry } from 'rxjs/operators';
 
  
   createUser(userRequest: any, profileRequest: any): Observable<any> {
-    return this.http.post<any>(this.apiUrl+"/users", {userRequest, profileRequest})
+    return this.http.post<any>(this.apiUrl, {userRequest, profileRequest})
       .pipe(
         catchError(this.handleError)
       );
@@ -49,7 +50,7 @@ import { catchError, map, retry } from 'rxjs/operators';
  
   
   getAvatarUrl(user: any): string {
-    return user.profile.avatarUrl || 'assets/default-avatar.png';
+    return user?.profile?.avatarUrl || 'assets/default-avatar.png';
   }
 
 

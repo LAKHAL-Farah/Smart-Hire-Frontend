@@ -1,7 +1,8 @@
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { Component, computed, HostListener, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Router, RouterLink } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, finalize, forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../../shared/lucide-icons';
 import {
@@ -24,15 +25,39 @@ interface ResourceCard {
   type: 'video' | 'article' | 'course';
   title: string;
   source: string;
+  provider: string;
   url: string;
   isFree: boolean;
   origin: 'roadmap' | 'ai';
+  rating?: number;
+  durationHours?: number;
+  externalId?: string;
+  thumbnailUrl?: string;
+  channelName?: string;
+  viewCount?: number;
+  likeCount?: number;
+  instructorName?: string;
+  reviewCount?: number;
+  difficultyLevel?: string;
 }
 
-interface ResourceBuckets {
-  free: ResourceCard[];
-  premium: ResourceCard[];
-  aiTutor: ResourceCard[];
+type ResourceGroupKey = 'videos' | 'courses' | 'documentation';
+
+interface ResourceGroup {
+  key: ResourceGroupKey;
+  title: string;
+  cards: ResourceCard[];
+}
+
+interface ResourceCarouselState {
+  canPrev: boolean;
+  canNext: boolean;
+}
+
+interface ResourceVideoPreview {
+  title: string;
+  sourceUrl: string;
+  embedUrl: SafeResourceUrl;
 }
 
 interface Step {
@@ -129,6 +154,89 @@ interface RoadmapHubCard {
   startedLabel: string;
 }
 
+interface Point2d {
+  x: number;
+  y: number;
+}
+
+type StepIconKind =
+  | 'math'
+  | 'code'
+  | 'database'
+  | 'shield'
+  | 'cloud'
+  | 'rocket'
+  | 'gear'
+  | 'certificate';
+
+interface BlobGeometry {
+  path: string;
+  insetOne: string;
+  insetTwo: string;
+}
+
+interface MapMilestoneVisual {
+  step: Step;
+  index: number;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  path: string;
+  insetOne: string;
+  insetTwo: string;
+  gradientId: string;
+  terrainCx: string;
+  terrainCy: string;
+  major: boolean;
+  selected: boolean;
+  icon: StepIconKind;
+  shortLabel: string;
+}
+
+interface MapParticle {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  drift: number;
+  duration: number;
+  delay: number;
+  opacity: number;
+}
+
+interface DecorativeIsland {
+  id: string;
+  path: string;
+}
+
+interface CloudPuff {
+  id: string;
+  x: number;
+  y: number;
+  rx: number;
+  ry: number;
+  opacity: number;
+}
+
+interface RoadmapCardVisual extends RoadmapHubCard {
+  color: string;
+  colorRgb: string;
+  icon: string;
+  tagline: string;
+  rating: string;
+  tags: string[];
+  difficulty: string;
+  dashDuration: number;
+  routePoints: string;
+  routePath: string;
+  waypoints: Point2d[];
+  islandPath: string;
+  islandInsetOne: string;
+  islandInsetTwo: string;
+  satellitePaths: string[];
+}
+
 @Component({
   selector: 'app-roadmap',
   standalone: true,
@@ -139,9 +247,13 @@ interface RoadmapHubCard {
 export class RoadmapComponent implements OnInit, OnDestroy {
   private readonly roadmapApi = inject(RoadmapApiService);
   private readonly document = inject(DOCUMENT);
+  private readonly sanitizer = inject(DomSanitizer);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly quizPassThreshold = 70;
   private readonly quizQuestionCount = 5;
+  private readonly resourceCarouselStepPx = 540;
+  readonly videoPreviewMode: 'external' | 'modal' = 'external';
   readonly maxSubmissionRetries = 3;
   private previousBodyOverflow: string | null = null;
 
@@ -165,6 +277,9 @@ export class RoadmapComponent implements OnInit, OnDestroy {
   private readonly currentUserId = signal<number | null>(null);
   private readonly userSubmissionsBySuggestion = signal<Record<number, ProjectSubmissionDto>>({});
   private readonly stepsState = signal<Step[]>([]);
+  private readonly resourceCarouselStateMap = signal<Record<string, ResourceCarouselState>>({});
+
+  videoPreview = signal<ResourceVideoPreview | null>(null);
 
   filterTabs: { label: string; value: FilterTab }[] = [
     { label: 'All Steps', value: 'all' },
@@ -172,6 +287,122 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     { label: 'In Progress', value: 'in-progress' },
     { label: 'Completed', value: 'completed' },
   ];
+
+  private readonly mapAnchorPoints: Point2d[] = [
+    { x: 150, y: 560 },
+    { x: 320, y: 430 },
+    { x: 200, y: 300 },
+    { x: 420, y: 200 },
+    { x: 620, y: 310 },
+    { x: 820, y: 180 },
+    { x: 1000, y: 280 },
+  ];
+
+  private readonly cardPalette = ['#00d4ff', '#ff6b00', '#a855f7', '#ec4899', '#22c55e', '#f59e0b'];
+  private readonly cardIcons = ['🤖', '☁️', '⚙️', '🎨', '🛠️', '🔒'];
+  private readonly cardTaglines = [
+    'Deploy real projects from the first checkpoint.',
+    'Stack practical skills into production confidence.',
+    'Master systems, speed, and reliable delivery.',
+    'Build portfolio-ready milestones with guided depth.',
+    'Turn roadmap theory into shipping outcomes.',
+    'Train with progressive islands and mission tracks.',
+  ];
+  private readonly cardTagPools = [
+    ['Core', 'Labs'],
+    ['Roadmap', 'Projects'],
+    ['Practice', 'Mentor'],
+    ['Modules', 'Quizzes'],
+    ['Applied', 'Studio'],
+    ['Sprints', 'Milestones'],
+  ];
+
+  headerTrackCount = computed(() => this.roadmapCards().length);
+
+  headerMilestoneCount = computed(() => {
+    const totalAcrossRoadmaps = this.roadmapCards().reduce(
+      (sum, roadmap) => sum + Math.max(roadmap.totalSteps, 0),
+      0
+    );
+
+    if (totalAcrossRoadmaps > 0) {
+      return totalAcrossRoadmaps;
+    }
+
+    return this.steps.length;
+  });
+
+  roadmapVisualCards = computed<RoadmapCardVisual[]>(() =>
+    this.roadmapCards().map((card, index) => this.buildRoadmapCardVisual(card, index))
+  );
+
+  mapMilestones = computed<MapMilestoneVisual[]>(() => {
+    const steps = this.filteredSteps();
+    const total = steps.length;
+
+    return steps.map((step, index) => {
+      const position = this.positionOnMap(index, total);
+      const major = this.isMajorMilestoneByIndex(index, total);
+      const size = major ? (index === total - 1 ? 90 : 68) : 54;
+      const seed = step.number * 41 + (index + 1) * 19;
+      const blob = this.buildBlobGeometry(0, 0, size, seed);
+      const color = this.resolveMilestoneColor(step, major);
+
+      return {
+        step,
+        index,
+        x: position.x,
+        y: position.y,
+        size,
+        color,
+        path: blob.path,
+        insetOne: blob.insetOne,
+        insetTwo: blob.insetTwo,
+        gradientId: `terrain-${step.number}-${index}`,
+        terrainCx: `${32 + Math.round(this.seededValue(seed + 7) * 38)}%`,
+        terrainCy: `${28 + Math.round(this.seededValue(seed + 17) * 40)}%`,
+        major,
+        selected: this.expandedStep() === step.number,
+        icon: this.resolveStepIcon(step, index),
+        shortLabel: this.toShortLabel(step.title, 24),
+      };
+    });
+  });
+
+  mapRoutePath = computed(() =>
+    this.buildRoutePath(
+      this.mapMilestones().map((milestone) => ({
+        x: milestone.x,
+        y: milestone.y,
+      }))
+    )
+  );
+
+  mapRoutePoints = computed(() =>
+    this.mapMilestones()
+      .map((milestone) => `${this.fmt(milestone.x)},${this.fmt(milestone.y)}`)
+      .join(' ')
+  );
+
+  mapStartNode = computed(() => {
+    const milestones = this.mapMilestones();
+    return milestones.length > 0 ? milestones[0] : null;
+  });
+
+  mapFinishNode = computed(() => {
+    const milestones = this.mapMilestones();
+    return milestones.length > 0 ? milestones[milestones.length - 1] : null;
+  });
+
+  mapParticles = computed(() => {
+    const milestoneCount = this.mapMilestones().length;
+    const density = Math.max(30, milestoneCount * 4);
+    return this.buildMapParticles(density);
+  });
+
+  mapDecorativeIslands = computed(() => this.buildDecorativeIslands());
+
+  mapCloudPuffs = computed(() => this.buildCloudPuffs());
 
   get steps(): Step[] {
     return this.stepsState();
@@ -344,19 +575,28 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     return this.stepsState().find((step) => step.number === expanded) ?? null;
   });
 
-  expandedStepBuckets = computed<ResourceBuckets>(() => {
-    const empty: ResourceBuckets = { free: [], premium: [], aiTutor: [] };
+  expandedResourceGroups = computed<ResourceGroup[]>(() => {
     const step = this.expandedStepData();
     if (!step) {
-      return empty;
+      return [];
     }
 
-    return {
-      free: step.resources.filter((resource) => resource.origin !== 'ai' && resource.isFree),
-      premium: step.resources.filter((resource) => resource.origin !== 'ai' && !resource.isFree),
-      aiTutor: step.resources.filter((resource) => resource.origin === 'ai'),
-    };
+    const videos = step.resources.filter((resource) => this.resourceGroupKey(resource) === 'videos');
+    const courses = step.resources.filter((resource) => this.resourceGroupKey(resource) === 'courses');
+    const docs = step.resources.filter(
+      (resource) => this.resourceGroupKey(resource) === 'documentation'
+    );
+
+    return [
+      { key: 'videos', title: 'Videos', cards: videos },
+      { key: 'courses', title: 'Courses', cards: courses },
+      { key: 'documentation', title: 'Documentation', cards: docs },
+    ];
   });
+
+  expandedResourceCount = computed(() =>
+    this.expandedResourceGroups().reduce((sum, group) => sum + group.cards.length, 0)
+  );
 
   expandedStepIndex = computed(() => {
     const expanded = this.expandedStep();
@@ -409,6 +649,11 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     event.returnValue = '';
   }
 
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.queueResourceCarouselRefresh();
+  }
+
   toggleStep(stepNumber: number): void {
     if (this.quizSession()) {
       return;
@@ -422,9 +667,10 @@ export class RoadmapComponent implements OnInit, OnDestroy {
 
     const nextExpanded = this.expandedStep() === stepNumber ? null : stepNumber;
     this.expandedStep.set(nextExpanded);
-    this.activeResourceTab.set('resources');
+    this.setActiveResourceTab('resources');
 
     if (nextExpanded == null) {
+      this.closeVideoPreview();
       return;
     }
 
@@ -435,6 +681,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       this.loadNodeProjectLabHistory(step);
       this.loadNodeCourseHistory(step);
       this.tutorPromptDraft.set('');
+      this.queueResourceCarouselRefresh();
     }
   }
 
@@ -444,6 +691,75 @@ export class RoadmapComponent implements OnInit, OnDestroy {
 
   openNextStep(): void {
     this.openAdjacentStep(1);
+  }
+
+  setActiveResourceTab(tab: ResourcePanelTab): void {
+    this.activeResourceTab.set(tab);
+    if (tab === 'resources') {
+      this.queueResourceCarouselRefresh();
+    }
+  }
+
+  clearFocusedStep(): void {
+    if (this.quizSession()) {
+      return;
+    }
+
+    this.expandedStep.set(null);
+    this.setActiveResourceTab('resources');
+    this.closeVideoPreview();
+  }
+
+  focusStep(step: Step): void {
+    if (this.quizSession()) {
+      return;
+    }
+
+    if (this.isStepLocked(step)) {
+      this.errorMessage.set('This node is locked. Complete required previous nodes first.');
+      return;
+    }
+
+    this.expandedStep.set(step.number);
+    this.setActiveResourceTab('resources');
+    this.loadStepResources(step);
+    this.loadChallengeHistory(step);
+    this.loadNodeProjectLabHistory(step);
+    this.loadNodeCourseHistory(step);
+    this.tutorPromptDraft.set('');
+    this.queueResourceCarouselRefresh();
+  }
+
+  stepStatusLabel(step: Step): string {
+    if (step.status === 'done') {
+      return 'Completed';
+    }
+
+    if (step.status === 'in-progress') {
+      return 'In progress';
+    }
+
+    if (this.isStepLocked(step)) {
+      return 'Locked';
+    }
+
+    return 'Pending';
+  }
+
+  isMajorMilestoneStep(step: Step): boolean {
+    const steps = this.filteredSteps();
+    const index = steps.findIndex((candidate) => candidate.number === step.number);
+    if (index < 0) {
+      return false;
+    }
+
+    return this.isMajorMilestoneByIndex(index, steps.length);
+  }
+
+  stepIcon(step: Step): StepIconKind {
+    const steps = this.filteredSteps();
+    const index = steps.findIndex((candidate) => candidate.number === step.number);
+    return this.resolveStepIcon(step, index >= 0 ? index : 0);
   }
 
   private openAdjacentStep(direction: -1 | 1): void {
@@ -462,12 +778,13 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     }
 
     this.expandedStep.set(target.number);
-    this.activeResourceTab.set('resources');
+    this.setActiveResourceTab('resources');
     this.loadStepResources(target);
     this.loadChallengeHistory(target);
     this.loadNodeProjectLabHistory(target);
     this.loadNodeCourseHistory(target);
     this.tutorPromptDraft.set('');
+    this.queueResourceCarouselRefresh();
   }
 
   isRoadmapSelected(roadmapId: number): boolean {
@@ -484,7 +801,11 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.loadRoadmap(roadmapId);
+    this.loadRoadmap();
+  }
+
+  openWorkspace(step: Step): void {
+    this.openWorkspaceTab(step, 'course', {}, false);
   }
 
   openCourseWorkspace(
@@ -527,7 +848,8 @@ export class RoadmapComponent implements OnInit, OnDestroy {
   private openWorkspaceTab(
     step: Step,
     mode: 'course' | 'lab' | 'challenge',
-    extras: Record<string, string | number | undefined> = {}
+    extras: Record<string, string | number | undefined> = {},
+    openInNewTab = true
   ): void {
     const roadmapId = this.activeRoadmap()?.id;
     const nodeId = step.nodeId;
@@ -549,6 +871,8 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       nodeId,
       stepOrder: step.number,
       stepTitle: step.title,
+      stepStatus: step.backendStatus || step.status,
+      locked: this.isStepLocked(step) ? 1 : 0,
     };
 
     Object.entries(extras).forEach(([key, value]) => {
@@ -558,6 +882,13 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       }
       queryParams[key] = normalized;
     });
+
+    if (!openInNewTab) {
+      this.router.navigate(['/dashboard/roadmap/workspace'], {
+        queryParams,
+      });
+      return;
+    }
 
     const url = this.router.serializeUrl(
       this.router.createUrlTree(['/dashboard/roadmap/workspace'], {
@@ -618,7 +949,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
             return;
           }
 
-          this.loadRoadmap(this.selectedRoadmapId() ?? undefined);
+          this.loadRoadmap();
         },
         error: (err: HttpErrorResponse) => {
           const backendMessage =
@@ -695,8 +1026,19 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     );
   }
 
-  private loadRoadmap(preferredRoadmapId?: number): void {
-    const resolvedUserId = this.currentUserId() ?? resolveRoadmapUserId();
+  private resolveRoadmapUserIdFromContext(): number | null {
+    const sessionUserId = resolveRoadmapUserId();
+    if (sessionUserId) {
+      return sessionUserId;
+    }
+
+    // Do not trust route query userId for primary roadmap loading.
+    // User identity must come from authenticated/local session state.
+    return null;
+  }
+
+  private loadRoadmap(): void {
+    const resolvedUserId = this.currentUserId() ?? this.resolveRoadmapUserIdFromContext();
     if (!resolvedUserId) {
       this.errorMessage.set('No authenticated user found. Please sign in again.');
       return;
@@ -707,50 +1049,43 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     this.isLoading.set(true);
     this.errorMessage.set(null);
 
-    const persistedRoadmapId = this.readSelectedRoadmapId(resolvedUserId);
-    const candidateRoadmapId =
-      preferredRoadmapId ?? this.selectedRoadmapId() ?? persistedRoadmapId;
-
     this.roadmapApi
-      .getUserRoadmaps(resolvedUserId)
+      .getUserRoadmap(resolvedUserId)
       .pipe(
-        switchMap((roadmaps) => {
-          const sortedRoadmaps = this.sortRoadmapsForHub(roadmaps ?? []);
-          this.roadmapCatalog.set(sortedRoadmaps);
+        switchMap((roadmap) => {
+          this.roadmapCatalog.set([roadmap]);
+          this.activeRoadmap.set(roadmap);
+          this.selectedRoadmapId.set(roadmap.id);
+          this.persistSelectedRoadmapId(resolvedUserId, roadmap.id);
 
-          if (sortedRoadmaps.length === 0) {
-            this.activeRoadmap.set(null);
-            this.selectedRoadmapId.set(null);
-            this.stepsState.set([]);
-            this.syncQuizGateState([]);
-            return of({
-              roadmap: null as RoadmapResponse | null,
-              graph: null as RoadmapVisualResponse | null,
-            });
-          }
-
-          const selectedRoadmap = this.resolveRoadmapSelection(
-            sortedRoadmaps,
-            candidateRoadmapId
-          );
-
-          this.activeRoadmap.set(selectedRoadmap);
-          this.selectedRoadmapId.set(selectedRoadmap.id);
-          this.persistSelectedRoadmapId(resolvedUserId, selectedRoadmap.id);
-
-          return this.roadmapApi.getRoadmapGraph(selectedRoadmap.id).pipe(
-            map((graph) => ({ roadmap: selectedRoadmap, graph })),
+          return this.roadmapApi.getRoadmapGraph(roadmap.id, resolvedUserId).pipe(
+            map((graph) => ({ roadmap, graph })),
             catchError(() =>
-              of({ roadmap: selectedRoadmap, graph: null as RoadmapVisualResponse | null })
+              of({ roadmap, graph: null as RoadmapVisualResponse | null })
             )
           );
+        }),
+        catchError((error: HttpErrorResponse) => {
+          this.roadmapCatalog.set([]);
+          this.activeRoadmap.set(null);
+          this.selectedRoadmapId.set(null);
+          this.stepsState.set([]);
+          this.syncQuizGateState([]);
+          this.errorMessage.set(
+            error.status === 404
+              ? 'No roadmap found for this user yet.'
+              : 'Could not load roadmap data from backend.'
+          );
+          return of({
+            roadmap: null as RoadmapResponse | null,
+            graph: null as RoadmapVisualResponse | null,
+          });
         }),
         finalize(() => this.isLoading.set(false))
       )
       .subscribe({
         next: ({ roadmap, graph }) => {
           if (!roadmap) {
-            this.errorMessage.set('No roadmap found for this user yet.');
             return;
           }
 
@@ -829,6 +1164,10 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         this.patchStep(step.number, {
           resources: this.toResourceCards(linked, aiSuggested, step.title),
         });
+
+        if (this.expandedStep() === step.number && this.activeResourceTab() === 'resources') {
+          this.queueResourceCarouselRefresh();
+        }
       });
   }
 
@@ -1813,20 +2152,43 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         type: this.normalizeResourceType(resource.type),
         title: resource.title || this.fallbackResourceTitle(origin),
         source: this.toProviderLabel(resource.provider, origin),
+        provider: (resource.provider || '').trim(),
         url,
         isFree: this.isFreeResource(resource),
         origin,
+        rating:
+          typeof resource.rating === 'number' && Number.isFinite(resource.rating)
+            ? resource.rating
+            : undefined,
+        durationHours:
+          typeof resource.durationHours === 'number' && Number.isFinite(resource.durationHours)
+            ? resource.durationHours
+            : undefined,
+        externalId: (resource.externalId || '').trim() || undefined,
+        thumbnailUrl: (resource.thumbnailUrl || '').trim() || undefined,
+        channelName: (resource.channelName || '').trim() || undefined,
+        viewCount:
+          typeof resource.viewCount === 'number' && Number.isFinite(resource.viewCount)
+            ? Math.max(0, Math.floor(resource.viewCount))
+            : undefined,
+        likeCount:
+          typeof resource.likeCount === 'number' && Number.isFinite(resource.likeCount)
+            ? Math.max(0, Math.floor(resource.likeCount))
+            : undefined,
+        instructorName: (resource.instructorName || '').trim() || undefined,
+        reviewCount:
+          typeof resource.reviewCount === 'number' && Number.isFinite(resource.reviewCount)
+            ? Math.max(0, Math.floor(resource.reviewCount))
+            : undefined,
+        difficultyLevel: (resource.difficultyLevel || '').trim() || undefined,
       });
     };
 
     linkedResources.forEach((resource) => pushCard(resource, 'roadmap'));
     aiSuggestedResources.forEach((resource) => pushCard(resource, 'ai'));
 
-    if (cards.length > 0) {
-      return cards;
-    }
-
-    return this.buildDiscoveryFallback(topic);
+    const discovered = cards.length > 0 ? cards : this.buildDiscoveryFallback(topic);
+    return this.limitResourceCardsPerType(discovered, 5);
   }
 
   private syncQuizGateState(steps: Step[]): void {
@@ -2420,9 +2782,23 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     provider: string | undefined,
     origin: ResourceCard['origin']
   ): string {
-    if (provider && provider.trim()) {
-      return provider;
+    const normalized = (provider || '').trim().toUpperCase();
+    if (normalized) {
+      if (normalized === 'YOUTUBE') {
+        return 'YouTube';
+      }
+      if (normalized === 'COURSERA') {
+        return 'Coursera';
+      }
+      if (normalized === 'UDEMY') {
+        return 'Udemy';
+      }
+      if (normalized === 'OTHER') {
+        return 'Documentation';
+      }
+      return provider!.trim();
     }
+
     return origin === 'ai' ? 'AI Tutor' : 'Roadmap';
   }
 
@@ -2440,6 +2816,20 @@ export class RoadmapComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  private limitResourceCardsPerType(cards: ResourceCard[], maxPerType: number): ResourceCard[] {
+    if (!Array.isArray(cards) || cards.length === 0) {
+      return [];
+    }
+
+    const videos = cards.filter((card) => this.resourceGroupKey(card) === 'videos').slice(0, maxPerType);
+    const courses = cards.filter((card) => this.resourceGroupKey(card) === 'courses').slice(0, maxPerType);
+    const docs = cards
+      .filter((card) => this.resourceGroupKey(card) === 'documentation')
+      .slice(0, maxPerType);
+
+    return [...videos, ...courses, ...docs];
+  }
+
   private buildDiscoveryFallback(topic: string): ResourceCard[] {
     const q = encodeURIComponent(topic);
     return [
@@ -2447,6 +2837,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         type: 'course',
         title: `Find structured courses for ${topic}`,
         source: 'Coursera Search',
+        provider: 'COURSERA',
         url: `https://www.coursera.org/search?query=${q}`,
         isFree: false,
         origin: 'ai',
@@ -2455,6 +2846,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         type: 'video',
         title: `${topic} full video tutorials`,
         source: 'YouTube Search',
+        provider: 'YOUTUBE',
         url: `https://www.youtube.com/results?search_query=${q}+full+course`,
         isFree: true,
         origin: 'ai',
@@ -2463,6 +2855,7 @@ export class RoadmapComponent implements OnInit, OnDestroy {
         type: 'article',
         title: `${topic} docs and practical guides`,
         source: 'Documentation Search',
+        provider: 'EXTERNAL',
         url: `https://www.google.com/search?q=${q}+official+documentation+guide`,
         isFree: true,
         origin: 'ai',
@@ -2479,6 +2872,448 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       return 'course';
     }
     return 'article';
+  }
+
+  resourceCarouselId(stepNumber: number, groupKey: ResourceGroupKey): string {
+    return `resource-carousel-${stepNumber}-${groupKey}`;
+  }
+
+  showResourceCarouselArrows(stepNumber: number, groupKey: ResourceGroupKey): boolean {
+    const state = this.resourceCarouselState(stepNumber, groupKey);
+    return state.canPrev || state.canNext;
+  }
+
+  canScrollResourcePrev(stepNumber: number, groupKey: ResourceGroupKey): boolean {
+    return this.resourceCarouselState(stepNumber, groupKey).canPrev;
+  }
+
+  canScrollResourceNext(stepNumber: number, groupKey: ResourceGroupKey): boolean {
+    return this.resourceCarouselState(stepNumber, groupKey).canNext;
+  }
+
+  scrollResourceGroup(stepNumber: number, groupKey: ResourceGroupKey, direction: -1 | 1): void {
+    const carousel = this.getResourceCarouselElement(stepNumber, groupKey);
+    if (!carousel) {
+      return;
+    }
+
+    carousel.scrollBy({
+      left: direction * this.resourceCarouselStepPx,
+      behavior: 'smooth',
+    });
+
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => this.refreshResourceCarouselState(stepNumber, groupKey), 220);
+    }
+  }
+
+  onResourceCarouselScroll(stepNumber: number, groupKey: ResourceGroupKey): void {
+    this.refreshResourceCarouselState(stepNumber, groupKey);
+  }
+
+  resourceBadgeLabel(resource: ResourceCard, groupKey: ResourceGroupKey): string {
+    if (groupKey === 'videos') {
+      return 'Video';
+    }
+
+    if (groupKey === 'courses') {
+      return this.isCourseraResource(resource) ? 'Coursera' : 'Course';
+    }
+
+    return 'Docs';
+  }
+
+  isYouTubeResource(resource: ResourceCard): boolean {
+    if (resource.type === 'video') {
+      return true;
+    }
+
+    const provider = (resource.provider || resource.source || '').toLowerCase();
+    if (provider.includes('youtube')) {
+      return true;
+    }
+
+    const host = this.resourceHostLabel(resource.url);
+    return host.includes('youtube') || host.includes('youtu.be');
+  }
+
+  isCourseraResource(resource: ResourceCard): boolean {
+    if (resource.type === 'course') {
+      return true;
+    }
+
+    const provider = (resource.provider || resource.source || '').toLowerCase();
+    if (provider.includes('coursera')) {
+      return true;
+    }
+
+    return this.resourceHostLabel(resource.url).includes('coursera');
+  }
+
+  videoThumbnailUrl(resource: ResourceCard): string | null {
+    const explicitThumbnail = (resource.thumbnailUrl || '').trim();
+    if (/^https?:\/\//i.test(explicitThumbnail)) {
+      return explicitThumbnail;
+    }
+
+    const videoId = this.extractYouTubeVideoId(resource);
+    if (!videoId) {
+      return null;
+    }
+
+    return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  }
+
+  videoDurationLabel(resource: ResourceCard): string {
+    return this.formatVideoDuration(resource.durationHours);
+  }
+
+  videoChannelName(resource: ResourceCard): string {
+    const channelName = (resource.channelName || '').trim();
+    if (channelName) {
+      return channelName;
+    }
+
+    const source = (resource.source || '').trim();
+    if (source && !/^youtube$/i.test(source)) {
+      return source;
+    }
+
+    return 'YouTube Channel';
+  }
+
+  videoStatsLabel(resource: ResourceCard): string {
+    const views = this.formatCompactCount(resource.viewCount);
+    const likes = this.formatCompactCount(resource.likeCount);
+    return `${views} views · ${likes} likes`;
+  }
+
+  courseThumbnailUrl(resource: ResourceCard): string | null {
+    const thumbnail = (resource.thumbnailUrl || '').trim();
+    if (/^https?:\/\//i.test(thumbnail)) {
+      return thumbnail;
+    }
+
+    const external = (resource.externalId || '').trim();
+    if (/^https?:\/\//i.test(external)) {
+      return external;
+    }
+
+    return null;
+  }
+
+  courseInstructorName(resource: ResourceCard): string {
+    const instructorName = (resource.instructorName || '').trim();
+    if (instructorName) {
+      return instructorName;
+    }
+
+    const source = (resource.source || '').trim();
+    if (source && !/^coursera$/i.test(source)) {
+      return source;
+    }
+
+    return 'Coursera Instructor';
+  }
+
+  courseRatingLabel(resource: ResourceCard): string {
+    if (typeof resource.rating === 'number' && Number.isFinite(resource.rating)) {
+      return resource.rating.toFixed(1);
+    }
+
+    return '4.8';
+  }
+
+  courseReviewCountLabel(resource: ResourceCard): string {
+    if (typeof resource.reviewCount === 'number' && Number.isFinite(resource.reviewCount)) {
+      return `${this.formatCompactCount(resource.reviewCount)} reviews`;
+    }
+
+    return resource.origin === 'roadmap' ? 'N/A reviews' : '2.4K reviews';
+  }
+
+  courseDifficultyLabel(resource: ResourceCard): string {
+    const explicitDifficulty = (resource.difficultyLevel || '').trim();
+    if (explicitDifficulty) {
+      return explicitDifficulty
+        .replace(/[_-]+/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+    }
+
+    const title = (resource.title || '').toLowerCase();
+    if (title.includes('beginner')) {
+      return 'Beginner';
+    }
+    if (title.includes('intermediate')) {
+      return 'Intermediate';
+    }
+    if (title.includes('advanced')) {
+      return 'Advanced';
+    }
+
+    const roadmapDifficulty = (this.activeRoadmap()?.difficulty || '').toLowerCase();
+    if (roadmapDifficulty.includes('beginner')) {
+      return 'Beginner';
+    }
+    if (roadmapDifficulty.includes('advanced')) {
+      return 'Advanced';
+    }
+    if (roadmapDifficulty.includes('intermediate')) {
+      return 'Intermediate';
+    }
+
+    return 'All Levels';
+  }
+
+  courseDurationLabel(resource: ResourceCard): string {
+    if (typeof resource.durationHours !== 'number' || !Number.isFinite(resource.durationHours)) {
+      return 'Self paced';
+    }
+
+    const totalMinutes = Math.max(1, Math.round(resource.durationHours * 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours <= 0) {
+      return `${minutes}m`;
+    }
+    if (minutes === 0) {
+      return `${hours}h`;
+    }
+
+    return `${hours}h ${minutes}m`;
+  }
+
+  documentationDescription(resource: ResourceCard): string {
+    const host = this.resourceHostLabel(resource.url);
+    const source = (resource.source || '').trim();
+    if (source && source.toLowerCase() !== host.toLowerCase()) {
+      return `${source} · ${host}`;
+    }
+
+    return `Reference from ${host}`;
+  }
+
+  openVideoResource(resource: ResourceCard): void {
+    if (this.videoPreviewMode === 'modal') {
+      const embedUrl = this.toYouTubeEmbedUrl(resource);
+      if (embedUrl) {
+        this.videoPreview.set({
+          title: resource.title,
+          sourceUrl: resource.url,
+          embedUrl: this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl),
+        });
+        return;
+      }
+    }
+
+    this.openExternalResource(resource.url);
+  }
+
+  closeVideoPreview(): void {
+    this.videoPreview.set(null);
+  }
+
+  openVideoSourceFromPreview(): void {
+    const preview = this.videoPreview();
+    if (!preview) {
+      return;
+    }
+
+    this.openExternalResource(preview.sourceUrl);
+  }
+
+  onVideoCardKeyboard(event: KeyboardEvent, resource: ResourceCard): void {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return;
+    }
+
+    event.preventDefault();
+    this.openVideoResource(resource);
+  }
+
+  private resourceGroupKey(resource: ResourceCard): ResourceGroupKey {
+    if (resource.type === 'video' || this.isYouTubeResource(resource)) {
+      return 'videos';
+    }
+
+    if (resource.type === 'course' || this.isCourseraResource(resource)) {
+      return 'courses';
+    }
+
+    return 'documentation';
+  }
+
+  private queueResourceCarouselRefresh(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.setTimeout(() => this.refreshExpandedResourceCarousels(), 0);
+  }
+
+  private refreshExpandedResourceCarousels(): void {
+    const step = this.expandedStepData();
+    if (!step || this.activeResourceTab() !== 'resources') {
+      return;
+    }
+
+    this.expandedResourceGroups().forEach((group) => {
+      this.refreshResourceCarouselState(step.number, group.key);
+    });
+  }
+
+  private resourceCarouselState(stepNumber: number, groupKey: ResourceGroupKey): ResourceCarouselState {
+    const key = this.resourceCarouselStateKey(stepNumber, groupKey);
+    return this.resourceCarouselStateMap()[key] ?? { canPrev: false, canNext: false };
+  }
+
+  private refreshResourceCarouselState(stepNumber: number, groupKey: ResourceGroupKey): void {
+    const carousel = this.getResourceCarouselElement(stepNumber, groupKey);
+    const key = this.resourceCarouselStateKey(stepNumber, groupKey);
+
+    if (!carousel) {
+      this.resourceCarouselStateMap.update((state) => ({
+        ...state,
+        [key]: { canPrev: false, canNext: false },
+      }));
+      return;
+    }
+
+    const maxLeft = Math.max(0, carousel.scrollWidth - carousel.clientWidth);
+    const canPrev = carousel.scrollLeft > 2;
+    const canNext = maxLeft - carousel.scrollLeft > 2;
+
+    this.resourceCarouselStateMap.update((state) => ({
+      ...state,
+      [key]: { canPrev, canNext },
+    }));
+  }
+
+  private getResourceCarouselElement(stepNumber: number, groupKey: ResourceGroupKey): HTMLElement | null {
+    return this.document.getElementById(this.resourceCarouselId(stepNumber, groupKey));
+  }
+
+  private resourceCarouselStateKey(stepNumber: number, groupKey: ResourceGroupKey): string {
+    return `${stepNumber}:${groupKey}`;
+  }
+
+  private toYouTubeEmbedUrl(resource: ResourceCard): string | null {
+    const videoId = this.extractYouTubeVideoId(resource);
+    if (!videoId) {
+      return null;
+    }
+
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  }
+
+  private extractYouTubeVideoId(resource: ResourceCard): string | null {
+    const external = (resource.externalId || '').trim();
+    const normalizedExternal = this.normalizeYouTubeId(external);
+    if (normalizedExternal) {
+      return normalizedExternal;
+    }
+
+    const raw = (resource.url || '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = new URL(raw);
+      const host = parsed.hostname.toLowerCase();
+
+      if (host.includes('youtu.be')) {
+        return this.normalizeYouTubeId(parsed.pathname.split('/').filter(Boolean)[0] || '');
+      }
+
+      const queryId = parsed.searchParams.get('v');
+      if (queryId) {
+        return this.normalizeYouTubeId(queryId);
+      }
+
+      const segments = parsed.pathname.split('/').filter(Boolean);
+      const markerIndex = segments.findIndex(
+        (segment) => segment === 'embed' || segment === 'shorts' || segment === 'live'
+      );
+
+      if (markerIndex >= 0 && segments[markerIndex + 1]) {
+        return this.normalizeYouTubeId(segments[markerIndex + 1]);
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  private normalizeYouTubeId(value: string): string | null {
+    const cleaned = value.trim();
+    if (!/^[a-zA-Z0-9_-]{11}$/.test(cleaned)) {
+      return null;
+    }
+
+    return cleaned;
+  }
+
+  private formatVideoDuration(durationHours: number | undefined): string {
+    if (typeof durationHours !== 'number' || !Number.isFinite(durationHours) || durationHours <= 0) {
+      return '--:--';
+    }
+
+    const totalSeconds = Math.max(1, Math.round(durationHours * 3600));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const minutePart = String(minutes).padStart(hours > 0 ? 2 : 1, '0');
+    const secondPart = String(seconds).padStart(2, '0');
+
+    if (hours > 0) {
+      return `${hours}:${minutePart}:${secondPart}`;
+    }
+
+    return `${minutePart}:${secondPart}`;
+  }
+
+  private formatCompactCount(value: number | undefined): string {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return 'N/A';
+    }
+
+    if (value >= 1_000_000) {
+      const millions = value / 1_000_000;
+      const decimals = millions >= 10 ? 0 : 1;
+      return `${millions.toFixed(decimals).replace(/\.0$/, '')}M`;
+    }
+
+    if (value >= 1_000) {
+      const thousands = value / 1_000;
+      const decimals = thousands >= 10 ? 0 : 1;
+      return `${thousands.toFixed(decimals).replace(/\.0$/, '')}K`;
+    }
+
+    return `${Math.floor(value)}`;
+  }
+
+  private resourceHostLabel(url: string): string {
+    try {
+      return new URL(url).hostname.replace(/^www\./i, '');
+    } catch {
+      return 'external source';
+    }
+  }
+
+  private openExternalResource(url: string): void {
+    const target = (url || '').trim();
+    if (!target) {
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      window.open(target, '_blank', 'noopener,noreferrer');
+    }
   }
 
   isStepCompletable(step: Step): boolean {
@@ -2588,6 +3423,344 @@ export class RoadmapComponent implements OnInit, OnDestroy {
       return 'paused';
     }
     return 'other';
+  }
+
+  private buildRoadmapCardVisual(card: RoadmapHubCard, index: number): RoadmapCardVisual {
+    const paletteIndex = index % this.cardPalette.length;
+    const color = this.cardPalette[paletteIndex];
+    const seed = card.id * 19 + (index + 1) * 29;
+
+    const waypoints: Point2d[] = [
+      {
+        x: 22 + this.seededValue(seed + 3) * 14,
+        y: 108 - this.seededValue(seed + 4) * 8,
+      },
+      {
+        x: 66 + this.seededValue(seed + 5) * 22,
+        y: 80 + this.seededValue(seed + 6) * 16,
+      },
+      {
+        x: 122 + this.seededValue(seed + 7) * 18,
+        y: 64 + this.seededValue(seed + 8) * 26,
+      },
+      {
+        x: 184 + this.seededValue(seed + 9) * 18,
+        y: 44 + this.seededValue(seed + 10) * 16,
+      },
+      {
+        x: 246 + this.seededValue(seed + 11) * 12,
+        y: 28 + this.seededValue(seed + 12) * 14,
+      },
+    ];
+
+    const island = this.buildBlobGeometry(118, 80, 45 + this.seededValue(seed + 13) * 10, seed + 21);
+    const satelliteOne = this.buildBlobGeometry(
+      52 + this.seededValue(seed + 15) * 10,
+      40 + this.seededValue(seed + 16) * 10,
+      13 + this.seededValue(seed + 17) * 4,
+      seed + 31
+    );
+    const satelliteTwo = this.buildBlobGeometry(
+      206 + this.seededValue(seed + 18) * 10,
+      92 + this.seededValue(seed + 19) * 10,
+      11 + this.seededValue(seed + 20) * 4,
+      seed + 37
+    );
+
+    const tagline = this.cardTaglines[index % this.cardTaglines.length];
+    const rating = (4.4 + this.seededValue(seed + 43) * 0.6).toFixed(1);
+
+    return {
+      ...card,
+      color,
+      colorRgb: this.hexToRgb(color),
+      icon: this.cardIcons[index % this.cardIcons.length],
+      tagline,
+      rating,
+      tags: this.cardTagPools[index % this.cardTagPools.length],
+      difficulty: this.difficultyLabelForCard(card),
+      dashDuration: Number((3 + this.seededValue(seed + 51) * 1.4).toFixed(2)),
+      routePoints: waypoints
+        .map((point) => `${this.fmt(point.x)},${this.fmt(point.y)}`)
+        .join(' '),
+      routePath: this.buildRoutePath(waypoints),
+      waypoints,
+      islandPath: island.path,
+      islandInsetOne: island.insetOne,
+      islandInsetTwo: island.insetTwo,
+      satellitePaths: [satelliteOne.path, satelliteTwo.path],
+    };
+  }
+
+  private positionOnMap(index: number, total: number): Point2d {
+    if (total <= 1) {
+      return this.mapAnchorPoints[0];
+    }
+
+    const normalized = index / Math.max(1, total - 1);
+    const segmentCount = this.mapAnchorPoints.length - 1;
+    const scaled = normalized * segmentCount;
+    const segmentIndex = Math.min(Math.floor(scaled), segmentCount - 1);
+    const segmentProgress = scaled - segmentIndex;
+
+    const from = this.mapAnchorPoints[segmentIndex];
+    const to = this.mapAnchorPoints[segmentIndex + 1];
+
+    return {
+      x: Number((from.x + (to.x - from.x) * segmentProgress).toFixed(1)),
+      y: Number((from.y + (to.y - from.y) * segmentProgress).toFixed(1)),
+    };
+  }
+
+  private isMajorMilestoneByIndex(index: number, total: number): boolean {
+    if (total <= 0) {
+      return false;
+    }
+
+    if (index === total - 1 || index === 0) {
+      return true;
+    }
+
+    return (index + 1) % 3 === 0;
+  }
+
+  private resolveMilestoneColor(step: Step, major: boolean): string {
+    if (step.status === 'done') {
+      return '#00ff88';
+    }
+
+    if (major) {
+      return '#ff6b00';
+    }
+
+    if (step.status === 'in-progress') {
+      return '#7ce8ff';
+    }
+
+    if (this.isStepLocked(step)) {
+      return '#6f87a8';
+    }
+
+    return '#00d4ff';
+  }
+
+  private resolveStepIcon(step: Step, index: number): StepIconKind {
+    const source = `${step.title} ${step.description}`.toLowerCase();
+
+    if (/(math|matrix|algebra|probability|statistics|foundation|algorithm)/.test(source)) {
+      return 'math';
+    }
+
+    if (/(sql|database|query|schema|postgres|mysql|data model)/.test(source)) {
+      return 'database';
+    }
+
+    if (/(security|auth|oauth|jwt|vulnerability|penetration|encryption|secure)/.test(source)) {
+      return 'shield';
+    }
+
+    if (/(cloud|aws|azure|gcp|kubernetes|cluster|infrastructure)/.test(source)) {
+      return 'cloud';
+    }
+
+    if (/(deploy|release|launch|production|go live|ship)/.test(source)) {
+      return 'rocket';
+    }
+
+    if (/(devops|ci\/cd|pipeline|automation|docker|observability|ops)/.test(source)) {
+      return 'gear';
+    }
+
+    if (/(certificate|certification|exam|capstone|final project|portfolio)/.test(source)) {
+      return 'certificate';
+    }
+
+    if (/(code|java|typescript|python|api|service|backend|frontend)/.test(source)) {
+      return 'code';
+    }
+
+    const fallback: StepIconKind[] = [
+      'math',
+      'code',
+      'database',
+      'cloud',
+      'gear',
+      'shield',
+      'rocket',
+      'certificate',
+    ];
+
+    return fallback[Math.abs(index) % fallback.length];
+  }
+
+  private buildBlobGeometry(cx: number, cy: number, size: number, seed: number): BlobGeometry {
+    const outer = this.buildBlobPoints(cx, cy, size, seed, 1);
+    const insetOne = this.buildBlobPoints(cx, cy, size * 0.82, seed + 71, 0.9);
+    const insetTwo = this.buildBlobPoints(cx, cy, size * 0.66, seed + 137, 0.82);
+
+    return {
+      path: this.pointsToSmoothPath(outer),
+      insetOne: this.pointsToSmoothPath(insetOne),
+      insetTwo: this.pointsToSmoothPath(insetTwo),
+    };
+  }
+
+  private buildBlobPoints(
+    cx: number,
+    cy: number,
+    size: number,
+    seed: number,
+    roughness: number
+  ): Point2d[] {
+    const pointCount = 8;
+    const points: Point2d[] = [];
+
+    for (let index = 0; index < pointCount; index += 1) {
+      const angle = (Math.PI * 2 * index) / pointCount - Math.PI / 2;
+      const radiusFactor = 0.72 + this.seededValue(seed + index * 17) * 0.38 * roughness;
+      const radius = size * radiusFactor;
+
+      points.push({
+        x: Number((cx + Math.cos(angle) * radius).toFixed(1)),
+        y: Number((cy + Math.sin(angle) * radius).toFixed(1)),
+      });
+    }
+
+    return points;
+  }
+
+  private pointsToSmoothPath(points: Point2d[]): string {
+    if (points.length === 0) {
+      return '';
+    }
+
+    let path = `M ${this.fmt(points[0].x)} ${this.fmt(points[0].y)}`;
+
+    for (let index = 0; index < points.length; index += 1) {
+      const current = points[index];
+      const next = points[(index + 1) % points.length];
+      const midX = (current.x + next.x) / 2;
+      const midY = (current.y + next.y) / 2;
+
+      path += ` Q ${this.fmt(current.x)} ${this.fmt(current.y)} ${this.fmt(midX)} ${this.fmt(midY)}`;
+    }
+
+    return `${path} Z`;
+  }
+
+  private buildRoutePath(points: Point2d[]): string {
+    if (points.length === 0) {
+      return '';
+    }
+
+    if (points.length === 1) {
+      return `M ${this.fmt(points[0].x)} ${this.fmt(points[0].y)}`;
+    }
+
+    let path = `M ${this.fmt(points[0].x)} ${this.fmt(points[0].y)}`;
+
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+      const deltaX = current.x - previous.x;
+
+      const cp1x = previous.x + deltaX * 0.35;
+      const cp2x = current.x - deltaX * 0.35;
+
+      path += ` C ${this.fmt(cp1x)} ${this.fmt(previous.y)} ${this.fmt(cp2x)} ${this.fmt(current.y)} ${this.fmt(current.x)} ${this.fmt(current.y)}`;
+    }
+
+    return path;
+  }
+
+  private buildMapParticles(count: number): MapParticle[] {
+    const particles: MapParticle[] = [];
+
+    for (let index = 0; index < count; index += 1) {
+      const seed = 201 + index * 17;
+      particles.push({
+        id: `particle-${index}`,
+        x: Number((60 + this.seededValue(seed + 1) * 1080).toFixed(1)),
+        y: Number((70 + this.seededValue(seed + 2) * 560).toFixed(1)),
+        radius: Number((0.8 + this.seededValue(seed + 3) * 1.6).toFixed(2)),
+        drift: Number((15 + this.seededValue(seed + 4) * 28).toFixed(1)),
+        duration: Number((8 + this.seededValue(seed + 5) * 12).toFixed(2)),
+        delay: Number((this.seededValue(seed + 6) * 6).toFixed(2)),
+        opacity: Number((0.18 + this.seededValue(seed + 7) * 0.5).toFixed(2)),
+      });
+    }
+
+    return particles;
+  }
+
+  private buildDecorativeIslands(): DecorativeIsland[] {
+    const fixtures = [
+      { x: 90, y: 120, size: 24, seed: 311 },
+      { x: 1080, y: 98, size: 28, seed: 337 },
+      { x: 106, y: 650, size: 26, seed: 359 },
+      { x: 980, y: 640, size: 22, seed: 389 },
+      { x: 560, y: 98, size: 20, seed: 419 },
+    ];
+
+    return fixtures.map((fixture, index) => ({
+      id: `decor-${index}`,
+      path: this.buildBlobGeometry(fixture.x, fixture.y, fixture.size, fixture.seed).path,
+    }));
+  }
+
+  private buildCloudPuffs(): CloudPuff[] {
+    return [
+      { id: 'cloud-a', x: 220, y: 90, rx: 88, ry: 24, opacity: 0.12 },
+      { id: 'cloud-b', x: 600, y: 74, rx: 76, ry: 22, opacity: 0.1 },
+      { id: 'cloud-c', x: 920, y: 116, rx: 94, ry: 28, opacity: 0.11 },
+    ];
+  }
+
+  private difficultyLabelForCard(card: RoadmapHubCard): string {
+    if (card.scorePercent >= 80) {
+      return 'ADVANCED';
+    }
+
+    if (card.scorePercent >= 45) {
+      return 'INTERMEDIATE';
+    }
+
+    return 'BEGINNER';
+  }
+
+  private toShortLabel(value: string, maxLength: number): string {
+    const normalized = (value || '').trim();
+    if (normalized.length <= maxLength) {
+      return normalized;
+    }
+
+    return `${normalized.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+  }
+
+  private seededValue(seed: number): number {
+    const value = Math.sin(seed * 12.9898) * 43758.5453;
+    return value - Math.floor(value);
+  }
+
+  private fmt(value: number): string {
+    return Number(value.toFixed(1)).toString();
+  }
+
+  private hexToRgb(hexColor: string): string {
+    const normalized = hexColor.replace('#', '').trim();
+    if (normalized.length !== 6) {
+      return '0, 212, 255';
+    }
+
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+
+    if ([r, g, b].some((value) => Number.isNaN(value))) {
+      return '0, 212, 255';
+    }
+
+    return `${r}, ${g}, ${b}`;
   }
 
   private formatRoadmapStartedAt(value: string | undefined): string {

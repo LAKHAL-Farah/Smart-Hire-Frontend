@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { tap } from 'rxjs';
+import { userAuthBaseUrl } from '../../../core/user-api-url';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AutheService {
 
-  private API_URL = 'http://localhost:8080/MS-USER/auth';
+  private readonly API_URL = `${userAuthBaseUrl()}/auth`;
 
   constructor(private http: HttpClient, private router: Router) {}
 
@@ -20,7 +21,10 @@ export class AutheService {
       tap(res => {
         localStorage.setItem('auth_token', res.Token);
         localStorage.setItem('access_token', res.Token);
-        localStorage.setItem('UserId', res.UserId);
+        localStorage.setItem('UserId', String(res.UserId ?? ''));
+        localStorage.setItem('userId', String(res.UserId ?? ''));
+        localStorage.setItem('user_id', String(res.UserId ?? ''));
+        localStorage.setItem('uid', String(res.UserId ?? ''));
         localStorage.setItem('userName', res.userName);
         localStorage.setItem('email', res.email);
         localStorage.setItem('role', res.roles);
@@ -36,6 +40,10 @@ export class AutheService {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('access_token');
     localStorage.removeItem('UserId');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('uid');
+    localStorage.removeItem('user');
     localStorage.removeItem('userName');
     localStorage.removeItem('email');
     localStorage.removeItem('role');

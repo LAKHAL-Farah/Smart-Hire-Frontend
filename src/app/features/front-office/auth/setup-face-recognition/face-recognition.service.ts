@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, BehaviorSubject } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { userAuthBaseUrl } from '../../../../core/user-api-url';
 
 interface EnableFaceResponse {
   status: string;
@@ -15,7 +16,7 @@ interface EnableFaceResponse {
 })
 export class FaceRecognitionService {
 
-  private baseUrl =  'http://localhost:8080/MS-USER'; // URL de l'API backend
+  private readonly baseUrl = userAuthBaseUrl(); // URL de l'API backend
   private currentUserIdSubject = new BehaviorSubject<string | null>(null);
 
   constructor(private http: HttpClient) {

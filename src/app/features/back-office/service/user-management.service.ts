@@ -1,7 +1,8 @@
 // services/user-management.service.ts
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map, catchError, throwError } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, catchError, throwError } from 'rxjs';
+import { userApiBaseUrl } from '../../../core/user-api-url';
 
 
 export interface ApiUser {
@@ -56,7 +57,7 @@ export interface UserUpdateRequest {
 })
 export class UserManagementService {
   private http = inject(HttpClient);
-  private apiUrl = `http://localhost:8080/MS-USER/api/v1/users`;
+  private readonly apiUrl = `${userApiBaseUrl()}/users`;
 
   getAllUsers(): Observable<ApiUser[]> {
     return this.http.get<ApiUser[]>(this.apiUrl).pipe(

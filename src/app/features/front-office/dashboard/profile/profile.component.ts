@@ -21,7 +21,7 @@ import {
   SkillProfileApiService,
   SkillProfileDto,
 } from '../../assessments/skill-profile-api.service';
-import { getAssessmentUserId } from '../../profile/profile-user-id';
+import { getMsUserIdFromToken } from '../../profile/profile-user-id';
 
 type ProfileTab = 'overview' | 'experience' | 'projects' | 'assessments';
 
@@ -380,7 +380,7 @@ export class ProfileComponent implements OnInit {
   loadProfile(): void {
     this.profileLoading.set(true);
     this.profileError.set(null);
-    const baseUid = getAssessmentUserId();
+    const baseUid = getMsUserIdFromToken();
 
     this.profileApi
       .getProfile()

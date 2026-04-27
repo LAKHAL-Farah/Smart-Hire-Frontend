@@ -65,3 +65,56 @@ export function setLocalDemoMode(on: boolean): void {
     localStorage.removeItem(DEMO_MODE_KEY);
   }
 }
+/**
+ * Get user role from JWT token stored in localStorage.
+ * Falls back to ACCOUNT_ROLE_KEY if JWT is not available.
+ * This function works with the existing authentication system without modifying it.
+ */
+export function getUserRoleFromToken(): string {
+  try {
+    const userToken = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+    if (userToken) {
+      const user = JSON.parse(userToken) as { role?: string };
+      if (user?.role) {
+        return user.role.toLowerCase();
+      }
+    }
+  } catch {
+    /* ignore JSON parse errors */
+  }
+  
+  // Fallback to existing ACCOUNT_ROLE_KEY
+  return (localStorage.getItem(ACCOUNT_ROLE_KEY) || 'candidate').toLowerCase();
+}
+
+/**
+ * Get user ID from MS-User JWT token for assessment operations.
+ * This replaces getAssessmentUserId() to use MS-User ID directly.
+ */
+export function getMsUserIdFromToken(): string | null {
+  const userData = getUserDataFromToken();
+  return userData?.id || null;
+}
+/**
+ * Get user information from JWT token stored in localStorage.
+ * This function works with the existing authentication system without modifying it.
+ */
+export function getUserDataFromToken(): { id: string; email?: string; name?: string; role: string } | null {
+  try {
+    const userToken = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+    if (userToken) {
+      const user = JSON.parse(userToken) as { id?: string; email?: string; name?: string; role?: string };
+      if (user?.id) {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: (user.role || 'candidate').toLowerCase()
+        };
+      }
+    }
+  } catch {
+    /* ignore JSON parse errors */
+  }
+  return null;
+}

@@ -185,6 +185,50 @@
   border: 1px solid rgba(245, 158, 11, 0.28);
 }
 
+.ash-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 16px 0 4px;
+  max-width: 380px;
+
+  &__icon {
+    position: absolute;
+    left: 11px;
+    color: var(--color-text-muted, #888);
+    pointer-events: none;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 8px 32px 8px 34px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, rgba(255,255,255,.12));
+    background: var(--color-surface, rgba(255,255,255,.05));
+    color: var(--color-text-p, #e2e8f0);
+    font-size: .85rem;
+    outline: none;
+    transition: border-color .2s;
+
+    &::placeholder { color: var(--color-text-muted, #888); }
+    &:focus { border-color: var(--accent-teal, #0d9488); }
+  }
+
+  &__clear {
+    position: absolute;
+    right: 9px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted, #888);
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 4px;
+    &:hover { color: var(--color-text-p, #e2e8f0); }
+  }
+}
+
 .ash-grid {
   list-style: none;
   margin: 24px 0 0;
@@ -295,7 +339,29 @@
   &:hover { border-color: rgba(var(--color-accent-rgb), 0.3); background: var(--bg-card-hover); }
 }
 
-.ash-history__cat { display: block; font-weight: 600; font-size: 14px; color: var(--color-text-p); }
+.ash-history__cat { 
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600; 
+  font-size: 14px; 
+  color: var(--color-text-p); 
+}
+
+.ash-attempt-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .ash-history__meta { display: block; font-size: 12px; color: var(--color-text-s); margin-top: 4px; }
 .ash-history__main { flex: 1; min-width: 0; }
 .ash-history__pending { display: block; margin-top: 6px; font-size: 12px; color: rgba(245, 158, 11, 0.95); }

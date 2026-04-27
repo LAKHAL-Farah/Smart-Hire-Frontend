@@ -9,6 +9,7 @@ export interface AssignedCategoryDto {
   id: number;
   code: string;
   title: string;
+  attemptCount: number; // How many times this category was assigned (1 = initial, 2+ = reassignments)
 }
 
 export interface CandidateAssignmentStatusDto {

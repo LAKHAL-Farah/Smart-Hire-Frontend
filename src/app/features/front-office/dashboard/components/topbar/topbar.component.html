@@ -17,6 +17,7 @@
       class="topbar__search"
       placeholder="Search anything..."
       [(ngModel)]="searchQuery"
+      (ngModelChange)="searchService.set($event)"
       name="search"
     />
   </div>

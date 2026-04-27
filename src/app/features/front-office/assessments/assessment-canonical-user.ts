@@ -4,7 +4,7 @@ import { PROFILE_USER_UUID_STORAGE_KEY } from '../profile/profile-user-id';
 /**
  * MS-Assessment stores sessions under the assignment row’s `userId`. That must match
  * `GET /sessions/user/{userId}`. Prefer the id returned by {@link CandidateAssignmentStatusDto#userId}
- * when a plan exists; otherwise fall back to {@link getAssessmentUserId}.
+ * when a plan exists; otherwise fall back to {@link getMsUserIdFromToken}.
  */
 export function canonicalSessionListUserId(
   plan: CandidateAssignmentStatusDto | null,

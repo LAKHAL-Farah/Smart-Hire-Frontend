@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { catchError, finalize, forkJoin, of, switchMap } from 'rxjs';
 import { LUCIDE_ICONS } from '../../../shared/lucide-icons';
 import {
@@ -11,515 +12,521 @@ import {
   RoadmapVisualResponse,
 } from '../../../services/roadmap-api.service';
 import { resolveRoadmapUserId } from './roadmap/roadmap-user-context';
+import {
+  CandidateSessionApiService,
+  SessionResponseDto,
+  isSessionCompleted,
+  isSessionPublished,
+} from '../assessments/candidate-session-api.service';
+import { CandidateAssignmentApiService } from '../assessments/candidate-assignment-api.service';
+import { SkillProfileApiService, SkillProfileDto } from '../assessments/skill-profile-api.service';
+import { getMsUserIdFromToken } from '../profile/profile-user-id';
+import { InterviewApiService } from './interview/interview-api.service';
+import { JobService } from '../../../services/job.service';
 
-interface DashboardStatCard {
-  label: string;
-  value: string;
-  trend: string;
-  up: boolean;
-  icon: string;
+// ── Interfaces ────────────────────────────────────────────────────────────────
+
+interface SkillGapItem {
+  code: string;
+  title: string;
+  score: number;           // 0-100 from assessment
+  roadmapCoverage: number; // 0-100 how much roadmap covers this
+  gap: number;             // 100 - score = gap to fill
+  color: string;
+  status: 'strong' | 'learning' | 'gap';
 }
 
-interface DashboardRecommendation {
-  priority: 'High' | 'Medium' | 'Low';
-  badgeColor: string;
+interface LearningPathStep {
+  id: number;
+  title: string;
+  status: 'done' | 'active' | 'next' | 'locked';
+  estimatedDays: number;
+  technologies: string[];
+  linkedSkill: string | null; // assessment category this step addresses
+}
+
+interface ActionItem {
+  type: 'assessment' | 'roadmap' | 'interview' | 'job';
+  priority: 1 | 2 | 3;
+  icon: string;
+  color: string;
   title: string;
   desc: string;
-  time: string;
+  cta: string;
+  route: string;
+  badge?: string;
 }
 
-interface DashboardSkill {
-  name: string;
-  pct: number;
-  color: string;
-}
-
-interface DashboardUpcomingStep {
-  id: number;
-  text: string;
-  due: string;
-  done: boolean;
-}
-
-interface DashboardWeekDay {
+interface WeekDay {
   day: string;
   active: boolean;
   today: boolean;
 }
 
-interface DashboardActivity {
+interface ActivityItem {
+  icon: string;
+  color: string;
   text: string;
   time: string;
-  color: string;
   timestamp: number;
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 @Component({
   selector: 'app-dashboard-home',
   standalone: true,
-  imports: [CommonModule, LUCIDE_ICONS],
+  imports: [CommonModule, RouterLink, LUCIDE_ICONS],
   templateUrl: './dashboard-home.component.html',
-  styleUrl: './dashboard-home.component.scss'
+  styleUrl: './dashboard-home.component.scss',
 })
 export class DashboardHomeComponent implements OnInit {
-  private readonly roadmapApi = inject(RoadmapApiService);
+  private readonly roadmapApi    = inject(RoadmapApiService);
+  private readonly sessionApi    = inject(CandidateSessionApiService);
+  private readonly assignmentApi = inject(CandidateAssignmentApiService);
+  private readonly skillProfileApi = inject(SkillProfileApiService);
+  private readonly interviewApi  = inject(InterviewApiService);
+  private readonly jobService    = inject(JobService);
 
-  loading = false;
-  errorMessage: string | null = null;
+  // ── Loading state ──
+  roadmapLoading = true;
+  assessmentLoading = true;
 
+  get loading(): boolean { return this.roadmapLoading || this.assessmentLoading; }
+
+  // ── Readiness ring ──
+  readonly circumference = 2 * Math.PI * 54;
   readinessScore = 0;
-  readinessBand = 'starting to build momentum';
-  circumference = 2 * Math.PI * 50;
-
-  statCards: DashboardStatCard[] = [];
-  recommendations: DashboardRecommendation[] = [];
-  skills: DashboardSkill[] = [];
-  upcomingSteps: DashboardUpcomingStep[] = [];
-
-  streakDays = 0;
-  weekDays: DashboardWeekDay[] = this.buildWeekDays(0);
-
-  activities: Array<Omit<DashboardActivity, 'timestamp'>> = [];
-
-  get dashOffset(): number {
-    return this.circumference * (1 - this.readinessScore / 100);
+  get dashOffset(): number { return this.circumference * (1 - this.readinessScore / 100); }
+  get readinessLabel(): string {
+    if (this.readinessScore >= 80) return 'Job-ready';
+    if (this.readinessScore >= 60) return 'On track';
+    if (this.readinessScore >= 35) return 'Building up';
+    return 'Getting started';
   }
+  get readinessColor(): string {
+    if (this.readinessScore >= 70) return '#2ee8a5';
+    if (this.readinessScore >= 40) return '#f59e0b';
+    return '#ef4444';
+  }
+
+  // ── Assessment data ──
+  skillProfile: SkillProfileDto | null = null;
+  assessmentSessions: SessionResponseDto[] = [];
+  assignedCategories: { id: number; code: string; title: string }[] = [];
+  assessmentStatus: 'PENDING' | 'APPROVED' | null = null;
+  pendingPublishCount = 0;
+
+  get publishedSessions(): SessionResponseDto[] {
+    return this.assessmentSessions.filter(s => isSessionCompleted(s) && isSessionPublished(s) && s.scorePercent != null);
+  }
+  get avgScore(): number | null {
+    const p = this.publishedSessions;
+    if (!p.length) return null;
+    return Math.round(p.reduce((s, x) => s + (x.scorePercent ?? 0), 0) / p.length);
+  }
+  get completedCount(): number { return this.assessmentSessions.filter(s => isSessionCompleted(s)).length; }
+
+  // ── Roadmap data ──
+  roadmapNodes: RoadmapNodeDto[] = [];
+  roadmapProgress = 0;
+  roadmapTotal = 0;
+  roadmapCompleted = 0;
+  streakDays = 0;
+  weekDays: WeekDay[] = this.buildWeekDays(0);
+  activities: Omit<ActivityItem, 'timestamp'>[] = [];
+
+  // ── Derived: skill gap (assessment ↔ roadmap) ──
+  skillGaps: SkillGapItem[] = [];
+
+  // ── Derived: learning path ──
+  learningPath: LearningPathStep[] = [];
+
+  // ── Derived: action items ──
+  actionItems: ActionItem[] = [];
+
+  // ── Interview ──
+  interviewSessionCount = 0;
+  interviewStreak = 0;
+
+  // ── Jobs ──
+  topJob: { title: string; company: string; matchScore: number } | null = null;
+  jobCount = 0;
+
+  // ── User ──
+  get userName(): string {
+    return localStorage.getItem('userName')?.trim().split(/\s+/)[0] ?? 'there';
+  }
+  get greeting(): string {
+    const h = new Date().getHours();
+    return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
-    this.loadDashboard();
+    this.loadAssessments();
+    this.loadRoadmap();
+    this.loadInterview();
+    this.loadJobs();
   }
 
-  private loadDashboard(): void {
-    const userId = resolveRoadmapUserId();
-    if (!userId) {
-      this.errorMessage = 'No authenticated user found. Please sign in again.';
+  // ── Load assessments ──────────────────────────────────────────────────────
+
+  private loadAssessments(): void {
+    const uid = getMsUserIdFromToken();
+    if (!uid || uid === '00000000-0000-4000-8000-000000000001') {
+      this.assessmentLoading = false;
       return;
     }
 
-    this.loading = true;
-    this.errorMessage = null;
-
-    this.roadmapApi
-      .getUserRoadmap(userId)
-      .pipe(
-        switchMap((roadmap) =>
-          forkJoin({
-            roadmap: of(roadmap),
-            progress: this.roadmapApi
-              .getProgressSummary(roadmap.id)
-              .pipe(catchError(() => of(null as ProgressSummaryDto | null))),
-            graph: this.roadmapApi
-              .getRoadmapGraph(roadmap.id)
-              .pipe(catchError(() => of(null as RoadmapVisualResponse | null))),
-            streak: this.roadmapApi
-              .getStreakInfo(userId, roadmap.id)
-              .pipe(catchError(() => of({ currentStreak: 0, longestStreak: 0 }))),
-            notifications: this.roadmapApi
-              .getRoadmapNotifications(roadmap.id, userId)
-              .pipe(
-                catchError(() => this.roadmapApi.getUserNotifications(userId)),
-                catchError(() => of([] as NotificationDto[]))
-              ),
-            milestones: this.roadmapApi
-              .getMilestones(roadmap.id)
-              .pipe(catchError(() => of([] as MilestoneDto[]))),
-          })
-        ),
-        finalize(() => {
-          this.loading = false;
-        })
-      )
-      .subscribe({
-        next: ({ progress, graph, streak, notifications, milestones }) => {
-          this.bindDashboardData(
-            progress,
-            graph,
-            streak.currentStreak ?? 0,
-            notifications,
-            milestones
-          );
-        },
-        error: () => {
-          this.errorMessage = 'Unable to load dashboard metrics from backend.';
-          this.applyFallbackState();
-        },
-      });
+    forkJoin({
+      plan: this.assignmentApi.getStatus(uid).pipe(catchError(() => of(null))),
+      sessions: this.sessionApi.listForUser(uid).pipe(catchError(() => of([]))),
+      profile: this.skillProfileApi.getForUser(uid).pipe(catchError(() => of(null))),
+    }).subscribe(({ plan, sessions, profile }) => {
+      this.assessmentStatus = plan?.status ?? null;
+      this.assignedCategories = plan?.assignedCategories ?? [];
+      this.assessmentSessions = sessions;
+      this.pendingPublishCount = sessions.filter(s => isSessionCompleted(s) && !isSessionPublished(s)).length;
+      this.skillProfile = profile;
+      this.assessmentLoading = false;
+      this.rebuildDerived();
+    });
   }
 
-  private bindDashboardData(
-    progress: ProgressSummaryDto | null,
-    graph: RoadmapVisualResponse | null,
-    streakDays: number,
-    notifications: NotificationDto[],
-    milestones: MilestoneDto[]
-  ): void {
-    const nodes = (graph?.nodes ?? []).slice().sort((a, b) => a.stepOrder - b.stepOrder);
+  // ── Load roadmap ──────────────────────────────────────────────────────────
 
-    const totalSteps = this.resolveTotalSteps(progress, nodes);
-    const completedSteps = this.resolveCompletedSteps(progress, nodes);
-    const progressPercent = this.resolveProgressPercent(progress, totalSteps, completedSteps, graph);
+  private loadRoadmap(): void {
+    const userId = resolveRoadmapUserId();
+    if (!userId) {
+      this.roadmapLoading = false;
+      this.rebuildDerived();
+      return;
+    }
 
-    const pendingSteps = Math.max(totalSteps - completedSteps, 0);
-    const inProgressSteps = nodes.filter((node) => this.isInProgress(node.status)).length;
-    const interviewSignals = notifications.filter((item) =>
-      /INTERVIEW|ASSESSMENT/i.test(`${item.type || ''} ${item.message || ''}`)
-    ).length;
-
-    const skillSummary = this.buildSkillSummary(nodes, progressPercent);
-    const recommendationSummary = this.buildRecommendations(nodes, notifications);
-    const upcoming = this.buildUpcomingSteps(nodes);
-    const activityFeed = this.buildActivityFeed(notifications, milestones);
-
-    this.readinessScore = this.calculateReadiness(progressPercent, streakDays, inProgressSteps);
-    this.readinessBand = this.resolveReadinessBand(this.readinessScore);
-
-    this.statCards = [
-      {
-        label: 'Roadmap Progress',
-        value: `${progressPercent}%`,
-        trend: `${completedSteps}/${Math.max(totalSteps, 1)} steps completed`,
-        up: progressPercent >= 50,
-        icon: 'activity',
+    this.roadmapApi.getUserRoadmap(userId).pipe(
+      switchMap(roadmap => forkJoin({
+        progress: this.roadmapApi.getProgressSummary(roadmap.id).pipe(catchError(() => of(null as ProgressSummaryDto | null))),
+        graph:    this.roadmapApi.getRoadmapGraph(roadmap.id).pipe(catchError(() => of(null as RoadmapVisualResponse | null))),
+        streak:   this.roadmapApi.getStreakInfo(userId, roadmap.id).pipe(catchError(() => of({ currentStreak: 0 }))),
+        notifs:   this.roadmapApi.getRoadmapNotifications(roadmap.id, userId).pipe(catchError(() => of([] as NotificationDto[]))),
+        milestones: this.roadmapApi.getMilestones(roadmap.id).pipe(catchError(() => of([] as MilestoneDto[]))),
+      })),
+      finalize(() => { this.roadmapLoading = false; })
+    ).subscribe({
+      next: ({ progress, graph, streak, notifs, milestones }) => {
+        const nodes = (graph?.nodes ?? []).slice().sort((a, b) => a.stepOrder - b.stepOrder);
+        this.roadmapNodes = nodes;
+        this.roadmapTotal = (progress?.totalSteps ?? 0) > 0 ? progress!.totalSteps : nodes.length;
+        this.roadmapCompleted = (progress?.completedSteps ?? 0) > 0 ? progress!.completedSteps : nodes.filter(n => this.isDone(n.status)).length;
+        this.roadmapProgress = this.roadmapTotal > 0 ? Math.round((this.roadmapCompleted / this.roadmapTotal) * 100) : 0;
+        if ((progress?.progressPercent ?? 0) > 0) this.roadmapProgress = Math.round(progress!.progressPercent);
+        if ((graph?.progressPercent ?? 0) > 0 && this.roadmapProgress === 0) this.roadmapProgress = Math.round(graph!.progressPercent);
+        this.streakDays = streak.currentStreak ?? 0;
+        this.weekDays = this.buildWeekDays(this.streakDays);
+        this.activities = this.buildActivity(notifs, milestones);
+        this.rebuildDerived();
       },
-      {
-        label: 'Pending Steps',
-        value: String(pendingSteps),
-        trend: pendingSteps === 0 ? 'All steps completed' : `${Math.min(pendingSteps, 3)} priority steps left`,
-        up: pendingSteps === 0,
-        icon: 'clock',
-      },
-      {
-        label: 'Skills Covered',
-        value: String(skillSummary.length),
-        trend: skillSummary.length > 0 ? 'Derived from roadmap technologies' : 'No mapped skills yet',
-        up: skillSummary.length > 0,
-        icon: 'star',
-      },
-      {
-        label: 'Interview Signals',
-        value: String(interviewSignals),
-        trend: interviewSignals > 0 ? 'Recent assessment/interview events' : 'No recent interview events',
-        up: interviewSignals > 0,
-        icon: 'users',
-      },
-    ];
-
-    this.recommendations = recommendationSummary;
-    this.skills = skillSummary;
-    this.upcomingSteps = upcoming;
-    this.streakDays = streakDays;
-    this.weekDays = this.buildWeekDays(streakDays);
-    this.activities = activityFeed.map(({ timestamp: _timestamp, ...rest }) => rest);
+      error: () => { this.rebuildDerived(); },
+    });
   }
 
-  private resolveTotalSteps(
-    progress: ProgressSummaryDto | null,
-    nodes: RoadmapNodeDto[]
-  ): number {
-    if ((progress?.totalSteps ?? 0) > 0) {
-      return progress!.totalSteps;
-    }
-    return nodes.length;
+  // ── Load interview ────────────────────────────────────────────────────────
+
+  private loadInterview(): void {
+    const uid = resolveRoadmapUserId();
+    if (!uid) return;
+    this.interviewApi.getSessionsByUser(uid).pipe(catchError(() => of([]))).subscribe((s: any[]) => {
+      this.interviewSessionCount = s.length;
+    });
+    this.interviewApi.getStreak(uid).pipe(catchError(() => of({ currentStreak: 0 }))).subscribe((s: any) => {
+      this.interviewStreak = s.currentStreak ?? 0;
+    });
   }
 
-  private resolveCompletedSteps(
-    progress: ProgressSummaryDto | null,
-    nodes: RoadmapNodeDto[]
-  ): number {
-    if ((progress?.completedSteps ?? 0) > 0) {
-      return progress!.completedSteps;
-    }
-    return nodes.filter((node) => this.isCompleted(node.status)).length;
+  // ── Load jobs ─────────────────────────────────────────────────────────────
+
+  private loadJobs(): void {
+    this.jobService.getJobs().pipe(catchError(() => of([]))).subscribe((jobs: any[]) => {
+      this.jobCount = jobs.length;
+      const sorted = [...jobs].sort((a, b) => (b.matchScore ?? 0) - (a.matchScore ?? 0));
+      if (sorted.length > 0) {
+        this.topJob = { title: sorted[0].title, company: sorted[0].company, matchScore: sorted[0].matchScore ?? 0 };
+      }
+    });
   }
 
-  private resolveProgressPercent(
-    progress: ProgressSummaryDto | null,
-    totalSteps: number,
-    completedSteps: number,
-    graph: RoadmapVisualResponse | null
-  ): number {
-    if ((progress?.progressPercent ?? 0) > 0) {
-      return Math.max(0, Math.min(100, progress!.progressPercent));
-    }
+  // ── Rebuild derived data (runs after both loads complete) ─────────────────
 
-    if ((graph?.progressPercent ?? 0) > 0) {
-      return Math.max(0, Math.min(100, graph!.progressPercent));
-    }
-
-    if (totalSteps > 0) {
-      return Math.round((completedSteps / totalSteps) * 100);
-    }
-
-    return 0;
+  private rebuildDerived(): void {
+    this.buildSkillGaps();
+    this.buildLearningPath();
+    this.buildActionItems();
+    this.buildReadiness();
   }
 
-  private buildRecommendations(
-    nodes: RoadmapNodeDto[],
-    notifications: NotificationDto[]
-  ): DashboardRecommendation[] {
-    const items: DashboardRecommendation[] = [];
-    const sortedNodes = nodes.slice().sort((a, b) => a.stepOrder - b.stepOrder);
+  // ── Skill gaps: assessment scores ↔ roadmap technologies ─────────────────
 
-    const firstInProgress = sortedNodes.find((node) => this.isInProgress(node.status));
-    if (firstInProgress) {
-      items.push({
-        priority: 'High',
-        badgeColor: '#ef4444',
-        title: `Continue ${firstInProgress.title}`,
-        desc: `Step ${firstInProgress.stepOrder} is currently in progress. Finishing it will unlock the next node.`,
-        time: firstInProgress.unlockedAt
-          ? this.formatRelativeTime(firstInProgress.unlockedAt)
-          : 'Current focus',
-      });
-    }
+  private buildSkillGaps(): void {
+    const palette = ['#2ee8a5', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6', '#ec4899'];
 
-    const firstAvailable = sortedNodes.find(
-      (node) => node.status === 'AVAILABLE' || node.status === 'LOCKED'
-    );
-    if (firstAvailable) {
-      items.push({
-        priority: firstAvailable.status === 'AVAILABLE' ? 'Medium' : 'Low',
-        badgeColor: firstAvailable.status === 'AVAILABLE' ? '#f59e0b' : '#6366f1',
-        title: `Prepare ${firstAvailable.title}`,
-        desc: `Upcoming roadmap step ${firstAvailable.stepOrder} with an estimate of ${Math.max(firstAvailable.estimatedDays || 0, 1)} day(s).`,
-        time: firstAvailable.status === 'AVAILABLE' ? 'Ready now' : 'Locked',
-      });
-    }
+    // Source 1: skill profile from MS-Assessment (most accurate)
+    if (this.skillProfile?.domains?.length) {
+      this.skillGaps = this.skillProfile.domains.map((d, i) => {
+        const score = d.scorePercent;
+        const gap = Math.max(0, 100 - score);
+        // Check if roadmap has nodes covering this skill
+        const roadmapCoverage = this.roadmapNodes.some(n =>
+          (n.technologies || '').toLowerCase().includes(d.code.toLowerCase()) ||
+          (n.title || '').toLowerCase().includes(d.title.toLowerCase().split(' ')[0])
+        ) ? Math.min(100, score + 20) : 0;
 
-    const notifRecs = notifications
-      .slice()
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 3)
-      .map((item) => {
-        const priority = this.resolvePriority(item.type);
         return {
-          priority,
-          badgeColor:
-            priority === 'High' ? '#ef4444' : priority === 'Medium' ? '#f59e0b' : '#6366f1',
-          title: item.type ? this.toTitleCase(item.type.replace(/_/g, ' ')) : 'Roadmap update',
-          desc: item.message,
-          time: this.formatRelativeTime(item.createdAt),
-        } as DashboardRecommendation;
+          code: d.code,
+          title: d.title,
+          score,
+          roadmapCoverage,
+          gap,
+          color: palette[i % palette.length],
+          status: score >= 70 ? 'strong' : score >= 40 ? 'learning' : 'gap',
+        } as SkillGapItem;
+      }).sort((a, b) => a.score - b.score); // weakest first
+      return;
+    }
+
+    // Source 2: raw sessions if no skill profile yet
+    const sessionMap = new Map<string, { title: string; scores: number[] }>();
+    for (const s of this.publishedSessions) {
+      if (!sessionMap.has(s.categoryCode ?? s.categoryTitle)) {
+        sessionMap.set(s.categoryCode ?? s.categoryTitle, { title: s.categoryTitle, scores: [] });
+      }
+      sessionMap.get(s.categoryCode ?? s.categoryTitle)!.scores.push(s.scorePercent ?? 0);
+    }
+
+    this.skillGaps = [...sessionMap.entries()].map(([code, { title, scores }], i) => {
+      const score = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      return {
+        code, title, score,
+        roadmapCoverage: 0,
+        gap: Math.max(0, 100 - score),
+        color: palette[i % palette.length],
+        status: score >= 70 ? 'strong' : score >= 40 ? 'learning' : 'gap',
+      } as SkillGapItem;
+    }).sort((a, b) => a.score - b.score);
+  }
+
+  // ── Learning path: roadmap nodes enriched with assessment context ─────────
+
+  private buildLearningPath(): void {
+    const weakSkills = this.skillGaps.filter(g => g.status === 'gap' || g.status === 'learning').map(g => g.title.toLowerCase());
+
+    this.learningPath = this.roadmapNodes.slice(0, 6).map(n => {
+      const techs = (n.technologies || '').split(',').map(t => t.trim()).filter(Boolean);
+      // Find if this node addresses a weak skill
+      const linkedSkill = weakSkills.find(skill =>
+        techs.some(t => t.toLowerCase().includes(skill.split(' ')[0])) ||
+        n.title.toLowerCase().includes(skill.split(' ')[0])
+      ) ?? null;
+
+      let status: LearningPathStep['status'] = 'locked';
+      if (this.isDone(n.status)) status = 'done';
+      else if (this.isActive(n.status)) status = 'active';
+      else if (n.status === 'AVAILABLE') status = 'next';
+
+      return { id: n.id, title: n.title, status, estimatedDays: n.estimatedDays ?? 1, technologies: techs.slice(0, 3), linkedSkill };
+    });
+  }
+
+  // ── Action items: smart prioritised to-do list ────────────────────────────
+
+  private buildActionItems(): void {
+    const items: ActionItem[] = [];
+
+    // 1. Weak assessments → take quiz
+    const weakGaps = this.skillGaps.filter(g => g.status === 'gap');
+    if (weakGaps.length > 0) {
+      items.push({
+        type: 'assessment', priority: 1,
+        icon: 'brain-circuit', color: '#ef4444',
+        title: `Improve ${weakGaps[0].title}`,
+        desc: `Your score is ${weakGaps[0].score}% — retake or study this topic to strengthen your profile.`,
+        cta: 'Go to assessments', route: '/dashboard/assessments',
+        badge: `${weakGaps[0].score}%`,
       });
-
-    const merged = [...items, ...notifRecs];
-    if (merged.length > 0) {
-      return merged.slice(0, 4);
     }
 
-    return [
-      {
-        priority: 'Low',
-        badgeColor: '#6366f1',
-        title: 'Roadmap generated',
-        desc: 'Your dashboard is waiting for the first roadmap updates from backend events.',
-        time: 'Just now',
-      },
-    ];
-  }
-
-  private buildSkillSummary(nodes: RoadmapNodeDto[], progressPercent: number): DashboardSkill[] {
-    const technologies = nodes
-      .flatMap((node) => (node.technologies || '').split(','))
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-
-    if (technologies.length === 0) {
-      return [];
-    }
-
-    const weights = new Map<string, number>();
-    for (const tech of technologies) {
-      const key = this.toTitleCase(tech);
-      weights.set(key, (weights.get(key) ?? 0) + 1);
-    }
-
-    const palette = ['#2ee8a5', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#14b8a6'];
-    const maxWeight = Math.max(...weights.values());
-
-    return [...weights.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([name, weight], index) => {
-        const normalized = maxWeight > 0 ? weight / maxWeight : 0;
-        const pct = Math.max(20, Math.min(95, Math.round(normalized * 75 + progressPercent * 0.2)));
-        return {
-          name,
-          pct,
-          color: palette[index % palette.length],
-        };
+    // 2. Active roadmap step
+    const activeNode = this.roadmapNodes.find(n => this.isActive(n.status));
+    if (activeNode) {
+      items.push({
+        type: 'roadmap', priority: 1,
+        icon: 'play-circle', color: '#2ee8a5',
+        title: `Continue: ${activeNode.title}`,
+        desc: `This step is in progress. Completing it unlocks the next node on your path.`,
+        cta: 'Open roadmap', route: '/dashboard/roadmap',
       });
+    }
+
+    // 3. Next available roadmap step
+    const nextNode = this.roadmapNodes.find(n => n.status === 'AVAILABLE');
+    if (nextNode && !activeNode) {
+      items.push({
+        type: 'roadmap', priority: 2,
+        icon: 'map-pin', color: '#3b82f6',
+        title: `Start: ${nextNode.title}`,
+        desc: `This step is unlocked and ready. Estimated ~${nextNode.estimatedDays ?? 1} day(s).`,
+        cta: 'Open roadmap', route: '/dashboard/roadmap',
+      });
+    }
+
+    // 4. Pending assessment publish
+    if (this.pendingPublishCount > 0) {
+      items.push({
+        type: 'assessment', priority: 2,
+        icon: 'clock', color: '#f59e0b',
+        title: `${this.pendingPublishCount} result(s) pending review`,
+        desc: 'Your completed quizzes are waiting for admin to publish your scores.',
+        cta: 'Check assessments', route: '/dashboard/assessments',
+        badge: 'Pending',
+      });
+    }
+
+    // 5. No assessments yet
+    if (this.assessmentSessions.length === 0 && this.assessmentStatus === 'APPROVED') {
+      items.push({
+        type: 'assessment', priority: 1,
+        icon: 'zap', color: '#8b5cf6',
+        title: 'Start your first assessment',
+        desc: 'You have assigned quizzes. Complete them to build your skill profile and unlock roadmap recommendations.',
+        cta: 'Take assessment', route: '/dashboard/assessments',
+      });
+    }
+
+    // 6. Interview practice
+    if (this.interviewSessionCount === 0) {
+      items.push({
+        type: 'interview', priority: 3,
+        icon: 'mic', color: '#6366f1',
+        title: 'Practice interview skills',
+        desc: 'AI-powered mock interviews help you prepare for real job interviews.',
+        cta: 'Start practice', route: '/dashboard/interview',
+      });
+    }
+
+    // 7. Top job match
+    if (this.topJob && this.topJob.matchScore >= 60) {
+      items.push({
+        type: 'job', priority: 3,
+        icon: 'briefcase', color: '#f59e0b',
+        title: `${this.topJob.matchScore}% match: ${this.topJob.title}`,
+        desc: `${this.topJob.company} — strong match based on your skill profile.`,
+        cta: 'View jobs', route: '/dashboard/jobs',
+        badge: `${this.topJob.matchScore}%`,
+      });
+    }
+
+    this.actionItems = items.sort((a, b) => a.priority - b.priority).slice(0, 5);
   }
 
-  private buildUpcomingSteps(nodes: RoadmapNodeDto[]): DashboardUpcomingStep[] {
-    return nodes
-      .slice()
-      .sort((a, b) => a.stepOrder - b.stepOrder)
-      .slice(0, 4)
-      .map((node) => ({
-        id: node.id,
-        text: node.title,
-        due: this.describeStepTiming(node),
-        done: this.isCompleted(node.status),
-      }));
+  // ── Readiness score ───────────────────────────────────────────────────────
+
+  private buildReadiness(): void {
+    let score = 0;
+
+    // Roadmap progress (40%)
+    score += this.roadmapProgress * 0.40;
+
+    // Assessment avg score (35%)
+    if (this.avgScore != null) {
+      score += this.avgScore * 0.35;
+    }
+
+    // Streak bonus (15%)
+    score += Math.min(this.streakDays, 14) * (15 / 14);
+
+    // Interview bonus (10%)
+    if (this.interviewSessionCount > 0) {
+      score += Math.min(this.interviewSessionCount, 5) * 2;
+    }
+
+    this.readinessScore = Math.max(0, Math.min(100, Math.round(score)));
   }
 
-  private buildActivityFeed(
-    notifications: NotificationDto[],
-    milestones: MilestoneDto[]
-  ): DashboardActivity[] {
-    const notificationActivity: DashboardActivity[] = notifications.map((item) => ({
-      text: item.message,
-      time: this.formatRelativeTime(item.createdAt),
-      color: this.resolveActivityColor(item.type),
-      timestamp: new Date(item.createdAt).getTime() || 0,
-    }));
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-    const milestoneActivity: DashboardActivity[] = milestones
-      .filter((item) => !!item.reachedAt)
-      .map((item) => ({
-        text: `Milestone reached: ${item.title}`,
-        time: this.formatRelativeTime(item.reachedAt!),
-        color: '#2ee8a5',
-        timestamp: new Date(item.reachedAt!).getTime() || 0,
-      }));
-
-    return [...notificationActivity, ...milestoneActivity]
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .slice(0, 6);
-  }
-
-  private buildWeekDays(streakDays: number): DashboardWeekDay[] {
+  private buildWeekDays(streak: number): WeekDay[] {
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const today = new Date();
-    const todayIndex = (today.getDay() + 6) % 7;
+    const todayIdx = (new Date().getDay() + 6) % 7;
     const active = new Set<number>();
-    const streakSpan = Math.min(Math.max(streakDays, 0), labels.length);
-
-    for (let offset = 0; offset < streakSpan; offset += 1) {
-      active.add((todayIndex - offset + labels.length) % labels.length);
-    }
-
-    return labels.map((day, index) => ({
-      day,
-      active: active.has(index),
-      today: index === todayIndex,
-    }));
+    for (let i = 0; i < Math.min(streak, 7); i++) active.add((todayIdx - i + 7) % 7);
+    return labels.map((day, i) => ({ day, active: active.has(i), today: i === todayIdx }));
   }
 
-  private calculateReadiness(
-    progressPercent: number,
-    streakDays: number,
-    inProgressSteps: number
-  ): number {
-    const score = Math.round(
-      progressPercent * 0.65 +
-        Math.min(streakDays, 14) * 2 +
-        Math.min(inProgressSteps, 2) * 6
-    );
-    return Math.max(0, Math.min(100, score));
+  private buildActivity(notifs: NotificationDto[], milestones: MilestoneDto[]): Omit<ActivityItem, 'timestamp'>[] {
+    const all: ActivityItem[] = [
+      ...notifs.map(n => ({
+        icon: this.notifIcon(n.type), color: this.notifColor(n.type),
+        text: n.message, time: this.relTime(n.createdAt),
+        timestamp: new Date(n.createdAt).getTime() || 0,
+      })),
+      ...milestones.filter(m => !!m.reachedAt).map(m => ({
+        icon: 'trophy', color: '#2ee8a5',
+        text: `Milestone: ${m.title}`, time: this.relTime(m.reachedAt!),
+        timestamp: new Date(m.reachedAt!).getTime() || 0,
+      })),
+      ...this.publishedSessions.map(s => ({
+        icon: 'check-circle', color: '#8b5cf6',
+        text: `Assessment published: ${s.categoryTitle} — ${s.scorePercent}%`,
+        time: this.relTime(s.completedAt ?? ''),
+        timestamp: new Date(s.completedAt ?? '').getTime() || 0,
+      })),
+    ];
+    return all.sort((a, b) => b.timestamp - a.timestamp).slice(0, 8).map(({ timestamp: _t, ...rest }) => rest);
   }
 
-  private resolveReadinessBand(score: number): string {
-    if (score >= 80) {
-      return 'well ahead of pace';
-    }
-    if (score >= 60) {
-      return 'above average';
-    }
-    if (score >= 40) {
-      return 'building momentum';
-    }
-    return 'at an early growth stage';
+  private notifIcon(type: string): string {
+    const t = (type || '').toUpperCase();
+    if (t.includes('MILESTONE')) return 'trophy';
+    if (t.includes('STEP')) return 'check-circle';
+    if (t.includes('ALERT')) return 'alert-circle';
+    return 'bell';
   }
 
-  private describeStepTiming(node: RoadmapNodeDto): string {
-    if (this.isCompleted(node.status) && node.completedAt) {
-      return `Completed ${this.formatRelativeTime(node.completedAt)}`;
-    }
-
-    if (this.isInProgress(node.status)) {
-      return 'Currently active';
-    }
-
-    if ((node.estimatedDays ?? 0) > 0) {
-      return `Planned in ~${node.estimatedDays} day(s)`;
-    }
-
-    return node.status === 'LOCKED' ? 'Locked until previous step' : 'Ready when you are';
-  }
-
-  private resolvePriority(type: string): 'High' | 'Medium' | 'Low' {
-    const normalized = (type || '').toUpperCase();
-    if (normalized.includes('ALERT') || normalized.includes('WARNING')) {
-      return 'High';
-    }
-    if (normalized.includes('MILESTONE') || normalized.includes('STEP')) {
-      return 'Medium';
-    }
-    return 'Low';
-  }
-
-  private resolveActivityColor(type: string): string {
-    const normalized = (type || '').toUpperCase();
-    if (normalized.includes('MILESTONE')) {
-      return '#2ee8a5';
-    }
-    if (normalized.includes('STEP')) {
-      return '#3b82f6';
-    }
-    if (normalized.includes('ALERT') || normalized.includes('WARNING')) {
-      return '#f59e0b';
-    }
+  private notifColor(type: string): string {
+    const t = (type || '').toUpperCase();
+    if (t.includes('MILESTONE')) return '#2ee8a5';
+    if (t.includes('STEP')) return '#3b82f6';
+    if (t.includes('ALERT')) return '#f59e0b';
     return '#8b5cf6';
   }
 
-  private formatRelativeTime(value: string): string {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return 'recently';
-    }
-
-    const deltaMinutes = Math.max(1, Math.floor((Date.now() - parsed.getTime()) / 60000));
-    if (deltaMinutes < 60) {
-      return `${deltaMinutes} min ago`;
-    }
-
-    const deltaHours = Math.floor(deltaMinutes / 60);
-    if (deltaHours < 24) {
-      return `${deltaHours} hour${deltaHours > 1 ? 's' : ''} ago`;
-    }
-
-    const deltaDays = Math.floor(deltaHours / 24);
-    return `${deltaDays} day${deltaDays > 1 ? 's' : ''} ago`;
+  private relTime(value: string): string {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return 'recently';
+    const mins = Math.max(1, Math.floor((Date.now() - d.getTime()) / 60000));
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
   }
 
-  private isInProgress(status: string | undefined): boolean {
-    return (status || '').toUpperCase() === 'IN_PROGRESS';
+  private isDone(s: string | undefined): boolean {
+    const n = (s || '').toUpperCase();
+    return n === 'COMPLETED' || n === 'SKIPPED' || n === 'DONE';
   }
 
-  private isCompleted(status: string | undefined): boolean {
-    const normalized = (status || '').toUpperCase();
-    return normalized === 'COMPLETED' || normalized === 'SKIPPED' || normalized === 'DONE';
+  private isActive(s: string | undefined): boolean {
+    return (s || '').toUpperCase() === 'IN_PROGRESS';
   }
 
-  private toTitleCase(value: string): string {
-    return value
-      .split(/\s+/)
-      .filter((token) => token.length > 0)
-      .map((token) => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
-      .join(' ');
-  }
+  // ── Template helpers ──────────────────────────────────────────────────────
 
-  private applyFallbackState(): void {
-    this.readinessScore = 0;
-    this.readinessBand = 'starting to build momentum';
-    this.statCards = [];
-    this.recommendations = [];
-    this.skills = [];
-    this.upcomingSteps = [];
-    this.streakDays = 0;
-    this.weekDays = this.buildWeekDays(0);
-    this.activities = [];
-  }
+  get strongCount(): number { return this.skillGaps.filter(g => g.status === 'strong').length; }
+  get learningCount(): number { return this.skillGaps.filter(g => g.status === 'learning').length; }
+  get gapCount(): number { return this.skillGaps.filter(g => g.status === 'gap').length; }
+
+  trackByTitle(_: number, item: { title: string }): string { return item.title; }
+  trackByCode(_: number, item: { code: string }): string { return item.code; }
+  trackById(_: number, item: { id: number }): number { return item.id; }
 }

@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { AutheService } from '../../../../front-office/auth/authe.service';
 import { AssessmentNotificationsService } from '../../../../../core/services/assessment-notifications.service';
+import { SearchService } from '../../../../../core/services/search.service';
 
 @Component({
   selector: 'app-admin-topbar',
@@ -20,6 +21,7 @@ export class AdminTopbarComponent implements OnInit, OnDestroy {
   notifOpen = signal(false);
   avatarOpen = signal(false);
 
+  readonly searchService = inject(SearchService);
   private readonly assessmentNotif = inject(AssessmentNotificationsService);
   private pollId: ReturnType<typeof setInterval> | null = null;
 

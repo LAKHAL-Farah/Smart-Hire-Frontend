@@ -6,6 +6,7 @@ import { LUCIDE_ICONS } from '../../../../../shared/lucide-icons';
 import { filter } from 'rxjs/operators';
 import { AutheService } from '../../../auth/authe.service';
 import { AssessmentNotificationsService } from '../../../../../core/services/assessment-notifications.service';
+import { SearchService } from '../../../../../core/services/search.service';
 
 @Component({
   selector: 'app-topbar',
@@ -20,6 +21,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
   notifOpen = signal(false);
   avatarOpen = signal(false);
 
+  readonly searchService = inject(SearchService);
   private readonly assessmentNotif = inject(AssessmentNotificationsService);
   private pollId: ReturnType<typeof setInterval> | null = null;
 
@@ -52,6 +54,9 @@ export class TopbarComponent implements OnInit, OnDestroy {
     this.url.set(this.router.url);
     this.router.events.pipe(filter(e => e instanceof NavigationEnd)).subscribe((e: NavigationEnd) => {
       this.url.set(e.urlAfterRedirects ?? e.url);
+      // Clear search when navigating to a different page
+      this.searchService.clear();
+      this.searchQuery = '';
     });
   }
 

@@ -7,7 +7,7 @@
     <!-- Search -->
     <div class="topbar__search">
       <lucide-icon name="search" [size]="16" class="search-icon"></lucide-icon>
-      <input type="text" class="search-input" placeholder="Search users, jobs, logs..." [(ngModel)]="searchQuery" />
+      <input type="text" class="search-input" placeholder="Search users, jobs, logs..." [(ngModel)]="searchQuery" (ngModelChange)="searchService.set($event)" />
     </div>
 
     <!-- Notifications -->

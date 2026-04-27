@@ -49,6 +49,8 @@ export interface SessionResponseDto {
   forfeit?: boolean;
   /** AI-generated personalised advice — present when score is visible to the candidate. */
   advice?: string[] | null;
+  /** Which attempt number this is (1 = first, 2 = second, etc.). Only present in admin view. */
+  attemptNumber?: number | null;
 }
 
 export interface AnswerReviewItemDto {

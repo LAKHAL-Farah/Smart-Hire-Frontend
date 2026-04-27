@@ -93,7 +93,8 @@ export function getUserRoleFromToken(): string {
  */
 export function getMsUserIdFromToken(): string | null {
   const userData = getUserDataFromToken();
-  return userData?.id || null;
+  ;
+  return localStorage.getItem("userId") || null;
 }
 /**
  * Get user information from JWT token stored in localStorage.

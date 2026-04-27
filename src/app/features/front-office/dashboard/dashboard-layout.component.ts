@@ -22,4 +22,3 @@ export class DashboardLayoutComponent {
     this.quizMode.set(false);
   }
 }
-

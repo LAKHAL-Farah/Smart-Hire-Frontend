@@ -12,7 +12,7 @@ export class AuthMfaService {
   constructor(private http: HttpClient, private router: Router) {}
 
   loginMfa(email: string, password: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/auth/connexion`, { mail: email, password });
+    return this.http.post(`${this.baseUrl}/auth/login-mfa`, { email: email, password });
   }
 
   verifyFace(tempToken: string, image: string): Observable<any> {

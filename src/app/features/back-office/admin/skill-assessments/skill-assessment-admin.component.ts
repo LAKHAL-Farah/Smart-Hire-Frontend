@@ -19,6 +19,7 @@ import {
   UserScoresSummaryRow,
   UserProfileAdminDto,
 } from '../../service/assessment-admin-api.service';
+import { collectCandidateUserIdsForSessions } from '../../../front-office/assessments/assessment-canonical-user';
 
 @Component({
   selector: 'app-skill-assessment-admin',
@@ -139,7 +140,6 @@ export class SkillAssessmentAdminComponent implements OnInit {
   /** All unique users: merge pending + approved assignments + users from completed sessions */
   allUsers = computed(() => {
     const map = new Map<string, { userId: string; displayName: string | null; situation: string | null; careerPath: string | null; isPending: boolean; sessionCount: number; scores: number[] }>();
-
     // 1. Users with completed sessions
     for (const s of this.completedSessions()) {
       if (!map.has(s.userId)) {
@@ -182,6 +182,8 @@ export class SkillAssessmentAdminComponent implements OnInit {
       }
     }
 
+      console.log('[AllUsers] Recomputing allUsers with ', map);
+
     return Array.from(map.values())
       .map(u => ({ ...u, avgScore: u.scores.length ? Math.round(u.scores.reduce((a, b) => a + b, 0) / u.scores.length) : 0 }))
       .sort((a, b) => {
@@ -206,8 +208,10 @@ export class SkillAssessmentAdminComponent implements OnInit {
 
   /** Sessions for a specific user */
   sessionsForUser(userId: string): AssessmentSessionAdminRow[] {
+    // Match sessions against all possible UUID variants for the candidate
+    const candidateIds = collectCandidateUserIdsForSessions(null, userId).map(id => id.toLowerCase());
     return this.completedSessions()
-      .filter(s => s.userId === userId)
+      .filter(s => candidateIds.includes((s.userId || '').toLowerCase()))
       .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
   }
 

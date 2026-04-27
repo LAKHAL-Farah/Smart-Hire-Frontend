@@ -5,7 +5,7 @@ export const environment = {
   localAuthFallback: false,
 
   // MS-User Service (profiles, onboarding persistence)
-  userApiUrl: 'http://127.0.0.1:8082/api/v1',
+  userApiUrl: 'http://127.0.0.1:8080/MS-USER/api/v1',
 
   // MS-Assessment Configuration — relative path proxied by Angular dev server (proxy.conf.json → :8084)
   assessmentApiUrl: '/api/v1/assessment',

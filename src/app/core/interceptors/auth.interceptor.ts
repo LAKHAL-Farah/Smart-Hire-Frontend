@@ -41,12 +41,34 @@ function isInterviewRequest(url: string): boolean {
   }
 }
 
+function isRoadmapRequest(url: string): boolean {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return (
+      parsed.port === '8083' ||
+      parsed.pathname.startsWith('/msroadmap/api') ||
+      parsed.pathname.startsWith('/api/roadmaps') ||
+      parsed.pathname.startsWith('/api/roadmap-steps') ||
+      parsed.pathname.startsWith('/api/user-roadmaps') ||
+      parsed.pathname.startsWith('/api/projects') ||
+      parsed.pathname.startsWith('/api/notifications') ||
+      parsed.pathname.startsWith('/api/jobs') ||
+      parsed.pathname.startsWith('/api/interview') ||
+      parsed.pathname.startsWith('/api/certificates') ||
+      parsed.pathname.startsWith('/api/streaks')
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = localStorage.getItem('access_token') || localStorage.getItem('auth_token');
   const currentProfileUserId = resolveCurrentProfileUserId();
   const currentInterviewUserId = resolveCurrentInterviewUserId();
   const shouldAttachProfileUser = isMsProfileRequest(req.url);
   const shouldAttachInterviewUser = isInterviewRequest(req.url);
+  const shouldAttachRoadmapUser = isRoadmapRequest(req.url);
 
   if (shouldAttachProfileUser && !currentProfileUserId) {
     localStorage.removeItem('access_token');
@@ -72,8 +94,20 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return throwError(() => new Error('Missing interview user context. Please log in again.'));
   }
 
+  if (shouldAttachRoadmapUser && !currentInterviewUserId) {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('UserId');
+    localStorage.removeItem('smarthire_profile_user_uuid');
+    localStorage.removeItem('smarthire_interview_user_id');
+    window.location.href = '/';
+    return throwError(() => new Error('Missing roadmap user context. Please log in again.'));
+  }
+
   let authReq = req;
-  if (token || shouldAttachProfileUser || shouldAttachInterviewUser) {
+  if (token || shouldAttachProfileUser || shouldAttachInterviewUser || shouldAttachRoadmapUser) {
     const setHeaders: Record<string, string> = {};
     if (token) {
       setHeaders['Authorization'] = `Bearer ${token}`;
@@ -81,7 +115,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     if (shouldAttachProfileUser) {
       setHeaders['X-User-Id'] = currentProfileUserId as string;
     }
-    if (shouldAttachInterviewUser && currentInterviewUserId) {
+    if ((shouldAttachInterviewUser || shouldAttachRoadmapUser) && currentInterviewUserId) {
       setHeaders['X-Interview-User-Id'] = String(currentInterviewUserId);
     }
 

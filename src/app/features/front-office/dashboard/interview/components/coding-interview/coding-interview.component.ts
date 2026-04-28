@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { MicButtonComponent } from '../mic-button/mic-button.component';
@@ -16,7 +16,7 @@ import { TtsService } from '../../../../../../shared/services/tts.service';
   templateUrl: './coding-interview.component.html',
   styleUrl: './coding-interview.component.scss'
 })
-export class CodingInterviewComponent implements OnInit, OnChanges {
+export class CodingInterviewComponent implements OnInit, OnChanges, OnDestroy {
   private readonly codeExecutionService = inject(CodeExecutionService);
   private readonly http = inject(HttpClient);
   private readonly interviewApi = inject(InterviewApiService);
@@ -61,11 +61,19 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
   aiSpeaking = false;
   copiedIndex: number | null = null;
   private lastQuestionId: number | null = null;
+  monacoReady = false;
+  showPlainEditor = false;
+  private monacoInitFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.editorCode = this.buildStarterCode(this.selectedLanguage);
     this.totalCount = this.resolveTotalCountFromMetadata();
     this.lastQuestionId = this.question?.id ?? null;
+    this.scheduleMonacoFallback();
+  }
+
+  ngOnDestroy(): void {
+    this.clearMonacoFallbackTimer();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -128,8 +136,20 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
     this.compilationError = '';
   }
 
-  onEditorInit(_editor: any): void {
-    // Monaco instance can be customized later if needed.
+  onEditorInit(editor: any): void {
+    this.monacoReady = true;
+    this.showPlainEditor = false;
+    this.clearMonacoFallbackTimer();
+
+    try {
+      editor?.updateOptions?.({
+        readOnly: false,
+        domReadOnly: false,
+      });
+      editor?.focus?.();
+    } catch {
+      // Keep default editor behavior if Monaco instance shape changes.
+    }
   }
 
   runCode(): void {
@@ -331,6 +351,24 @@ export class CodingInterviewComponent implements OnInit, OnChanges {
 
     this.copiedIndex = null;
     this.answerId = null;
+  }
+
+  private scheduleMonacoFallback(): void {
+    this.clearMonacoFallbackTimer();
+    this.monacoInitFallbackTimer = setTimeout(() => {
+      if (!this.monacoReady) {
+        this.showPlainEditor = true;
+      }
+    }, 2500);
+  }
+
+  private clearMonacoFallbackTimer(): void {
+    if (!this.monacoInitFallbackTimer) {
+      return;
+    }
+
+    clearTimeout(this.monacoInitFallbackTimer);
+    this.monacoInitFallbackTimer = null;
   }
 
   private copyInputFallback(value: string, onCopied: () => void): void {

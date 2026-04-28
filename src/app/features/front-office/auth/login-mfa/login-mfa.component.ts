@@ -21,6 +21,11 @@ export class LoginMfaComponent {
   error = '';
   loading = false;
 
+  private isAdminRole(role: string): boolean {
+    const normalized = role.trim().toLowerCase();
+    return normalized.includes('recruiter') || normalized.includes('admin');
+  }
+
   constructor(private auth: AuthMfaService, private router: Router,private authService: AutheService) {}
 
   private persistLoginSession(data: any): void {
@@ -28,7 +33,8 @@ export class LoginMfaComponent {
     const userId = String(data?.UserId ?? data?.userId ?? '').trim();
     const userName = String(data?.userName ?? data?.username ?? '').trim();
     const email = String(data?.email ?? this.username ?? '').trim();
-    const role = String(data?.roles ?? 'candidate').trim().toLowerCase();
+    const roleRaw = String(data?.roles ?? 'candidate').trim();
+    const role = this.isAdminRole(roleRaw) ? 'recruiter' : 'candidate';
 
     if (token) {
       localStorage.setItem('auth_token', token);
@@ -57,7 +63,7 @@ export class LoginMfaComponent {
         id: userId,
         email,
         name: userName || email.split('@')[0] || 'user',
-        role: role === 'recruiter' ? 'recruiter' : 'user',
+        role: this.isAdminRole(roleRaw) ? 'recruiter' : 'user',
       })
     );
 

@@ -74,6 +74,7 @@ export class AutheService {
     localStorage.removeItem('UserId');
     localStorage.removeItem('userId');
     localStorage.removeItem('smarthire_profile_user_uuid');
+    localStorage.removeItem('smarthire_interview_user_id');
     localStorage.removeItem('user');
     localStorage.removeItem('userName');
     localStorage.removeItem('email');

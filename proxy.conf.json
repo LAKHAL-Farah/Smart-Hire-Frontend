@@ -1,9 +1,4 @@
 {
-  "/api": {
-    "target": "http://127.0.0.1:8084",
-    "secure": false,
-    "changeOrigin": true
-  },
   "/api/v1": {
     "target": "http://localhost:8081",
     "secure": false,
@@ -22,5 +17,10 @@
     "pathRewrite": {
       "^/ws-interview": "/interview-service/ws-interview"
     }
+  },
+  "/api": {
+    "target": "http://127.0.0.1:8084",
+    "secure": false,
+    "changeOrigin": true
   }
 }

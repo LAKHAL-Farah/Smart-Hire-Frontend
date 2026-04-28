@@ -29,6 +29,7 @@ export class InterviewApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = this.resolveBaseUrl();
   private readonly backendOrigin = this.resolveOrigin(this.baseUrl);
+  private readonly interviewServiceBase = this.baseUrl.replace(/\/api\/v1\/?$/, '');
   private readonly adminInterviewBaseUrl = `${this.baseUrl}/admin/interview`;
 
   resolveBackendAssetUrl(value: string): string {
@@ -37,18 +38,22 @@ export class InterviewApiService {
     }
 
     if (value.startsWith('/api/v1/')) {
-      return value;
+      return this.resolveInterviewAssetPath(value);
     }
 
     if (value.startsWith('/interview-service/api/v1/')) {
-      return value.replace('/interview-service/api/v1/', '/api/v1/');
+      return this.resolveInterviewAssetPath(value);
     }
 
     if (/^https?:\/\//i.test(value)) {
       try {
         const parsed = new URL(value);
         if (parsed.pathname.startsWith('/interview-service/api/v1/')) {
-          return parsed.pathname.replace('/interview-service/api/v1/', '/api/v1/');
+          return value;
+        }
+
+        if (parsed.pathname.startsWith('/api/v1/')) {
+          return this.resolveInterviewAssetPath(parsed.pathname);
         }
       } catch {
         // Keep original URL when parsing fails.
@@ -59,11 +64,11 @@ export class InterviewApiService {
 
     const normalizedValue = value.startsWith('/') ? value : `/${value}`;
     if (normalizedValue.startsWith('/api/v1/')) {
-      return normalizedValue;
+      return this.resolveInterviewAssetPath(normalizedValue);
     }
 
     if (normalizedValue.startsWith('/interview-service/api/v1/')) {
-      return normalizedValue.replace('/interview-service/api/v1/', '/api/v1/');
+      return this.resolveInterviewAssetPath(normalizedValue);
     }
 
     return `${this.backendOrigin}${value.startsWith('/') ? value : `/${value}`}`;
@@ -447,5 +452,28 @@ export class InterviewApiService {
     } catch {
       return globalThis.location?.origin ?? '';
     }
+  }
+
+  private resolveInterviewAssetPath(value: string): string {
+    const normalizedValue = value.startsWith('/') ? value : `/${value}`;
+    const withoutContext = normalizedValue.startsWith('/interview-service/api/v1/')
+      ? normalizedValue.replace('/interview-service/api/v1/', '/api/v1/')
+      : normalizedValue;
+
+    if (withoutContext.startsWith('/api/v1/')) {
+      if (this.interviewServiceBase) {
+        return `${this.interviewServiceBase}${withoutContext}`;
+      }
+
+      if (this.backendOrigin) {
+        return `${this.backendOrigin}/interview-service${withoutContext}`;
+      }
+    }
+
+    if (this.backendOrigin && normalizedValue.startsWith('/interview-service/api/v1/')) {
+      return `${this.backendOrigin}${normalizedValue}`;
+    }
+
+    return normalizedValue;
   }
 }

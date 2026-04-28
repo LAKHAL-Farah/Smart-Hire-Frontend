@@ -51,14 +51,15 @@ export class AuthMfaService {
     localStorage.removeItem('userId');
     localStorage.removeItem('UserId');
     localStorage.removeItem('smarthire_profile_user_uuid');
+    localStorage.removeItem('smarthire_interview_user_id');
     localStorage.removeItem('user');
     localStorage.removeItem('userName');
     localStorage.removeItem('email');
     localStorage.removeItem('role');
   }
   redirectAfterLogin(): void {
-    const role = localStorage.getItem('role');
-    if (role === 'recruiter') {
+    const role = (localStorage.getItem('role') || '').toLowerCase();
+    if (role.includes('recruiter') || role.includes('admin')) {
       void this.router.navigate(['/admin']);
     } else {
       void this.router.navigate(['/dashboard']);

@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { MicButtonComponent } from '../mic-button/mic-button.component';
@@ -92,6 +93,11 @@ export class VerbalInterviewComponent {
       return;
     }
 
+    if (!this.sessionId || this.sessionId <= 0) {
+      this.audioTranscriptDebug.set('[Audio submit failed] Invalid interview session context. Please refresh the page.');
+      return;
+    }
+
     this.isSubmitting.set(true);
     this.transcribingMessage.set('Transcribing your answer...');
     this.audioTranscriptDebug.set(null);
@@ -105,10 +111,36 @@ export class VerbalInterviewComponent {
       this.audioTranscriptDebug.set(response.answerText ?? '[No transcript returned]');
       this.answerSubmitted.emit(response);
       this.hintOpen.set(false);
+    } catch (error) {
+      const message = this.extractHttpErrorMessage(error);
+      this.audioTranscriptDebug.set(`[Audio submit failed] ${message}`);
     } finally {
       this.transcribingMessage.set('');
       this.isSubmitting.set(false);
     }
+  }
+
+  private extractHttpErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      const payload = error.error;
+
+      if (typeof payload === 'string' && payload.trim()) {
+        return payload.trim();
+      }
+
+      if (payload && typeof payload === 'object') {
+        const message = (payload as { message?: unknown }).message;
+        if (typeof message === 'string' && message.trim()) {
+          return message.trim();
+        }
+      }
+
+      if (typeof error.message === 'string' && error.message.trim()) {
+        return error.message.trim();
+      }
+    }
+
+    return 'Unable to process audio answer. Please try again.';
   }
 
   private parseJsonArray(raw: string | null | undefined): string[] {

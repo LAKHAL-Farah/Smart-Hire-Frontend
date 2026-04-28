@@ -23,6 +23,11 @@ export class VerifyFaceComponent implements OnDestroy {
   attemptsRemaining = 3;
   stream: MediaStream | null = null;
 
+  private isAdminRole(role: string): boolean {
+    const normalized = role.trim().toLowerCase();
+    return normalized.includes('recruiter') || normalized.includes('admin');
+  }
+
   constructor(private auth: AuthMfaService, private route: ActivatedRoute, private router: Router, private authService: AutheService) {
     this.route.queryParams.subscribe((q) => {
       this.token = q['token'] || sessionStorage.getItem('faceVerificationToken') || '';
@@ -37,7 +42,8 @@ export class VerifyFaceComponent implements OnDestroy {
     const userId = String(data?.UserId ?? data?.userId ?? '').trim();
     const userName = String(data?.userName ?? data?.username ?? '').trim();
     const email = String(data?.email ?? '').trim();
-    const role = String(data?.roles ?? 'candidate').trim().toLowerCase();
+    const roleRaw = String(data?.roles ?? 'candidate').trim();
+    const role = this.isAdminRole(roleRaw) ? 'recruiter' : 'candidate';
 
     if (token) {
       localStorage.setItem('auth_token', token);
@@ -66,7 +72,7 @@ export class VerifyFaceComponent implements OnDestroy {
         id: userId,
         email,
         name: userName || email.split('@')[0] || 'user',
-        role: role === 'recruiter' ? 'recruiter' : 'user',
+        role: this.isAdminRole(roleRaw) ? 'recruiter' : 'user',
       })
     );
 

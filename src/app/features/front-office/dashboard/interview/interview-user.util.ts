@@ -1,9 +1,13 @@
-export const INTERVIEW_USER_ID = 1;
+import { resolveCurrentInterviewUserId } from '../../../../core/services/current-user-id';
 
 export function resolveCurrentUserId(): number {
-  return INTERVIEW_USER_ID;
+  return resolveCurrentInterviewUserId() ?? 0;
 }
 
 export function isCurrentInterviewUser(userId: number | null | undefined): boolean {
-  return Number(userId) === INTERVIEW_USER_ID;
+  const currentUserId = resolveCurrentInterviewUserId();
+  if (!currentUserId) {
+    return false;
+  }
+  return Number(userId) === currentUserId;
 }

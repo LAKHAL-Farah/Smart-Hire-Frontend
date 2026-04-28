@@ -148,11 +148,23 @@
     </div>
 
     <div class="editor-host" data-testid="code-editor">
-      <ngx-monaco-editor
-        [options]="editorOptions"
-        [(ngModel)]="editorCode"
-        (onInit)="onEditorInit($event)"
-      ></ngx-monaco-editor>
+      @if (!showPlainEditor) {
+        <ngx-monaco-editor
+          [options]="editorOptions"
+          [(ngModel)]="editorCode"
+          (onInit)="onEditorInit($event)"
+        ></ngx-monaco-editor>
+      } @else {
+        <div class="fallback-editor-wrap">
+          <p class="fallback-editor-hint">Monaco editor did not initialize. Using safe text editor mode.</p>
+          <textarea
+            class="fallback-editor"
+            [(ngModel)]="editorCode"
+            spellcheck="false"
+            aria-label="Code editor fallback"
+          ></textarea>
+        </div>
+      }
     </div>
 
     <div class="action-bar">

@@ -237,18 +237,25 @@ export class InterviewSessionComponent implements OnInit, OnDestroy {
     }
 
     const role = String(question.roleType ?? '').toUpperCase();
+    const normalizedRole = role.replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
     const type = String(question.type ?? '').toUpperCase();
     const mode = String(this.questionMetadata()?.mode ?? '').toLowerCase();
 
-    if (type === 'CODING' && (role === 'SE' || role === 'SOFTWARE_ENGINEER')) {
+    const isSoftwareEngineeringRole =
+      normalizedRole === 'SE' ||
+      normalizedRole === 'SOFTWARE_ENGINEER' ||
+      normalizedRole === 'SOFTWARE_ENGINEERING' ||
+      normalizedRole === 'SOFTWAREENGINEER';
+
+    if (type === 'CODING' && isSoftwareEngineeringRole) {
       this.activeView.set('coding');
-    } else if (role === 'CLOUD' || role === 'CLOUD_ENGINEER') {
+    } else if (normalizedRole === 'CLOUD' || normalizedRole === 'CLOUD_ENGINEER') {
       if (mode === 'canvas') {
         this.activeView.set('cloud-canvas');
       } else {
         this.activeView.set('verbal');
       }
-    } else if (role === 'AI' || role === 'AI_ENGINEER') {
+    } else if (normalizedRole === 'AI' || normalizedRole === 'AI_ENGINEER') {
       if (type === 'TECHNICAL' || type === 'SITUATIONAL') {
         this.activeView.set(this.isMlPipelineQuestion(question) ? 'ai-ml' : 'verbal');
       } else {
